@@ -2,6 +2,7 @@ type Branch = {
   tag: string;
   attributes: Array<[string, string]>;
   children: Iterable<Twig>;
+  isFilled: boolean;
 };
 
 type Twig = Branch | string;
@@ -63,9 +64,11 @@ const PAINT = /color|background|fill|stroke|shadow|outline|border-image/u;
 const PAINTED =
   /#[\da-f]{3,8}\b|\b(?:rgb|hsl|oklch|oklab|lab|lch|color-mix)\(|var\(--(?:party|color|tint|swatch|hue)/iu;
 
-const LIMITS = [12, 6, 3];
+const LIMITS = [12, 6, 3, 1];
 
-const BUDGET = 48 * 1024;
+const BUDGET = 12 * 1024;
+
+const SHOWN = "svg, canvas, math, video, iframe, picture, img";
 
 const ENTITIES: Record<string, string> = {
   amp: "&",
@@ -101,11 +104,30 @@ function attributes(source: string) {
   return found;
 }
 
+type Parsed = {
+  tag: string;
+  attributes: Array<[string, string]>;
+  children: Array<Parsed | string>;
+  isFilled: boolean;
+};
+
+function hasContent(node: Parsed): boolean {
+  let isFilled = MEDIA.has(node.tag) || node.tag === "img";
+  for (const child of node.children) {
+    const isShown =
+      typeof child === "string" ? child.trim() !== "" : hasContent(child);
+    isFilled ||= isShown;
+  }
+  node.isFilled = isFilled;
+  return isFilled;
+}
+
 function parse(html: string) {
-  const root = {
+  const root: Parsed = {
     tag: "",
-    attributes: new Array<[string, string]>(),
-    children: new Array<Twig>(),
+    attributes: [],
+    children: [],
+    isFilled: true,
   };
   const stack: Array<typeof root> = [root];
   for (const match of html.matchAll(TOKEN)) {
@@ -123,10 +145,11 @@ function parse(html: string) {
       continue;
     }
     if (opening != null) {
-      const element = {
+      const element: Parsed = {
         tag: opening.toLowerCase(),
         attributes: attributes(rest ?? ""),
-        children: new Array<Twig>(),
+        children: [],
+        isFilled: false,
       };
       parent.children.push(element);
       if (selfClosing !== "/" && !VOID.has(element.tag)) {
@@ -136,6 +159,7 @@ function parse(html: string) {
     }
     parent.children.push(decode(token));
   }
+  hasContent(root);
   return root;
 }
 
@@ -249,15 +273,26 @@ function emit(node: Twig, limit: number, out: Array<string>) {
   if (VOID.has(node.tag)) {
     return;
   }
-  let elements = 0;
+  if (!node.isFilled) {
+    out.push(`</${tag}>`);
+    return;
+  }
+  const seen = new Map<string, number>();
+  let isSkipping = false;
   for (const child of node.children) {
-    if (typeof child !== "string") {
-      elements++;
+    if (typeof child === "string") {
+      if (!isSkipping) {
+        text(child, out);
+      }
+      continue;
     }
-    if (elements > limit) {
-      break;
+    const signature = `${child.tag} ${child.attributes.find(([name]) => name === "class")?.[1] ?? ""}`;
+    const count = (seen.get(signature) ?? 0) + 1;
+    seen.set(signature, count);
+    isSkipping = count > limit;
+    if (!isSkipping) {
+      emit(child, limit, out);
     }
-    emit(child, limit, out);
   }
   out.push(`</${tag}>`);
 }
@@ -270,6 +305,8 @@ function grow(element: Element): Branch {
       value,
     ]),
     children: twigs(element),
+    isFilled:
+      element.textContent.trim() !== "" || element.querySelector(SHOWN) != null,
   };
 }
 
