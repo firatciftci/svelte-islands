@@ -133,12 +133,12 @@ export const load = async () => ({
 
 ## How it works
 
-- **Content-addressed parts.** `part()` serializes the value with devalue, hashes it, and keeps the text in memory and in your store. Parts of 4,096 characters or less are inlined into the page instead. Deferred HTML is stored the same way, at `/_parts/<hash>.html`.
+- **Content-addressed parts.** `part()` serializes the value, hashes it, and keeps the text in memory and in your store. Parts of 4,096 characters or less are inlined into the page instead. Deferred HTML is stored the same way, at `/_parts/<hash>.html`.
 - **Rebuilds.** If a part or deferred HTML is requested after the server no longer has it, the client asks again with the page it came from, and the server reruns that page to recover it. If the data has changed since, the page reloads its data.
 - **Retries.** A failed fetch is retried after 1, 3, and 5 seconds before the island shows its failure state. A part the server can no longer rebuild isn't retried.
 - **Learned skeletons.** The server turns each island's rendered HTML into a skeleton made of bars and blocks, and the client does the same from the live DOM. A skeleton keeps the island's layout classes but drops content with no text or media, and it keeps only the first few of a run of repeated elements, such as table rows, so it stays under 12 KB. Skeletons are kept per part name and view, and sent with pages that need them, so you don't write skeletons by hand.
 - **Shared observers.** Islands with the same `margin` share one `IntersectionObserver`.
-- **Compact transport.** The transport adds codecs for sparse arrays, runs of integers, and arrays of objects with the same keys, which it sends as columns.
+- **Compact transport.** If a part's value is plain data (objects, arrays, strings, numbers, booleans, `null`, and `undefined`), it is sent as packed JSON rather than in devalue's format. Arrays of objects with the same keys are sent as columns. Repeated values, small objects, and lists are stored once and referred to by index. Runs of consecutive integers are sent as ranges, and arrays that are mostly zeros or nulls are sent as the positions of the other values. Arrays inside page data are packed the same way. Values such as dates, maps, and nested objects referenced from more than one place are sent in devalue's format. A small object of plain values referenced from several places arrives as separate copies. On our pages, packed parts were 3 to 7 times smaller than devalue's output, and about half the size after gzip.
 
 ## Options
 
