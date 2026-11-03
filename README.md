@@ -101,10 +101,24 @@ An island renders in one of three ways on the first page load:
 
 If a deferred island's HTML can't be fetched, it renders in the browser instead.
 
+### Fetching a part's data
+
+`part()` takes an options object as its third argument. Its `fetch` option sets when the browser downloads the part's data:
+
+- `auto` (the default): on the first page load, the browser downloads the data when the island needs it. When someone navigates to the page from elsewhere in the app, the browser starts downloading it as soon as the page's data arrives.
+- `lazy`: the browser downloads the data only when the island needs it or when you call `load(part)`.
+- `preload`: the browser starts downloading the data as soon as the page arrives. On the first page load, the server also adds a `<link rel="preload">` for the data to the page's head, as long as the part is ready before the server sends the head. Use it for data the page needs right away that is too large to inline, such as the data behind a chart at the top of the page.
+
+```ts
+export const load = async () => ({
+  chart: part("results.chart", await chart(), { fetch: "preload" }),
+});
+```
+
 ### Props
 
 - `part`: the value returned by `part()`.
-- `when`: the hydration strategy. The default is `interaction`, or `visible` when `ssr` is `false`.
+- `when`: the hydration strategy. The default is `interaction`, or `visible` when `ssr` is `false`. You can change it after the island mounts: switching it to `eager` hydrates the island right away, for example when a control outside the island needs it to be live.
 - `defer`: leave the island's HTML out of the page and fetch it later. `true` fetches it when the island nears the viewport; pass a strategy, such as `"idle"`, to fetch it at another time.
 - `ssr`: set to `false` to render the island only in the browser.
 - `margin`: how close to the viewport the island must come for `visible` to fire, as a CSS margin. The default is `320px`.
