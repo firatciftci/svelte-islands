@@ -3,6 +3,7 @@ import type { Handle } from "@sveltejs/kit/hooks";
 import { getRequestEvent } from "$app/server";
 import { createHash, randomUUID } from "node:crypto";
 import { render } from "svelte/server";
+import type { Fetch } from "./part.js";
 import Frame from "./frame.svelte";
 import { Part, provide, quietly, serialize, settings } from "./part.js";
 import { skeletonize } from "./skeleton.js";
@@ -27,7 +28,7 @@ const asked = new Set<string>();
 const waiting = new Map<string, Map<string, Digest>>();
 const requests = new WeakMap<
   object,
-  { parts: Set<Part>; rendered: Set<string> }
+  { parts: Set<Part>; rendered: Set<string>; isHeaded: boolean }
 >();
 type Prepare = (
   request: { url: URL; headers: Headers },
@@ -91,7 +92,7 @@ function keep(made: Digest, event: RequestEvent) {
 function track(locals: object) {
   let found = requests.get(locals);
   if (found == null) {
-    found = { parts: new Set(), rendered: new Set() };
+    found = { parts: new Set(), rendered: new Set(), isHeaded: false };
     requests.set(locals, found);
   }
   return found;
@@ -175,7 +176,11 @@ function skeletonsOf(name: string) {
   return known == null || known.size === 0 ? null : flatten(known);
 }
 
-export function part<T>(name: string, value: T) {
+export function part<T>(
+  name: string,
+  value: T,
+  { fetch = "auto" }: { fetch?: Fetch } = {},
+) {
   const event = getRequestEvent();
   const made = digest(value);
   keep(made, event);
@@ -184,6 +189,7 @@ export function part<T>(name: string, value: T) {
     hash: made.hash,
     source: sourceOf(event.url),
     bytes: made.text.length,
+    fetch,
     loaded: { value },
   });
   track(event.locals).parts.add(created);
@@ -221,9 +227,31 @@ provide(() => {
   };
 });
 
-function inject(html: string, event: RequestEvent) {
+function preload(html: string, found: { parts: Set<Part> }) {
+  const at = html.indexOf("</head>");
+  const links = found.parts
+    .values()
+    .filter((created) => created.fetch === "preload" && !created.isInline)
+    .map(
+      (created) =>
+        `<link rel="preload" href="${settings.prefix}${created.hash}" as="fetch" crossorigin="anonymous">`,
+    )
+    .toArray();
+  return at === -1 || links.length === 0
+    ? html
+    : `${html.slice(0, at)}${links.join("")}${html.slice(at)}`;
+}
+
+function inject(html: string, event: RequestEvent, isDone: boolean) {
   const found = requests.get(event.locals);
   if (found == null) {
+    return html;
+  }
+  if (!found.isHeaded) {
+    found.isHeaded = true;
+    html = preload(html, found);
+  }
+  if (!isDone) {
     return html;
   }
   const wanted: Record<string, string> = {};
@@ -321,7 +349,7 @@ const handler: Handle = async ({ event, resolve }) => {
     return respond(event);
   }
   return resolve(event, {
-    transformPageChunk: ({ html, done }) => (done ? inject(html, event) : html),
+    transformPageChunk: ({ html, done }) => inject(html, event, done),
   });
 };
 

@@ -362,9 +362,12 @@ export function watch(
     start();
   };
   stop = STRATEGIES[when](element, once, options);
-  return () => {
-    isDone = true;
-    stop();
+  return {
+    now: once,
+    stop: () => {
+      isDone = true;
+      stop();
+    },
   };
 }
 

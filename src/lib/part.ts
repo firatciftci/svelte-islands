@@ -10,6 +10,8 @@ export type Strategy =
   | "eager"
   | "never";
 
+export type Fetch = "auto" | "lazy" | "preload";
+
 export const settings = { inline: 4096, prefix: "/_parts/" };
 
 export class Part<T = unknown> {
@@ -18,6 +20,7 @@ export class Part<T = unknown> {
   readonly source: string;
   readonly bytes: number;
   readonly isEager: boolean;
+  readonly fetch: Fetch;
   readonly skeletons: Record<string, string> | null;
   readonly loaded: { value: T } | null;
 
@@ -27,6 +30,7 @@ export class Part<T = unknown> {
     source,
     bytes,
     isEager = false,
+    fetch = "auto",
     skeletons = null,
     loaded = null,
   }: {
@@ -35,6 +39,7 @@ export class Part<T = unknown> {
     source: string;
     bytes: number;
     isEager?: boolean;
+    fetch?: Fetch;
     skeletons?: Record<string, string> | null;
     loaded?: { value: T } | null;
   }) {
@@ -43,6 +48,7 @@ export class Part<T = unknown> {
     this.source = source;
     this.bytes = bytes;
     this.isEager = isEager;
+    this.fetch = fetch;
     this.skeletons = skeletons;
     this.loaded = loaded;
   }
@@ -118,7 +124,7 @@ function encode(
     value.hash,
     value.source,
     value.bytes,
-    isData ? 1 : 0,
+    (isData && value.fetch === "auto") || value.fetch === "preload" ? 1 : 0,
     value.isInline ? null : skeletons,
   ];
   const encoded: Encoded =

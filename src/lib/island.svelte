@@ -115,6 +115,17 @@
       (fetched?.hash === part.hash ? { value: fetched.value } : null),
   );
 
+  let rouse = () => {};
+
+  function arm(target: HTMLElement, strategy: Strategy, start: () => void) {
+    const watcher = watch(target, strategy, start, plan.options);
+    rouse = watcher.now;
+    if (untrack(() => when) === "eager") {
+      watcher.now();
+    }
+    return watcher.stop;
+  }
+
   function retry() {
     failure = null;
     attempt++;
@@ -130,30 +141,25 @@
     const stopCapture = capture(first, target);
     let instance: ReturnType<typeof hydrate> | null = null;
     let isLive = true;
-    const stop = watch(
-      target,
-      plan.when,
-      () => {
-        load(origin).then(
-          async (value) => {
-            await tick();
-            if (isLive) {
-              instance = hydrate(Frame, {
-                target,
-                props: { body, value },
-                context,
-              });
-              target.dataset.islandState = "live";
-              held?.release();
-            }
-          },
-          () => {
-            held?.stop();
-          },
-        );
-      },
-      plan.options,
-    );
+    const stop = arm(target, plan.when, () => {
+      load(origin).then(
+        async (value) => {
+          await tick();
+          if (isLive) {
+            instance = hydrate(Frame, {
+              target,
+              props: { body, value },
+              context,
+            });
+            target.dataset.islandState = "live";
+            held?.release();
+          }
+        },
+        () => {
+          held?.stop();
+        },
+      );
+    });
     return () => {
       isLive = false;
       stop();
@@ -168,35 +174,31 @@
   function reveal(target: HTMLElement, file: string) {
     let isLive = true;
     let rest = () => {};
-    const stop = watch(
-      target,
-      plan.fetch,
-      () => {
-        if (plan.when === "eager" || plan.when === "visible") {
-          void quietly(load(origin));
-        }
-        markupOf(file, origin.source).then(
-          (html) => {
-            const skeleton = target.querySelector(":scope > .island-skeleton");
-            if (!isLive || skeleton == null) {
-              return;
-            }
-            const template = document.createElement("template");
-            template.innerHTML = html;
-            skeleton.replaceWith(template.content);
-            target.dataset.islandState = "static";
-            target.removeAttribute("aria-busy");
-            rest = awaken(target);
-          },
-          () => {
-            if (isLive) {
-              release();
-            }
-          },
-        );
-      },
-      plan.options,
-    );
+    const stop = arm(target, plan.fetch, () => {
+      const strategy = untrack(() => when) ?? plan.when;
+      if (strategy === "eager" || strategy === "visible") {
+        void quietly(load(origin));
+      }
+      markupOf(file, origin.source).then(
+        (html) => {
+          const skeleton = target.querySelector(":scope > .island-skeleton");
+          if (!isLive || skeleton == null) {
+            return;
+          }
+          const template = document.createElement("template");
+          template.innerHTML = html;
+          skeleton.replaceWith(template.content);
+          target.dataset.islandState = "static";
+          target.removeAttribute("aria-busy");
+          rest = awaken(target);
+        },
+        () => {
+          if (isLive) {
+            release();
+          }
+        },
+      );
+    });
     return () => {
       isLive = false;
       stop();
@@ -211,7 +213,7 @@
     if (adopted?.file != null) {
       return reveal(target, adopted.file);
     }
-    return watch(target, plan.when, release, plan.options);
+    return arm(target, plan.when, release);
   }
 
   function learn(target: HTMLElement) {
@@ -221,6 +223,14 @@
   }
 
   onMount(boot);
+
+  $effect(() => {
+    if (when === "eager") {
+      untrack(() => {
+        rouse();
+      });
+    }
+  });
 
   $effect(() => {
     if (isAdopted || current != null) {
