@@ -1,4 +1,5 @@
-.island {
+.island,
+.island-body {
   display: contents;
 }
 

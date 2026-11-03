@@ -179,7 +179,7 @@
     {@attach learn}
   >
     {#if current != null}
-      {@render children(current.value)}
+      <Frame body={children} value={current.value} />
     {:else if failure === part.hash}
       {#if failed != null}
         {@render failed(retry)}

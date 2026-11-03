@@ -196,6 +196,12 @@ export function capture(key: string, element: Element) {
   });
 }
 
+function boxes(element: Element): Array<Element> {
+  return getComputedStyle(element).display === "contents"
+    ? [...element.children].flatMap((child) => boxes(child))
+    : [element];
+}
+
 function visible(element: Element, start: () => void) {
   const observer = (state.observer ??= new IntersectionObserver(
     (entries) => {
@@ -207,10 +213,7 @@ function visible(element: Element, start: () => void) {
     },
     { rootMargin: MARGIN },
   ));
-  const targets =
-    getComputedStyle(element).display === "contents"
-      ? [...element.children]
-      : [element];
+  const targets = boxes(element);
   if (targets.length === 0) {
     queueMicrotask(start);
     return nothing;

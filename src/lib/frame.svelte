@@ -4,4 +4,4 @@
   const { body, value }: { body: Snippet<[never]>; value: unknown } = $props();
 </script>
 
-{@render body(value as never)}
+<div class="island-body">{@render body(value as never)}</div>
