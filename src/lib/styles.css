@@ -1,0 +1,56 @@
+.island {
+  display: contents;
+}
+
+.island-skeleton {
+  pointer-events: none;
+  user-select: none;
+  filter: grayscale(1);
+  animation: island-pulse var(--island-pulse, 1.4s) ease-in-out infinite
+    alternate;
+}
+
+.island-skeleton .island-bone {
+  display: inline-block;
+  inline-size: min(calc(var(--n, 12) * 0.55em), 100%);
+  block-size: 0.75em;
+  vertical-align: middle;
+  border-radius: var(--island-radius, 0.25em);
+  background: var(
+    --island-bone,
+    color-mix(in oklab, currentcolor 12%, transparent)
+  );
+}
+
+.island-skeleton .island-line {
+  display: block;
+  block-size: 0.85em;
+  margin-block: 0.7em;
+}
+
+.island-skeleton .island-media {
+  display: block;
+  max-inline-size: 100%;
+  min-block-size: 1em;
+  border-radius: var(--island-radius, 0.25em);
+  background: var(
+    --island-bone,
+    color-mix(in oklab, currentcolor 12%, transparent)
+  );
+}
+
+.island-skeleton :is(button, input, select, textarea) {
+  color: transparent;
+}
+
+@keyframes island-pulse {
+  to {
+    opacity: 0.5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .island-skeleton {
+    animation: none;
+  }
+}

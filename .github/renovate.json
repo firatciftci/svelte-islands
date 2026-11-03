@@ -1,0 +1,46 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":configMigration", "schedule:monthly"],
+  "timezone": "America/New_York",
+  "rangeStrategy": "bump",
+  "postUpdateOptions": ["pnpmDedupe"],
+  "lockFileMaintenance": { "enabled": true, "schedule": ["* 0-3 1 * *"] },
+  "packageRules": [
+    {
+      "description": "pnpm refuses npm releases younger than a day, so Renovate waits as long.",
+      "matchDatasources": ["npm"],
+      "minimumReleaseAge": "1 day"
+    },
+    {
+      "description": "Mirrors minimumReleaseAgeExclude in pnpm-workspace.yaml.",
+      "matchPackageNames": [
+        "@sveltejs/**",
+        "eslint-plugin-svelte",
+        "pnpm",
+        "svelte",
+        "svelte-check"
+      ],
+      "minimumReleaseAge": "0 days"
+    },
+    {
+      "groupName": "npm non-major dependencies",
+      "groupSlug": "npm-minor-patch",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "groupName": "Svelte",
+      "matchPackageNames": ["svelte", "svelte-check", "@sveltejs/**"],
+      "matchUpdateTypes": ["major"]
+    },
+    {
+      "groupName": "ESLint",
+      "matchPackageNames": [
+        "eslint",
+        "@antfu/eslint-config",
+        "eslint-plugin-*"
+      ],
+      "matchUpdateTypes": ["major"]
+    }
+  ]
+}

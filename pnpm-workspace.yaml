@@ -1,0 +1,12 @@
+minimumReleaseAgeExclude:
+  - "@sveltejs/*"
+  - eslint-plugin-svelte
+  - pnpm
+  - svelte
+  - svelte-check
+  - svelte-eslint-parser@1.10.1
+
+engineStrict: true
+
+allowBuilds:
+  esbuild: true
