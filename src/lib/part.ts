@@ -1,6 +1,7 @@
 import type { Transport } from "@sveltejs/kit/hooks";
 import type { Snippet } from "svelte";
 import { parse, stringify } from "devalue";
+import { claim, isPackable, pack, unpack } from "./pack.js";
 
 export type Strategy =
   | "visible"
@@ -162,181 +163,15 @@ const codec = {
   decode,
 };
 
-const LONG = 64;
-const ROWS = 16;
-
-const sparse = {
-  encode: (value: unknown) => {
-    if (!Array.isArray(value) || value.length < LONG) {
-      return false;
-    }
-    const items: Array<unknown> = value;
-    for (const fill of [0, null]) {
-      const indices: Array<number> = [];
-      const kept: Array<unknown> = [];
-      for (const [index, item] of items.entries()) {
-        if (item === fill) {
-          continue;
-        }
-
-        indices.push(index);
-        kept.push(item);
-        if (indices.length > items.length / 4) {
-          break;
-        }
-      }
-      if (indices.length <= items.length / 4) {
-        return [items.length, fill, indices, kept];
-      }
-    }
-    return false;
-  },
-  decode: ([length, fill, indices, kept]: [
-    number,
-    0 | null,
-    Array<number>,
-    Array<unknown>,
-  ]) => {
-    const spots = new Map(indices.map((index, at) => [index, at]));
-    return Array.from({ length }, (_, index) => {
-      const at = spots.get(index);
-      return at == null ? fill : kept[at];
-    });
-  },
+const packed = {
+  encode: (value: unknown) =>
+    Array.isArray(value) && value.length >= 4 && isPackable(value)
+      ? JSON.stringify(pack(value))
+      : false,
+  decode: (text: string) => unpack(JSON.parse(text)),
 };
 
-const runs = {
-  encode: (value: unknown) => {
-    if (!Array.isArray(value) || value.length < LONG) {
-      return false;
-    }
-    const items: Array<unknown> = value;
-    const bounds: Array<number> = [];
-    let last: number | null = null;
-    for (const item of items) {
-      if (
-        typeof item !== "number" ||
-        !Number.isSafeInteger(item) ||
-        (last != null && item <= last)
-      ) {
-        return false;
-      }
-      if (last != null && item === last + 1) {
-        bounds[bounds.length - 1] = item;
-      } else {
-        bounds.push(item, item);
-        if (bounds.length > items.length / 4) {
-          return false;
-        }
-      }
-      last = item;
-    }
-    return bounds;
-  },
-  decode: (bounds: Array<number>) =>
-    bounds.flatMap((start, at) =>
-      at % 2 === 0
-        ? Array.from(
-            { length: (bounds[at + 1] ?? start) - start + 1 },
-            (_, step) => start + step,
-          )
-        : [],
-    ),
-};
-
-function isPlain(value: unknown): value is Record<string, unknown> {
-  return (
-    value != null &&
-    typeof value === "object" &&
-    Object.getPrototypeOf(value) === Object.prototype &&
-    Object.getOwnPropertySymbols(value).length === 0
-  );
-}
-
-function isFlat(value: unknown, seen: Set<unknown>): boolean {
-  if (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "boolean"
-  ) {
-    return true;
-  }
-  if (typeof value === "number") {
-    return Number.isFinite(value) && !Object.is(value, -0);
-  }
-  if (
-    !Array.isArray(value) ||
-    value.length >= LONG ||
-    seen.has(value) ||
-    Object.keys(value).length !== value.length
-  ) {
-    return false;
-  }
-  seen.add(value);
-  const items: Array<unknown> = value;
-  return items.every((item) => isFlat(item, seen));
-}
-
-const table = {
-  encode: (value: unknown) => {
-    if (!Array.isArray(value) || value.length < ROWS) {
-      return false;
-    }
-    const rows: Array<unknown> = value;
-    const first = rows[0];
-    if (!isPlain(first)) {
-      return false;
-    }
-    const keys = Object.keys(first);
-    if (keys.length === 0) {
-      return false;
-    }
-    const seen = new Set<unknown>();
-    const columns = keys.map((): Array<unknown> => []);
-    for (const row of rows) {
-      if (!isPlain(row) || seen.has(row)) {
-        return false;
-      }
-      seen.add(row);
-      const own = Object.keys(row);
-      if (
-        own.length !== keys.length ||
-        own.some((key, at) => key !== keys[at])
-      ) {
-        return false;
-      }
-      for (const [at, key] of keys.entries()) {
-        columns[at]?.push(row[key]);
-      }
-    }
-    const flat = new Set<unknown>();
-    return [
-      keys,
-      ...columns.map((column) =>
-        column.every((cell) => isFlat(cell, flat))
-          ? JSON.stringify(column)
-          : column,
-      ),
-    ];
-  },
-  decode: ([keys, ...columns]: [
-    Array<string>,
-    ...Array<string | Array<unknown>>,
-  ]) => {
-    const cells = columns.map((column): Array<unknown> => {
-      if (typeof column !== "string") {
-        return column;
-      }
-      const parsed: unknown = JSON.parse(column);
-      return Array.isArray(parsed) ? parsed : [];
-    });
-    return Array.from({ length: cells[0]?.length ?? 0 }, (_, index) =>
-      Object.fromEntries(keys.map((key, at) => [key, cells[at]?.[index]])),
-    );
-  },
-};
-
-const compact = { sparse, runs, table };
+const compact = { pack: packed };
 
 const nested = {
   encode: (value: unknown) => encode(value, false, null),
@@ -344,6 +179,7 @@ const nested = {
 };
 
 function index(codecs: Transport) {
+  claim(Object.values(codecs).map(({ encode: reduce }) => reduce));
   const merged: Transport = { ...codecs, ...compact, part: nested };
   const all = Object.entries(merged);
   state.reducers = Object.fromEntries(
@@ -374,9 +210,13 @@ export function islands({
 }
 
 export function serialize(value: unknown) {
-  return stringify(value, state.reducers);
+  return isPackable(value)
+    ? `~${JSON.stringify(pack(value))}`
+    : stringify(value, state.reducers);
 }
 
 export function deserialize(text: string): unknown {
-  return parse(text, state.revivers);
+  return text.startsWith("~")
+    ? unpack(JSON.parse(text.slice(1)))
+    : parse(text, state.revivers);
 }
