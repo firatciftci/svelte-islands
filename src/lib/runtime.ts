@@ -6,6 +6,7 @@ import { shape } from "./skeleton.js";
 
 const BUDGET = 64 * 1024 ** 2;
 const MARGIN = "320px";
+const DELAYS = [1000, 3000, 5000];
 const SCRIPT = "svelte-islands-skeletons";
 const INTERACTIONS = ["pointerenter", "pointerdown", "focusin", "touchstart"];
 
@@ -17,13 +18,20 @@ const pending = new Map<string, Promise<unknown>>();
 const skeletons = new Map<string, string>();
 const claimed = new WeakSet<Element>();
 const refreshed = new Set<string>();
-const watched = new Map<Element, () => void>();
-const state: {
-  held: number;
-  isBooted: boolean;
-  isRead: boolean;
-  observer: IntersectionObserver | null;
-} = { held: 0, isBooted: false, isRead: false, observer: null };
+const watched = new Map<Element, Set<() => void>>();
+const observers = new Map<string, IntersectionObserver>();
+const state: { held: number; isBooted: boolean; isRead: boolean } = {
+  held: 0,
+  isBooted: false,
+  isRead: false,
+};
+
+export type Options = { margin?: string; media?: string };
+
+export type Claimed = {
+  state: "static" | "deferred" | "client";
+  file: string | null;
+};
 
 function nothing() {}
 
@@ -54,8 +62,8 @@ export function peek<T>(part: Part<T>): { value: T } | null {
   return { value: found.value as T };
 }
 
-async function fetched(part: Part) {
-  const url = new URL(`${settings.prefix}${part.hash}`, location.origin);
+async function fetched(name: string, source: string) {
+  const url = new URL(`${settings.prefix}${name}`, location.origin);
   const response = await fetch(url);
   if (response.ok) {
     return response.text();
@@ -63,19 +71,45 @@ async function fetched(part: Part) {
   if (response.status !== 404) {
     throw new Error(`${response.status} ${response.statusText}`);
   }
-  url.searchParams.set("u", part.source);
+  url.searchParams.set("u", source);
   const rebuilt = await fetch(url);
   if (rebuilt.ok) {
     return rebuilt.text();
   }
   throw rebuilt.status === 404
-    ? new Gone(part.hash)
+    ? new Gone(name)
     : new Error(`${rebuilt.status} ${rebuilt.statusText}`);
+}
+
+async function pause(delay: number) {
+  await new Promise((resolve) => {
+    setTimeout(resolve, delay);
+  });
+}
+
+async function persist<T>(run: () => Promise<T>) {
+  for (const delay of DELAYS) {
+    try {
+      return await run();
+    } catch (error) {
+      if (error instanceof Gone) {
+        throw error;
+      }
+      await pause(delay);
+    }
+  }
+  return run();
+}
+
+export async function markupOf(file: string, source: string) {
+  return persist(async () => fetched(file, source));
 }
 
 async function request(part: Part) {
   try {
-    const value = deserialize(await fetched(part));
+    const value = deserialize(
+      await persist(async () => fetched(part.hash, part.source)),
+    );
     keep(part.hash, value, part.bytes);
     return value;
   } finally {
@@ -118,20 +152,38 @@ export function boot() {
   state.isBooted = true;
 }
 
-export function claim(part: Part) {
+const CLAIMABLE: ReadonlySet<string> = new Set([
+  "static",
+  "deferred",
+  "client",
+]);
+
+function isClaimable(value: string | undefined): value is Claimed["state"] {
+  return value != null && CLAIMABLE.has(value);
+}
+
+export function claim(part: Part, key: string): Claimed | null {
   if (typeof document === "undefined" || state.isBooted) {
-    return false;
+    return null;
   }
   const candidates = document.querySelectorAll(
-    `[data-island="${CSS.escape(part.hash)}"][data-island-state="static"]`,
+    `[data-island="${CSS.escape(part.hash)}"]`,
   );
   for (const element of candidates) {
-    if (!claimed.has(element)) {
+    if (!(element instanceof HTMLElement) || claimed.has(element)) {
+      continue;
+    }
+    const found = element.dataset.islandState;
+    if (isClaimable(found)) {
       claimed.add(element);
-      return true;
+      const skeleton = element.querySelector(":scope > .island-skeleton");
+      if (found !== "static" && skeleton != null && !skeletons.has(key)) {
+        skeletons.set(key, skeleton.getHTML());
+      }
+      return { state: found, file: element.dataset.islandFile ?? null };
     }
   }
-  return false;
+  return null;
 }
 
 function read() {
@@ -202,32 +254,67 @@ function boxes(element: Element): Array<Element> {
     : [element];
 }
 
-function visible(element: Element, start: () => void) {
-  const observer = (state.observer ??= new IntersectionObserver(
-    (entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting) {
-          watched.get(entry.target)?.();
+function observerOf(margin: string) {
+  let found = observers.get(margin);
+  if (found == null) {
+    found = new IntersectionObserver(
+      (entries) => {
+        const reached = entries.filter((entry) => entry.isIntersecting);
+        for (const entry of reached) {
+          const starts = [...(watched.get(entry.target) ?? [])];
+          for (const start of starts) {
+            start();
+          }
         }
-      }
-    },
-    { rootMargin: MARGIN },
-  ));
+      },
+      { rootMargin: margin },
+    );
+    observers.set(margin, found);
+  }
+  return found;
+}
+
+function visible(element: Element, start: () => void, options: Options) {
+  const observer = observerOf(options.margin ?? MARGIN);
   const targets = boxes(element);
   if (targets.length === 0) {
     queueMicrotask(start);
     return nothing;
   }
   for (const target of targets) {
-    watched.set(target, start);
+    let starts = watched.get(target);
+    if (starts == null) {
+      starts = new Set();
+      watched.set(target, starts);
+    }
+    starts.add(start);
     observer.observe(target);
   }
   return () => {
     for (const target of targets) {
-      watched.delete(target);
-      observer.unobserve(target);
+      const starts = watched.get(target);
+      starts?.delete(start);
+      if (starts == null || starts.size === 0) {
+        watched.delete(target);
+        observer.unobserve(target);
+      }
     }
   };
+}
+
+function matched(_: Element, start: () => void, options: Options) {
+  if (options.media == null) {
+    return soon(start);
+  }
+  const list = matchMedia(options.media);
+  if (list.matches) {
+    return soon(start);
+  }
+  return on(list, "change", () => {
+    if (list.matches) {
+      start();
+    }
+  });
 }
 
 function engaged(element: Element, start: () => void) {
@@ -248,16 +335,22 @@ function soon(start: () => void) {
 
 const STRATEGIES: Record<
   Strategy,
-  (element: Element, start: () => void) => () => void
+  (element: Element, start: () => void, options: Options) => () => void
 > = {
   eager: (_, start) => soon(start),
   idle: (_, start) => idle(start),
   visible,
+  media: matched,
   interaction: engaged,
   never: () => nothing,
 };
 
-export function watch(element: Element, when: Strategy, start: () => void) {
+export function watch(
+  element: Element,
+  when: Strategy,
+  start: () => void,
+  options: Options = {},
+) {
   let isDone = false;
   let stop = nothing;
   const once = () => {
@@ -268,7 +361,7 @@ export function watch(element: Element, when: Strategy, start: () => void) {
     stop();
     start();
   };
-  stop = STRATEGIES[when](element, once);
+  stop = STRATEGIES[when](element, once, options);
   return () => {
     isDone = true;
     stop();

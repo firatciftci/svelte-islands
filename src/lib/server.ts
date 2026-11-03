@@ -14,7 +14,7 @@ export type Store = {
 
 const TOKEN = "x-svelte-islands-token";
 const SCRIPT = "svelte-islands-skeletons";
-const HASH = /^[\w-]{22}$/u;
+const FILE = /^[\w-]{22}(?:\.html)?$/u;
 const RELEARN = 10 * 60_000;
 const IMMUTABLE = "public, max-age=31536000, immutable";
 
@@ -41,6 +41,10 @@ const config: { store: Store | null; memory: number; prepare: Prepare } = {
 };
 const state = { held: 0 };
 
+function hashOf(text: string) {
+  return createHash("sha256").update(text).digest("base64url").slice(0, 22);
+}
+
 function digest(value: unknown) {
   const isObject = typeof value === "object" && value != null;
   const known = isObject ? digests.get(value) : undefined;
@@ -48,10 +52,7 @@ function digest(value: unknown) {
     return known;
   }
   const text = serialize(value);
-  const made = {
-    text,
-    hash: createHash("sha256").update(text).digest("base64url").slice(0, 22),
-  };
+  const made = { text, hash: hashOf(text) };
   if (isObject) {
     digests.set(value, made);
   }
@@ -75,6 +76,16 @@ function hold({ hash, text }: Digest) {
     state.held -= kept.length;
   }
   return true;
+}
+
+function keep(made: Digest, event: RequestEvent) {
+  if (hold(made)) {
+    void quietly(config.store?.set(`p:${made.hash}`, made.text));
+  }
+  const token = event.request.headers.get(TOKEN);
+  if (token != null) {
+    waiting.get(token)?.set(made.hash, made);
+  }
 }
 
 function track(locals: object) {
@@ -108,15 +119,23 @@ function examplesOf(name: string) {
   return known;
 }
 
-function learn(name: string, key: string, html: string) {
+function attempt(html: () => string) {
+  try {
+    return skeletonize(html());
+  } catch {
+    return null;
+  }
+}
+
+function learn(name: string, key: string, html: () => string) {
   const known = examplesOf(name);
   const found = known.get(key);
   if (found != null && Date.now() - found.at < RELEARN) {
-    return;
+    return found.html;
   }
-  const shaped = skeletonize(html);
+  const shaped = attempt(html);
   if (shaped == null || shaped === "") {
-    return;
+    return found?.html ?? null;
   }
   known.set(key, { html: shaped, at: Date.now() });
   if (found?.html !== shaped) {
@@ -124,6 +143,7 @@ function learn(name: string, key: string, html: string) {
       config.store?.set(`skeletons:${name}`, JSON.stringify(flatten(known))),
     );
   }
+  return shaped;
 }
 
 async function recall(name: string) {
@@ -158,13 +178,7 @@ function skeletonsOf(name: string) {
 export function part<T>(name: string, value: T) {
   const event = getRequestEvent();
   const made = digest(value);
-  if (hold(made)) {
-    void quietly(config.store?.set(`p:${made.hash}`, made.text));
-  }
-  const token = event.request.headers.get(TOKEN);
-  if (token != null) {
-    waiting.get(token)?.set(made.hash, made);
-  }
+  keep(made, event);
   const created = new Part<T>({
     name,
     hash: made.hash,
@@ -193,11 +207,17 @@ provide(() => {
     isData: event.isDataRequest,
     render: (body, value, context, prefix) =>
       render(Frame, { props: { body, value }, context, idPrefix: prefix }).body,
-    rendered: (rendered, key, html) => {
+    skeleton: (shown, key, html) => {
       track(event.locals).rendered.add(key);
-      learn(rendered.name, key, html);
+      void recall(shown.name);
+      return learn(shown.name, key, html);
     },
     exemplars: skeletonsOf,
+    stash: (html) => {
+      const made = { text: html, hash: `${hashOf(html)}.html` };
+      keep(made, event);
+      return made.hash;
+    },
   };
 });
 
@@ -228,7 +248,7 @@ function inject(html: string, event: RequestEvent) {
     : `${html.slice(0, at)}${script}${html.slice(at)}`;
 }
 
-async function rebuild(hash: string, event: RequestEvent) {
+async function rebuild(file: string, event: RequestEvent) {
   const source = event.url.searchParams.get("u");
   if (
     source == null ||
@@ -243,10 +263,12 @@ async function rebuild(hash: string, event: RequestEvent) {
   waiting.set(token, found);
   try {
     const target = new URL(source, event.url.origin);
-    const data = new URL(
-      `${target.pathname.replace(/\/$/u, "")}/__data.json${target.search}`,
-      event.url.origin,
-    );
+    const data = file.endsWith(".html")
+      ? target
+      : new URL(
+          `${target.pathname.replace(/\/$/u, "")}/__data.json${target.search}`,
+          event.url.origin,
+        );
     const headers = new Headers({ [TOKEN]: token });
     const language = event.request.headers.get("accept-language");
     if (language != null) {
@@ -255,18 +277,18 @@ async function rebuild(hash: string, event: RequestEvent) {
     config.prepare({ url: data, headers }, event);
     const response = await event.fetch(data, { headers });
     await response.arrayBuffer();
-    return found.get(hash)?.text ?? null;
+    return found.get(file)?.text ?? null;
   } finally {
     waiting.delete(token);
   }
 }
 
 async function respond(event: RequestEvent) {
-  const hash = event.url.pathname.slice(settings.prefix.length);
-  if (!["GET", "HEAD"].includes(event.request.method) || !HASH.test(hash)) {
+  const file = event.url.pathname.slice(settings.prefix.length);
+  if (!["GET", "HEAD"].includes(event.request.method) || !FILE.test(file)) {
     return new Response(null, { status: 404 });
   }
-  const etag = `"${hash}"`;
+  const etag = `"${file}"`;
   if (event.request.headers.get("if-none-match") === etag) {
     return new Response(null, {
       status: 304,
@@ -274,9 +296,9 @@ async function respond(event: RequestEvent) {
     });
   }
   const text =
-    recent.get(hash) ??
-    (await quietly(config.store?.get(`p:${hash}`))) ??
-    (await rebuild(hash, event));
+    recent.get(file) ??
+    (await quietly(config.store?.get(`p:${file}`))) ??
+    (await rebuild(file, event));
   if (text == null) {
     return new Response(null, {
       status: 404,
@@ -285,7 +307,9 @@ async function respond(event: RequestEvent) {
   }
   return new Response(text, {
     headers: {
-      "content-type": "application/json; charset=utf-8",
+      "content-type": file.endsWith(".html")
+        ? "text/html; charset=utf-8"
+        : "application/json; charset=utf-8",
       "cache-control": IMMUTABLE,
       etag,
     },

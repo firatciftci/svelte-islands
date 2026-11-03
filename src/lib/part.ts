@@ -2,7 +2,13 @@ import type { Transport } from "@sveltejs/kit/hooks";
 import type { Snippet } from "svelte";
 import { parse, stringify } from "devalue";
 
-export type Strategy = "visible" | "idle" | "interaction" | "eager" | "never";
+export type Strategy =
+  | "visible"
+  | "idle"
+  | "interaction"
+  | "media"
+  | "eager"
+  | "never";
 
 export const settings = { inline: 4096, prefix: "/_parts/" };
 
@@ -54,8 +60,9 @@ export type Scope = {
     context: Map<unknown, unknown>,
     prefix: string,
   ) => string;
-  rendered: (part: Part, key: string, html: string) => void;
+  skeleton: (part: Part, key: string, html: () => string) => string | null;
   exemplars: (name: string) => Record<string, string> | null;
+  stash: (html: string) => string;
 };
 
 const state: {

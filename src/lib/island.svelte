@@ -10,8 +10,9 @@
     untrack,
   } from "svelte";
   import type { Part, Strategy } from "./part.js";
+  import type { Claimed } from "./runtime.js";
   import Frame from "./frame.svelte";
-  import { scope } from "./part.js";
+  import { quietly, scope } from "./part.js";
   import {
     boot,
     capture,
@@ -21,6 +22,7 @@
     intercept,
     isFirstGone,
     load,
+    markupOf,
     peek,
     skeletonOf,
     watch,
@@ -29,7 +31,11 @@
   const {
     part,
     view,
-    when = "interaction",
+    when,
+    ssr = true,
+    defer = false,
+    margin,
+    media,
     children,
     failed,
     class: className,
@@ -37,6 +43,10 @@
     part: Part<T>;
     view?: string;
     when?: Strategy;
+    ssr?: boolean;
+    defer?: boolean | Strategy;
+    margin?: string;
+    media?: string;
     children: Snippet<[T]>;
     failed?: Snippet<[retry: () => void]>;
     class?: string;
@@ -47,24 +57,48 @@
   const origin = untrack(() => part);
   const key = $derived(view == null ? part.name : `${part.name}:${view}`);
   const first = untrack(() => key);
-  const markup = untrack(() => {
+  const plan = untrack(() => ({
+    when: when ?? (ssr ? "interaction" : "visible"),
+    fetch: typeof defer === "string" ? defer : "visible",
+    isDeferred: defer !== false,
+    options: { margin, media },
+  }));
+
+  function shell(skeleton: string | null) {
+    return `<div class="island-skeleton" aria-hidden="true">${skeleton ?? fallback(origin.bytes)}</div>`;
+  }
+
+  const adopted = untrack((): (Claimed & { html: string }) | null => {
     if (server == null) {
-      return claim(origin) ? " " : null;
+      const found = claim(origin, first);
+      return found == null ? null : { ...found, html: " " };
     }
-    if (origin.isInline || origin.loaded == null) {
+    const { loaded } = origin;
+    if (loaded == null || (origin.isInline && ssr && !plan.isDeferred)) {
       return null;
     }
-    const html = server.render(
-      children,
-      origin.loaded.value,
-      context,
-      `s${origin.hash.slice(0, 6).replaceAll("-", "_")}`,
-    );
-    server.rendered(origin, first, html);
-    return html;
+    const prefix = `s${origin.hash.slice(0, 6).replaceAll("-", "_")}`;
+    const html = () => server.render(children, loaded.value, context, prefix);
+    if (!ssr) {
+      return {
+        state: "client",
+        file: null,
+        html: shell(server.skeleton(origin, first, html)),
+      };
+    }
+    const rendered = html();
+    const skeleton = server.skeleton(origin, first, () => rendered);
+    return plan.isDeferred
+      ? {
+          state: "deferred",
+          file: server.stash(rendered),
+          html: shell(skeleton),
+        }
+      : { state: "static", file: null, html: rendered };
   });
 
-  let isLatched = markup != null;
+  let isLatched = adopted != null;
+  let isReleased = $state(false);
   let fetched = $state.raw<{ hash: string; value: T } | null>(null);
   let failure = $state<string | null>(null);
   let attempt = $state(0);
@@ -73,7 +107,7 @@
     if (part.hash !== origin.hash) {
       isLatched = false;
     }
-    return isLatched;
+    return isLatched && !isReleased;
   });
 
   const current = $derived(
@@ -86,31 +120,40 @@
     attempt++;
   }
 
-  function activate(target: HTMLElement) {
+  function release() {
+    isReleased = true;
+  }
+
+  function awaken(target: HTMLElement) {
     const body = untrack(() => children);
-    const held = when === "never" ? null : intercept(target);
+    const held = plan.when === "never" ? null : intercept(target);
     const stopCapture = capture(first, target);
     let instance: ReturnType<typeof hydrate> | null = null;
     let isLive = true;
-    const stop = watch(target, when, () => {
-      load(origin).then(
-        async (value) => {
-          await tick();
-          if (isLive) {
-            instance = hydrate(Frame, {
-              target,
-              props: { body, value },
-              context,
-            });
-            target.dataset.islandState = "live";
-            held?.release();
-          }
-        },
-        () => {
-          held?.stop();
-        },
-      );
-    });
+    const stop = watch(
+      target,
+      plan.when,
+      () => {
+        load(origin).then(
+          async (value) => {
+            await tick();
+            if (isLive) {
+              instance = hydrate(Frame, {
+                target,
+                props: { body, value },
+                context,
+              });
+              target.dataset.islandState = "live";
+              held?.release();
+            }
+          },
+          () => {
+            held?.stop();
+          },
+        );
+      },
+      plan.options,
+    );
     return () => {
       isLive = false;
       stop();
@@ -120,6 +163,55 @@
         void unmount(instance);
       }
     };
+  }
+
+  function reveal(target: HTMLElement, file: string) {
+    let isLive = true;
+    let rest = () => {};
+    const stop = watch(
+      target,
+      plan.fetch,
+      () => {
+        if (plan.when === "eager" || plan.when === "visible") {
+          void quietly(load(origin));
+        }
+        markupOf(file, origin.source).then(
+          (html) => {
+            const skeleton = target.querySelector(":scope > .island-skeleton");
+            if (!isLive || skeleton == null) {
+              return;
+            }
+            const template = document.createElement("template");
+            template.innerHTML = html;
+            skeleton.replaceWith(template.content);
+            target.dataset.islandState = "static";
+            target.removeAttribute("aria-busy");
+            rest = awaken(target);
+          },
+          () => {
+            if (isLive) {
+              release();
+            }
+          },
+        );
+      },
+      plan.options,
+    );
+    return () => {
+      isLive = false;
+      stop();
+      rest();
+    };
+  }
+
+  function activate(target: HTMLElement) {
+    if (adopted?.state === "static") {
+      return awaken(target);
+    }
+    if (adopted?.file != null) {
+      return reveal(target, adopted.file);
+    }
+    return watch(target, plan.when, release, plan.options);
   }
 
   function learn(target: HTMLElement) {
@@ -160,16 +252,18 @@
   });
 </script>
 
-{#if isAdopted}
+{#if isAdopted && adopted != null}
   <div
     class={["island", className]}
     data-island={origin.hash}
-    data-island-state="static"
+    data-island-state={adopted.state}
+    data-island-file={adopted.file}
+    aria-busy={adopted.state === "static" ? undefined : "true"}
     {@attach activate}
   >
     <!-- svelte-ignore hydration_html_changed -->
     <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-    {@html markup}
+    {@html adopted.html}
   </div>
 {:else}
   <div
