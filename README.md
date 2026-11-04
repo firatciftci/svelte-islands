@@ -24,7 +24,7 @@ import { islands } from "svelte-islands";
 export const transport = islands();
 ```
 
-Add the server handle in `src/hooks.server.ts`. It serves parts and deferred HTML under `/_parts/` and adds learned skeletons to each page. If you have other handles, put it in your `sequence`.
+Add the server handle in `src/hooks.server.ts`. It serves parts, deferred HTML, and learned skeletons under `/_parts/`. If you have other handles, put it in your `sequence`.
 
 ```ts
 import { handle as islands } from "svelte-islands/server";
@@ -131,13 +131,73 @@ export const load = async () => ({
 
 `peek(part)` returns `{ value }` if the part's data is already in memory and `null` otherwise. It's reactive, so a `$derived` that reads it updates when the data arrives. `load(part)` returns a promise of the value.
 
+### Long lists
+
+`unroll(initial)` renders a long list a piece at a time. Its `limit` starts at `initial`. Put an empty element right after the last item you render and attach `tail(total)` to it. When that element comes within a screen's height of the viewport, `limit` grows by a few items each frame until the element moves out of range or `limit` reaches `total`. The number of items per frame adapts so that rendering them takes about 8 ms. The tail copies the class and the shape of the item before it, so it shows a skeleton of the next item until that item renders, and it is hidden from screen readers.
+
+```svelte
+<script lang="ts">
+  import { unroll } from "svelte-islands";
+
+  const { rows } = $props();
+  const shelf = unroll(50);
+</script>
+
+<ol>
+  {#each rows.slice(0, shelf.limit) as row (row.id)}
+    <li>{row.name}</li>
+  {/each}
+  {#if shelf.limit < rows.length}
+    <li {@attach shelf.tail(rows.length)}></li>
+  {/if}
+</ol>
+```
+
+### Other things that load
+
+A region that isn't an island can still have to wait for something: a promise streamed from a load function, a lazy `import()`, or a client query. `Await` and `Pending` give those regions the same learned skeletons, so you don't write placeholders by hand.
+
+`Await` takes a promise and a name, and it passes the resolved value to its snippet:
+
+```svelte
+<Await promise={data.counties} name="election.counties" reserve="24rem">
+  {#snippet children(counties)}
+    <Counties {counties} />
+  {/snippet}
+</Await>
+```
+
+`Pending` takes a boolean, which suits a query's `isPending`:
+
+```svelte
+<Pending name="figures" isPending={query.isPending} reserve="2rem">
+  <Figures data={query.data} />
+</Pending>
+```
+
+- `name`: the name the skeleton is learned under. Part names and these names share one namespace, so an `Island` and an `Await` with the same name use the same skeleton.
+- `reserve`: a CSS block size to hold open before anything has been learned. Set it close to the content's height so that the page doesn't jump on a first visit.
+- `failed`: on `Await` only, a snippet that receives the error if the promise rejects.
+- `class`: a class for the wrapper.
+
+Neither component adds a box, so the content and its skeleton keep their places in a parent grid or flex layout. If a `Pending` is replaced by content it doesn't wrap, such as a map in another branch of an `{#if}`, attach `learn(name)` to the element that holds that content:
+
+```svelte
+{#if view == null}
+  <Pending name="map" isPending={true} reserve="32rem" />
+{:else}
+  <div {@attach learn("map")}><Map {view} /></div>
+{/if}
+```
+
 ## How it works
 
 - **Content-addressed parts.** `part()` serializes the value, hashes it, and keeps the text in memory and in your store. Parts of 4,096 characters or less are inlined into the page instead. Deferred HTML is stored the same way, at `/_parts/<hash>.html`.
 - **Rebuilds.** If a part or deferred HTML is requested after the server no longer has it, the client asks again with the page it came from, and the server reruns that page to recover it. If the data has changed since, the page reloads its data.
 - **Retries.** A failed fetch is retried after 1, 3, and 5 seconds before the island shows its failure state. A part the server can no longer rebuild isn't retried.
-- **Learned skeletons.** The server turns each island's rendered HTML into a skeleton made of bars and blocks, and the client does the same from the live DOM. A skeleton keeps the island's layout classes but drops content with no text or media, and it keeps only the first few of a run of repeated elements, such as table rows, so it stays under 12 KB. Skeletons are kept per part name and view, and sent with pages that need them, so you don't write skeletons by hand.
+- **Learned skeletons.** The server turns each island's rendered HTML into a skeleton made of bars and blocks, and the client does the same from the live DOM. A skeleton keeps the island's layout classes but drops content with no text or media, and it keeps only the first few of a run of repeated elements, such as table rows, so it stays under 12 KB. `Await` also renders its children on the server once its promise resolves and learns from that HTML, so later visitors get a skeleton based on a server render that waited on streamed data. Skeletons are kept per part name and view. A page's HTML holds only the skeletons it shows right away. The client fetches the rest from `/_parts/skeletons` when it's idle, so that client-side navigation can show them, and it saves the skeletons it learns from the DOM in `localStorage`.
 - **Shared observers.** Islands with the same `margin` share one `IntersectionObserver`.
+- **Scheduled hydration.** When several islands are ready at once, they hydrate one after another in slices of about 8 ms, and the browser gets the main thread back between slices to handle input and paint. Islands that hydrate on interaction go first, then `visible` and `eager` islands, then `media` islands, then `idle` ones. An island with a held click moves to the front. Islands that render in the browser, after a client-side navigation or with `ssr={false}`, go through the same queue.
 - **Compact transport.** If a part's value is plain data (objects, arrays, strings, numbers, booleans, `null`, and `undefined`), it is sent as packed JSON rather than in devalue's format. Arrays of objects with the same keys are sent as columns. Repeated values, small objects, and lists are stored once and referred to by index. Runs of consecutive integers are sent as ranges, and arrays that are mostly zeros or nulls are sent as the positions of the other values. Arrays inside page data are packed the same way. Values such as dates, maps, and nested objects referenced from more than one place are sent in devalue's format. A small object of plain values referenced from several places arrives as separate copies. On our pages, packed parts were 3 to 7 times smaller than devalue's output, and about half the size after gzip.
 
 ## Options
@@ -161,6 +221,8 @@ Skeletons inherit the island's text color. Set these custom properties to change
 - `--island-bone`: the color of skeleton bars.
 - `--island-radius`: their corner radius.
 - `--island-pulse`: the length of the pulse animation.
+- `--island-surface`: the background of a region that has no learned skeleton yet. The default is transparent.
+- `--island-inset`: the padding of that region. The default is 0.
 
 The pulse stops when the user prefers reduced motion. While an island shows a skeleton, its wrapper has `aria-busy="true"`, and `data-island-state` is `static`, `deferred`, `client`, or `live`.
 
