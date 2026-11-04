@@ -153,6 +153,7 @@
       plan.when === "never"
         ? null
         : intercept(target, () => {
+            rouse();
             job?.hurry();
           });
     const stopCapture = capture(first, target);
