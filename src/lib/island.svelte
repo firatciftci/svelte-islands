@@ -2,10 +2,10 @@
   import type { Snippet } from "svelte";
   import { invalidateAll } from "$app/navigation";
   import {
+    flushSync,
     getAllContexts,
     hydrate,
     onMount,
-    tick,
     unmount,
     untrack,
   } from "svelte";
@@ -24,6 +24,7 @@
     load,
     markupOf,
     peek,
+    schedule,
     skeletonOf,
     watch,
   } from "./runtime.js";
@@ -65,7 +66,7 @@
   }));
 
   function shell(skeleton: string | null) {
-    return `<div class="island-skeleton" aria-hidden="true">${skeleton ?? fallback(origin.bytes)}</div>`;
+    return `<div class="island-shell" aria-hidden="true">${skeleton ?? fallback(origin.bytes)}</div>`;
   }
 
   const adopted = untrack((): (Claimed & { html: string }) | null => {
@@ -83,11 +84,11 @@
       return {
         state: "client",
         file: null,
-        html: shell(server.skeleton(origin, first, html)),
+        html: shell(server.skeleton(origin.name, first, html)),
       };
     }
     const rendered = html();
-    const skeleton = server.skeleton(origin, first, () => rendered);
+    const skeleton = server.skeleton(origin.name, first, () => rendered);
     return plan.isDeferred
       ? {
           state: "deferred",
@@ -135,24 +136,51 @@
     isReleased = true;
   }
 
+  function later(run: () => void) {
+    return schedule(
+      () => {
+        run();
+        flushSync();
+      },
+      untrack(() => when) ?? plan.when,
+    );
+  }
+
   function awaken(target: HTMLElement) {
     const body = untrack(() => children);
-    const held = plan.when === "never" ? null : intercept(target);
+    let job: ReturnType<typeof schedule> | null = null;
+    const held =
+      plan.when === "never"
+        ? null
+        : intercept(target, () => {
+            job?.hurry();
+          });
     const stopCapture = capture(first, target);
     let instance: ReturnType<typeof hydrate> | null = null;
     let isLive = true;
     const stop = arm(target, plan.when, () => {
       load(origin).then(
-        async (value) => {
-          await tick();
-          if (isLive) {
-            instance = hydrate(Frame, {
-              target,
-              props: { body, value },
-              context,
-            });
-            target.dataset.islandState = "live";
-            held?.release();
+        (value) => {
+          if (!isLive) {
+            return;
+          }
+          job = schedule(
+            () => {
+              if (!isLive) {
+                return;
+              }
+              instance = hydrate(Frame, {
+                target,
+                props: { body, value },
+                context,
+              });
+              target.dataset.islandState = "live";
+              held?.release();
+            },
+            untrack(() => when) ?? plan.when,
+          );
+          if (held?.isHolding() === true) {
+            job.hurry();
           }
         },
         () => {
@@ -162,6 +190,7 @@
     });
     return () => {
       isLive = false;
+      job?.cancel();
       stop();
       stopCapture();
       held?.stop();
@@ -181,7 +210,7 @@
       }
       markupOf(file, origin.source).then(
         (html) => {
-          const skeleton = target.querySelector(":scope > .island-skeleton");
+          const skeleton = target.querySelector(":scope > .island-shell");
           if (!isLive || skeleton == null) {
             return;
           }
@@ -213,7 +242,14 @@
     if (adopted?.file != null) {
       return reveal(target, adopted.file);
     }
-    return arm(target, plan.when, release);
+    let job: ReturnType<typeof schedule> | null = null;
+    const stop = arm(target, plan.when, () => {
+      job = later(release);
+    });
+    return () => {
+      job?.cancel();
+      stop();
+    };
   }
 
   function learn(target: HTMLElement) {
@@ -239,10 +275,13 @@
     const target = part;
     void attempt;
     let isLive = true;
+    let job: ReturnType<typeof schedule> | null = null;
     load(target).then(
       (value) => {
         if (isLive) {
-          fetched = { hash: target.hash, value };
+          job = later(() => {
+            fetched = { hash: target.hash, value };
+          });
         }
       },
       (error: unknown) => {
@@ -258,6 +297,7 @@
     );
     return () => {
       isLive = false;
+      job?.cancel();
     };
   });
 </script>
@@ -292,7 +332,7 @@
         >
       {/if}
     {:else}
-      <div class="island-skeleton" aria-hidden="true">
+      <div class="island-shell" aria-hidden="true">
         <!-- eslint-disable-next-line svelte/no-at-html-tags -->
         {@html skeletonOf(key) ?? fallback(part.bytes)}
       </div>

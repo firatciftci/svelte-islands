@@ -1,9 +1,11 @@
 .island,
-.island-body {
+.island-body,
+.island-shell {
   display: contents;
 }
 
-.island-skeleton {
+.island-skeleton,
+.island-shell > * {
   pointer-events: none;
   user-select: none;
   filter: grayscale(1);
@@ -11,7 +13,7 @@
     alternate;
 }
 
-.island-skeleton .island-bone {
+:is(.island-skeleton, .island-shell) .island-bone {
   display: inline-block;
   inline-size: min(calc(var(--n, 12) * 0.55em), 100%);
   block-size: 0.75em;
@@ -23,13 +25,13 @@
   );
 }
 
-.island-skeleton .island-line {
+:is(.island-skeleton, .island-shell) .island-line {
   display: block;
   block-size: 0.85em;
   margin-block: 0.7em;
 }
 
-.island-skeleton .island-media {
+:is(.island-skeleton, .island-shell) .island-media {
   display: block;
   max-inline-size: 100%;
   min-block-size: 1em;
@@ -40,8 +42,16 @@
   );
 }
 
-.island-skeleton :is(button, input, select, textarea) {
+:is(.island-skeleton, .island-shell) :is(button, input, select, textarea) {
   color: transparent;
+}
+
+.island-fallback {
+  grid-column: 1 / -1;
+  box-sizing: border-box;
+  block-size: 100%;
+  background: var(--island-surface, transparent);
+  padding: var(--island-inset, 0);
 }
 
 @keyframes island-pulse {
@@ -51,7 +61,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .island-skeleton {
+  .island-skeleton,
+  .island-shell > * {
     animation: none;
   }
 }

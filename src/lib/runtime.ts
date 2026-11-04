@@ -7,8 +7,22 @@ import { shape } from "./skeleton.js";
 const BUDGET = 64 * 1024 ** 2;
 const MARGIN = "320px";
 const DELAYS = [1000, 3000, 5000];
-const SCRIPT = "svelte-islands-skeletons";
+const SHAPES = "skeletons";
+const SAVED = "svelte-islands:skeletons";
+const SAVED_LIMIT = 512 * 1024;
+const BUSY = ".island-shell, [aria-busy='true']";
+const RETRY = 250;
+const RETRY_LIMIT = 4000;
 const INTERACTIONS = ["pointerenter", "pointerdown", "focusin", "touchstart"];
+const SLICE = 8;
+const RANKS: Record<Strategy, number> = {
+  interaction: 0,
+  eager: 1,
+  visible: 1,
+  media: 2,
+  idle: 3,
+  never: 3,
+};
 
 export class Gone extends Error {}
 
@@ -16,15 +30,21 @@ const values = new Map<string, { value: unknown; bytes: number }>();
 const arrived = new SvelteSet<string>();
 const pending = new Map<string, Promise<unknown>>();
 const skeletons = new Map<string, string>();
+const saved = new Map<string, string>();
 const claimed = new WeakSet<Element>();
 const refreshed = new Set<string>();
 const watched = new Map<Element, Set<() => void>>();
 const observers = new Map<string, IntersectionObserver>();
-const state: { held: number; isBooted: boolean; isRead: boolean } = {
-  held: 0,
-  isBooted: false,
-  isRead: false,
-};
+const state: {
+  held: number;
+  isBooted: boolean;
+  isRead: boolean;
+  isDraining: boolean;
+} = { held: 0, isBooted: false, isRead: false, isDraining: false };
+
+type Job = { run: () => void; rank: number; isDone: boolean };
+
+const queue: Array<Job> = [];
 
 export type Options = { margin?: string; media?: string };
 
@@ -131,10 +151,6 @@ export async function load<T>(part: Part<T>): Promise<T> {
 }
 
 onArrival((part) => {
-  const learned = Object.entries(part.skeletons ?? {});
-  for (const [key, html] of learned) {
-    skeletons.set(key, html);
-  }
   if (typeof window !== "undefined" && part.isEager && part.loaded == null) {
     void quietly(load(part));
   }
@@ -148,8 +164,32 @@ export function isFirstGone(hash: string) {
   return true;
 }
 
+function merge(found: unknown, into: Map<string, string>) {
+  if (typeof found !== "object" || found == null) {
+    return;
+  }
+  for (const [key, html] of Object.entries(found)) {
+    if (typeof html === "string") {
+      into.set(key, html);
+    }
+  }
+}
+
+async function fetchShapes() {
+  const response = await fetch(`${settings.prefix}${SHAPES}`);
+  if (response.ok) {
+    merge(await response.json(), skeletons);
+  }
+}
+
 export function boot() {
+  if (state.isBooted) {
+    return;
+  }
   state.isBooted = true;
+  idle(() => {
+    void quietly(fetchShapes());
+  });
 }
 
 const CLAIMABLE: ReadonlySet<string> = new Set([
@@ -176,8 +216,13 @@ export function claim(part: Part, key: string): Claimed | null {
     const found = element.dataset.islandState;
     if (isClaimable(found)) {
       claimed.add(element);
-      const skeleton = element.querySelector(":scope > .island-skeleton");
-      if (found !== "static" && skeleton != null && !skeletons.has(key)) {
+      const skeleton = element.querySelector(":scope > .island-shell");
+      if (
+        found !== "static" &&
+        skeleton != null &&
+        skeleton.querySelector(":scope > .island-fallback") == null &&
+        !skeletons.has(key)
+      ) {
         skeletons.set(key, skeleton.getHTML());
       }
       return { state: found, file: element.dataset.islandFile ?? null };
@@ -191,35 +236,43 @@ function read() {
     return;
   }
   state.isRead = true;
-  const text = document.querySelector(`#${SCRIPT}`)?.textContent;
-  if (text == null) {
-    return;
+  try {
+    merge(JSON.parse(localStorage.getItem(SAVED) ?? "null"), saved);
+  } catch {
+    saved.clear();
   }
-  const parsed: unknown = JSON.parse(text);
-  if (typeof parsed !== "object" || parsed == null) {
-    return;
-  }
-  for (const [name, html] of Object.entries(parsed)) {
-    if (typeof html === "string" && !skeletons.has(name)) {
-      skeletons.set(name, html);
+}
+
+function save(key: string, html: string) {
+  saved.set(key, html);
+  try {
+    const text = JSON.stringify(Object.fromEntries(saved));
+    if (text.length <= SAVED_LIMIT) {
+      localStorage.setItem(SAVED, text);
     }
+  } catch {
+    saved.delete(key);
   }
 }
 
 export function skeletonOf(key: string) {
   read();
-  return skeletons.get(key) ?? null;
+  return skeletons.get(key) ?? saved.get(key) ?? null;
 }
 
 const WIDTHS = [48, 41, 45, 33, 47, 38, 29, 44];
 
-export function fallback(bytes: number) {
+export function fallback(bytes: number, reserve?: string) {
+  if (reserve != null) {
+    return `<div class="island-fallback"><span class="island-media" style="block-size:${reserve}"></span></div>`;
+  }
   const lines = Math.min(12, Math.max(3, Math.round(Math.log2(bytes / 512))));
-  return Array.from(
+  const bones = Array.from(
     { length: lines },
     (_, at) =>
       `<span class="island-bone island-line" style="--n:${WIDTHS[at % WIDTHS.length] ?? 40}"></span>`,
   ).join("");
+  return `<div class="island-fallback">${bones}</div>`;
 }
 
 function idle(run: () => void) {
@@ -240,12 +293,33 @@ export function capture(key: string, element: Element) {
   if (skeletons.has(key)) {
     return nothing;
   }
-  return idle(() => {
+  let wait = RETRY;
+  let cancel = nothing;
+  const attempt = () => {
+    if (element.querySelector(BUSY) != null) {
+      const timer = setTimeout(() => {
+        cancel = idle(attempt);
+      }, wait);
+      wait = Math.min(wait * 2, RETRY_LIMIT);
+      cancel = () => {
+        clearTimeout(timer);
+      };
+      return;
+    }
     const shaped = shape(element);
     if (shaped != null && shaped !== "" && !skeletons.has(key)) {
       skeletons.set(key, shaped);
+      save(key, shaped);
     }
-  });
+  };
+  cancel = idle(attempt);
+  return () => {
+    cancel();
+  };
+}
+
+export function learn(name: string) {
+  return (element: Element) => capture(name, element);
 }
 
 function boxes(element: Element): Array<Element> {
@@ -328,6 +402,69 @@ function engaged(element: Element, start: () => void) {
   };
 }
 
+async function breathe() {
+  if (typeof scheduler !== "undefined" && "yield" in scheduler) {
+    return scheduler.yield();
+  }
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, 0);
+  });
+}
+
+function next() {
+  let found: Job | null = null;
+  for (const job of queue) {
+    if (!job.isDone && (found == null || job.rank < found.rank)) {
+      found = job;
+    }
+  }
+  return found;
+}
+
+function prune() {
+  const kept = queue.filter((job) => !job.isDone);
+  queue.length = 0;
+  queue.push(...kept);
+}
+
+async function drain() {
+  state.isDraining = true;
+  while (next() != null) {
+    await breathe();
+    const started = performance.now();
+    for (
+      let job = next();
+      job != null && performance.now() - started < SLICE;
+      job = next()
+    ) {
+      job.isDone = true;
+      try {
+        job.run();
+      } catch (error) {
+        reportError(error);
+      }
+    }
+    prune();
+  }
+  state.isDraining = false;
+}
+
+export function schedule(run: () => void, when: Strategy) {
+  const job: Job = { run, rank: RANKS[when], isDone: false };
+  queue.push(job);
+  if (!state.isDraining) {
+    void drain();
+  }
+  return {
+    hurry: () => {
+      job.rank = -1;
+    },
+    cancel: () => {
+      job.isDone = true;
+    },
+  };
+}
+
 function soon(start: () => void) {
   queueMicrotask(start);
   return nothing;
@@ -374,7 +511,7 @@ export function watch(
 const ACTIVE =
   'button, input, select, textarea, label, summary, [role="button"], [role="tab"], [role="switch"], [role="checkbox"], [role="menuitem"], [role="option"], [tabindex]:not([tabindex="-1"])';
 
-export function intercept(element: Element) {
+export function intercept(element: Element, onHold: () => void) {
   let held: HTMLElement | null = null;
   const stop = on(
     element,
@@ -392,11 +529,13 @@ export function intercept(element: Element) {
         event.preventDefault();
         event.stopImmediatePropagation();
         held = target;
+        onHold();
       }
     },
     { capture: true },
   );
   return {
+    isHolding: () => held != null,
     release: () => {
       stop();
       const target = held;

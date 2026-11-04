@@ -14,7 +14,8 @@ export type Store = {
 };
 
 const TOKEN = "x-svelte-islands-token";
-const SCRIPT = "svelte-islands-skeletons";
+const SHAPES = "skeletons";
+const NAMES = "skeleton-names";
 const FILE = /^[\w-]{22}(?:\.html)?$/u;
 const RELEARN = 10 * 60_000;
 const IMMUTABLE = "public, max-age=31536000, immutable";
@@ -26,10 +27,7 @@ const recent = new Map<string, string>();
 const exemplars = new Map<string, Map<string, { html: string; at: number }>>();
 const asked = new Set<string>();
 const waiting = new Map<string, Map<string, Digest>>();
-const requests = new WeakMap<
-  object,
-  { parts: Set<Part>; rendered: Set<string>; isHeaded: boolean }
->();
+const requests = new WeakMap<object, { parts: Set<Part>; isHeaded: boolean }>();
 type Prepare = (
   request: { url: URL; headers: Headers },
   event: RequestEvent,
@@ -40,7 +38,10 @@ const config: { store: Store | null; memory: number; prepare: Prepare } = {
   memory: 64 * 1024 ** 2,
   prepare: () => {},
 };
-const state = { held: 0 };
+const state: { held: number; names: Promise<unknown> | null } = {
+  held: 0,
+  names: null,
+};
 
 function hashOf(text: string) {
   return createHash("sha256").update(text).digest("base64url").slice(0, 22);
@@ -92,7 +93,7 @@ function keep(made: Digest, event: RequestEvent) {
 function track(locals: object) {
   let found = requests.get(locals);
   if (found == null) {
-    found = { parts: new Set(), rendered: new Set(), isHeaded: false };
+    found = { parts: new Set(), isHeaded: false };
     requests.set(locals, found);
   }
   return found;
@@ -122,10 +123,34 @@ function examplesOf(name: string) {
 
 function attempt(html: () => string) {
   try {
-    return skeletonize(html());
+    const rendered = html();
+    return rendered.includes("island-fallback") ? null : skeletonize(rendered);
   } catch {
     return null;
   }
+}
+
+async function recallAll() {
+  const { store } = config;
+  if (store == null) {
+    return;
+  }
+  const recallNames = async () => {
+    const text = await store.get(NAMES);
+    const parsed: unknown = text == null ? null : JSON.parse(text);
+    await Promise.all(
+      (Array.isArray(parsed) ? parsed : []).flatMap((name: unknown) =>
+        typeof name === "string" ? [recall(name)] : [],
+      ),
+    );
+  };
+  state.names ??= quietly(recallNames());
+  await state.names;
+}
+
+async function index() {
+  await recallAll();
+  await config.store?.set(NAMES, JSON.stringify(exemplars.keys().toArray()));
 }
 
 function learn(name: string, key: string, html: () => string) {
@@ -138,11 +163,15 @@ function learn(name: string, key: string, html: () => string) {
   if (shaped == null || shaped === "") {
     return found?.html ?? null;
   }
+  const isNew = known.size === 0;
   known.set(key, { html: shaped, at: Date.now() });
   if (found?.html !== shaped) {
     void quietly(
       config.store?.set(`skeletons:${name}`, JSON.stringify(flatten(known))),
     );
+  }
+  if (isNew) {
+    void quietly(index());
   }
   return shaped;
 }
@@ -168,12 +197,6 @@ async function recall(name: string) {
   } catch {
     asked.delete(name);
   }
-}
-
-function skeletonsOf(name: string) {
-  void recall(name);
-  const known = exemplars.get(name);
-  return known == null || known.size === 0 ? null : flatten(known);
 }
 
 export function part<T>(
@@ -213,12 +236,14 @@ provide(() => {
     isData: event.isDataRequest,
     render: (body, value, context, prefix) =>
       render(Frame, { props: { body, value }, context, idPrefix: prefix }).body,
-    skeleton: (shown, key, html) => {
-      track(event.locals).rendered.add(key);
-      void recall(shown.name);
-      return learn(shown.name, key, html);
+    skeleton: (name, key, html) => {
+      void recall(name);
+      return learn(name, key, html);
     },
-    exemplars: skeletonsOf,
+    shape: (name) => {
+      void recall(name);
+      return exemplars.get(name)?.get(name)?.html ?? null;
+    },
     stash: (html) => {
       const made = { text: html, hash: `${hashOf(html)}.html` };
       keep(made, event);
@@ -242,38 +267,29 @@ function preload(html: string, found: { parts: Set<Part> }) {
     : `${html.slice(0, at)}${links.join("")}${html.slice(at)}`;
 }
 
-function inject(html: string, event: RequestEvent, isDone: boolean) {
+function inject(html: string, event: RequestEvent) {
   const found = requests.get(event.locals);
-  if (found == null) {
+  if (found == null || found.isHeaded) {
     return html;
   }
-  if (!found.isHeaded) {
-    found.isHeaded = true;
-    html = preload(html, found);
+  found.isHeaded = true;
+  return preload(html, found);
+}
+
+async function shapes() {
+  await recallAll();
+  const all: Record<string, string> = {};
+  for (const known of exemplars.values()) {
+    Object.assign(all, flatten(known));
   }
-  if (!isDone) {
-    return html;
-  }
-  const wanted: Record<string, string> = {};
-  for (const created of found.parts) {
-    if (created.isInline) {
-      continue;
-    }
-    const known = Object.entries(skeletonsOf(created.name) ?? {});
-    for (const [key, shaped] of known) {
-      if (!found.rendered.has(key)) {
-        wanted[key] = shaped;
-      }
-    }
-  }
-  if (Object.keys(wanted).length === 0) {
-    return html;
-  }
-  const script = `<script type="application/json" id="${SCRIPT}">${JSON.stringify(wanted).replaceAll("<", String.raw`\u003c`)}</script>`;
-  const at = html.lastIndexOf("</body>");
-  return at === -1
-    ? `${html}${script}`
-    : `${html.slice(0, at)}${script}${html.slice(at)}`;
+  const text = JSON.stringify(all);
+  return new Response(text, {
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "public, max-age=600, stale-while-revalidate=86400",
+      etag: `"${hashOf(text)}"`,
+    },
+  });
 }
 
 async function rebuild(file: string, event: RequestEvent) {
@@ -313,7 +329,11 @@ async function rebuild(file: string, event: RequestEvent) {
 
 async function respond(event: RequestEvent) {
   const file = event.url.pathname.slice(settings.prefix.length);
-  if (!["GET", "HEAD"].includes(event.request.method) || !FILE.test(file)) {
+  const isRead = ["GET", "HEAD"].includes(event.request.method);
+  if (isRead && file === SHAPES) {
+    return shapes();
+  }
+  if (!isRead || !FILE.test(file)) {
     return new Response(null, { status: 404 });
   }
   const etag = `"${file}"`;
@@ -349,7 +369,7 @@ const handler: Handle = async ({ event, resolve }) => {
     return respond(event);
   }
   return resolve(event, {
-    transformPageChunk: ({ html, done }) => inject(html, event, done),
+    transformPageChunk: ({ html }) => inject(html, event),
   });
 };
 

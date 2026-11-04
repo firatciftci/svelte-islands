@@ -22,7 +22,6 @@ export class Part<T = unknown> {
   readonly bytes: number;
   readonly isEager: boolean;
   readonly fetch: Fetch;
-  readonly skeletons: Record<string, string> | null;
   readonly loaded: { value: T } | null;
 
   constructor({
@@ -32,7 +31,6 @@ export class Part<T = unknown> {
     bytes,
     isEager = false,
     fetch = "auto",
-    skeletons = null,
     loaded = null,
   }: {
     name: string;
@@ -41,7 +39,6 @@ export class Part<T = unknown> {
     bytes: number;
     isEager?: boolean;
     fetch?: Fetch;
-    skeletons?: Record<string, string> | null;
     loaded?: { value: T } | null;
   }) {
     this.name = name;
@@ -50,7 +47,6 @@ export class Part<T = unknown> {
     this.bytes = bytes;
     this.isEager = isEager;
     this.fetch = fetch;
-    this.skeletons = skeletons;
     this.loaded = loaded;
   }
 
@@ -67,8 +63,8 @@ export type Scope = {
     context: Map<unknown, unknown>,
     prefix: string,
   ) => string;
-  skeleton: (part: Part, key: string, html: () => string) => string | null;
-  exemplars: (name: string) => Record<string, string> | null;
+  skeleton: (name: string, key: string, html: () => string) => string | null;
+  shape: (name: string) => string | null;
   stash: (html: string) => string;
 };
 
@@ -107,16 +103,11 @@ type Head = [
   source: string,
   bytes: number,
   isEager: 0 | 1,
-  skeletons: Record<string, string> | null,
 ];
 
 type Encoded = Head | [...Head, unknown];
 
-function encode(
-  value: unknown,
-  isData: boolean,
-  skeletons: Record<string, string> | null,
-) {
+function encode(value: unknown, isData: boolean) {
   if (!(value instanceof Part)) {
     return false;
   }
@@ -126,7 +117,6 @@ function encode(
     value.source,
     value.bytes,
     (isData && value.fetch === "auto") || value.fetch === "preload" ? 1 : 0,
-    value.isInline ? null : skeletons,
   ];
   const encoded: Encoded =
     value.isInline && value.loaded != null
@@ -136,30 +126,21 @@ function encode(
 }
 
 function decode(encoded: Encoded) {
-  const [name, hash, source, bytes, isEager, skeletons] = encoded;
+  const [name, hash, source, bytes, isEager] = encoded;
   const part = new Part({
     name,
     hash,
     source,
     bytes,
     isEager: isEager === 1,
-    skeletons,
-    loaded: encoded.length > 6 ? { value: encoded[6] } : null,
+    loaded: encoded.length > 5 ? { value: encoded[5] } : null,
   });
   state.arrived(part);
   return part;
 }
 
 const codec = {
-  encode: (value: unknown) => {
-    const current = scope();
-    const isData = current?.isData === true;
-    return encode(
-      value,
-      isData,
-      isData && value instanceof Part ? current.exemplars(value.name) : null,
-    );
-  },
+  encode: (value: unknown) => encode(value, scope()?.isData === true),
   decode,
 };
 
@@ -173,10 +154,7 @@ const packed = {
 
 const compact = { pack: packed };
 
-const nested = {
-  encode: (value: unknown) => encode(value, false, null),
-  decode,
-};
+const nested = { encode: (value: unknown) => encode(value, false), decode };
 
 function index(codecs: Transport) {
   claim(Object.values(codecs).map(({ encode: reduce }) => reduce));
