@@ -16,9 +16,9 @@ export type { RebuildOptions } from "./rebuild.js";
 export type { Store } from "./stores.js";
 
 const TOKEN = "x-svelte-islands-token";
-const SHAPES = "skeletons";
+const SHAPES = "skeletons.json";
 const NAMES = "skeleton-names";
-const FILE = /^[\w-]{22}(?:\.html)?$/u;
+const FILE = /^[\w-]{22}\.(?:json|html)$/u;
 const RELEARN = 10 * 60_000;
 const OUTLINES = 4096;
 const HOLLOW = 3;
@@ -391,7 +391,7 @@ function preloads({ parts }: { parts: Set<Part> }) {
     .filter((created) => created.fetch === "preload" && !created.isInline)
     .map(
       (created) =>
-        `<link rel="preload" href="${settings.prefix}${created.hash}" as="fetch" crossorigin="anonymous">`,
+        `<link rel="preload" href="${settings.prefix}${created.hash}.json" as="fetch" crossorigin="anonymous">`,
     );
 }
 
@@ -402,7 +402,7 @@ function crawlable({ parts, files }: { parts: Set<Part>; files: Set<string> }) {
     ...parts
       .values()
       .filter((created) => !created.isInline)
-      .map((created) => created.hash),
+      .map((created) => `${created.hash}.json`),
   ]);
   return published
     .values()
@@ -578,12 +578,13 @@ async function respond(event: RequestEvent) {
       headers: { etag, "cache-control": IMMUTABLE, vary: "accept-encoding" },
     });
   }
+  const key = file.replace(/\.json$/u, "");
   let text: string | null = null;
   try {
     text =
-      recent.get(file) ??
-      (await quietly(config.store?.get(`p:${file}`))) ??
-      (await recover(file, event));
+      recent.get(key) ??
+      (await quietly(config.store?.get(`p:${key}`))) ??
+      (await recover(key, event));
   } catch {
     return new Response(null, {
       status: 503,

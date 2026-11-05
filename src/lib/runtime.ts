@@ -9,7 +9,7 @@ import { shape } from "./skeleton.js";
 const BUDGET = 64 * 1024 ** 2;
 const MARGIN = "320px";
 const DELAYS = [1000, 3000, 5000];
-const SHAPES = "skeletons";
+const SHAPES = "skeletons.json";
 const SAVED = "svelte-islands:skeletons";
 const SAVED_LIMIT = 512 * 1024;
 const BUSY = ".island-shell, [aria-busy='true']";
@@ -243,7 +243,7 @@ export function loadNow<T>(part: Part<T>): { value: T } | null {
   if (known != null) {
     return known;
   }
-  const text = markupNow(part.hash, part.source);
+  const text = markupNow(`${part.hash}.json`, part.source);
   if (text == null) {
     return null;
   }
@@ -256,7 +256,7 @@ async function request(part: Part) {
   const started = performance.now();
   try {
     const value = deserialize(
-      await persist(async () => fetched(part.hash, part.source)),
+      await persist(async () => fetched(`${part.hash}.json`, part.source)),
     );
     keep(part.hash, value, part.bytes);
     if (isObserved()) {

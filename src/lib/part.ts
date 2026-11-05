@@ -40,7 +40,7 @@ export const settings = { inline: 4096, prefix: "/_parts/" };
 export class Part<T = unknown> {
   /** The name given to `part()`. Skeletons are learned per name. */
   readonly name: string;
-  /** A hash of the contents, which is also the file name under the prefix. */
+  /** A hash of the contents. The file under the prefix is this hash plus `.json`. */
   readonly hash: string;
   /** The page that can make this part again if it's missing from the store. */
   readonly source: string;

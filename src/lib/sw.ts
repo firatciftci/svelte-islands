@@ -1,6 +1,6 @@
 const CACHE = "svelte-islands-parts";
 const LIMIT = 500;
-const SKELETONS = "skeletons";
+const SKELETONS = "skeletons.json";
 
 async function trim(cache: Cache, limit: number) {
   const keys = await cache.keys();

@@ -120,7 +120,7 @@ test.describe("hydration", () => {
       () => new Promise((resolve) => setTimeout(resolve, 300)),
     );
     await expect(press).toHaveText("pressed 0");
-    expect(urls.filter((url) => !url.endsWith("/skeletons"))).toStrictEqual([]);
+    expect(urls.filter((url) => !url.endsWith("/skeletons.json"))).toStrictEqual([]);
   });
 });
 
@@ -277,7 +277,7 @@ test.describe("navigation", () => {
     }).toPass({ timeout: 10_000 });
     await link.click();
     await expect
-      .poll(() => urls.filter((url) => !url.endsWith("/skeletons")).length)
+      .poll(() => urls.filter((url) => !url.endsWith("/skeletons.json")).length)
       .toBeGreaterThan(0);
   });
 });
@@ -294,7 +294,7 @@ test.describe("recovery", () => {
     page.on("response", (response) => {
       if (
         response.url().includes("/_parts/") &&
-        !response.url().endsWith("/skeletons")
+        !response.url().endsWith("/skeletons.json")
       ) {
         statuses.push(response.status());
       }
@@ -314,7 +314,7 @@ test.describe("recovery", () => {
   }) => {
     let refused = 0;
     await page.route("**/_parts/*", async (route) => {
-      if (route.request().url().endsWith("/skeletons") || refused >= 2) {
+      if (route.request().url().endsWith("/skeletons.json") || refused >= 2) {
         await route.continue();
         return;
       }
@@ -335,7 +335,7 @@ test.describe("recovery", () => {
     test.slow();
     let refused = 0;
     await page.route("**/_parts/*", async (route) => {
-      if (route.request().url().endsWith("/skeletons") || refused >= 1) {
+      if (route.request().url().endsWith("/skeletons.json") || refused >= 1) {
         await route.continue();
         return;
       }
@@ -356,7 +356,7 @@ test.describe("recovery", () => {
     test.slow();
     let isDown = true;
     await page.route("**/_parts/*", async (route) => {
-      if (isDown && !route.request().url().endsWith("/skeletons")) {
+      if (isDown && !route.request().url().endsWith("/skeletons.json")) {
         await route.fulfill({ status: 500 });
         return;
       }
@@ -441,10 +441,10 @@ test.describe("private parts", () => {
     const press = page.getByTestId("private-press");
     await press.click();
     await expect(press).toHaveText("pressed 1");
-    expect(urls.filter((url) => !url.endsWith("/skeletons"))).toStrictEqual([]);
+    expect(urls.filter((url) => !url.endsWith("/skeletons.json"))).toStrictEqual([]);
     const html = await page.content();
     expect(html).not.toContain("data-island-file");
-    const shapes = await (await request.get("/_parts/skeletons")).text();
+    const shapes = await (await request.get("/_parts/skeletons.json")).text();
     expect(shapes).not.toContain("secret-for");
   });
 
@@ -465,7 +465,7 @@ test.describe("private parts", () => {
 test.describe("the part route", () => {
   async function partOf(page: Page, path: string) {
     const url = page.waitForResponse((response) =>
-      /\/_parts\/[\w-]{22}$/u.test(new URL(response.url()).pathname),
+      /\/_parts\/[\w-]{22}\.json$/u.test(new URL(response.url()).pathname),
     );
     await page.goto(path);
     await hydrated(page);
@@ -505,7 +505,7 @@ test.describe("the part route", () => {
       "/x/../_parts/x",
       "/%2e/_parts/x",
     ]) {
-      for (const file of [missing, `${missing}.html`]) {
+      for (const file of [`${missing}.json`, `${missing}.html`]) {
         const response = await request.get(
           `/_parts/${file}?u=${encodeURIComponent(source)}`,
         );
@@ -517,7 +517,7 @@ test.describe("the part route", () => {
   test("refuses other methods and malformed names", async ({ request }) => {
     expect(
       (
-        await request.post("/_parts/aaaaaaaaaaaaaaaaaaaaaa", { data: {} })
+        await request.post("/_parts/aaaaaaaaaaaaaaaaaaaaaa.json", { data: {} })
       ).status(),
     ).toBe(404);
     expect((await request.get("/_parts/short")).status()).toBe(404);

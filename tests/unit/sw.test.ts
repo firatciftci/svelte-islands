@@ -120,15 +120,15 @@ describe("serveParts", () => {
 
   it("prefers the network for skeletons, and falls back to the cache", async () => {
     network.mockImplementation(async () => new Response("old"));
-    await serve("/_parts/skeletons").settled();
+    await serve("/_parts/skeletons.json").settled();
 
     network.mockImplementation(async () => new Response("new"));
-    const fresh = serve("/_parts/skeletons");
+    const fresh = serve("/_parts/skeletons.json");
     await fresh.settled();
     expect(await (await fresh.answer())?.text()).toBe("new");
 
     network.mockRejectedValue(new TypeError("offline"));
-    const offline = serve("/_parts/skeletons");
+    const offline = serve("/_parts/skeletons.json");
     await offline.settled();
     expect(await (await offline.answer())?.text()).toBe("new");
   });

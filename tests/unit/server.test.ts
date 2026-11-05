@@ -68,19 +68,22 @@ describe("the part server", () => {
   it("serves a part it made, immutably", async () => {
     const handler = server.handle();
     const made = publish(large);
-    const response = await serve(eventFor(`/_parts/${made.hash}`), handler);
+    const response = await serve(
+      eventFor(`/_parts/${made.hash}.json`),
+      handler,
+    );
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toContain("immutable");
-    expect(response.headers.get("etag")).toBe(`"${made.hash}"`);
+    expect(response.headers.get("etag")).toBe(`"${made.hash}.json"`);
     expect(await response.text()).toContain("xxx");
   });
 
   it("answers 304 to a matching validator, compressed or not", async () => {
     const handler = server.handle();
     const made = publish(large);
-    for (const etag of [`"${made.hash}"`, `"${made.hash}-br"`]) {
+    for (const etag of [`"${made.hash}.json"`, `"${made.hash}.json-br"`]) {
       const response = await serve(
-        eventFor(`/_parts/${made.hash}`, {
+        eventFor(`/_parts/${made.hash}.json`, {
           headers: { "if-none-match": etag },
         }),
         handler,
@@ -92,13 +95,13 @@ describe("the part server", () => {
   it("compresses with Brotli when the browser accepts it", async () => {
     const handler = server.handle();
     const made = publish(large);
-    const event = eventFor(`/_parts/${made.hash}`, {
+    const event = eventFor(`/_parts/${made.hash}.json`, {
       headers: { "accept-encoding": "gzip, br" },
     });
     const response = await serve(event, handler);
     expect(response.headers.get("content-encoding")).toBe("br");
     expect(response.headers.get("vary")).toBe("accept-encoding");
-    expect(response.headers.get("etag")).toBe(`"${made.hash}-br"`);
+    expect(response.headers.get("etag")).toBe(`"${made.hash}.json-br"`);
     const body = new Uint8Array(await response.arrayBuffer());
     expect(body.length).toBeLessThan(200);
     expect(brotliDecompressSync(body).toString()).toContain("xxx");
@@ -109,10 +112,10 @@ describe("the part server", () => {
     const small = publish({ a: 1 });
     const big = publish(large);
     const asks = [
-      eventFor(`/_parts/${small.hash}`, {
+      eventFor(`/_parts/${small.hash}.json`, {
         headers: { "accept-encoding": "br" },
       }),
-      eventFor(`/_parts/${big.hash}`, {
+      eventFor(`/_parts/${big.hash}.json`, {
         headers: { "accept-encoding": "gzip" },
       }),
     ];
@@ -126,7 +129,7 @@ describe("the part server", () => {
     const handler = server.handle({ compress: false });
     const made = publish(large);
     const response = await serve(
-      eventFor(`/_parts/${made.hash}`, {
+      eventFor(`/_parts/${made.hash}.json`, {
         headers: { "accept-encoding": "br" },
       }),
       handler,
@@ -136,6 +139,7 @@ describe("the part server", () => {
 
   it.each([
     ["a bad name", "/_parts/nope"],
+    ["a name with no extension", "/_parts/aaaaaaaaaaaaaaaaaaaaaa"],
     ["a dotted name", "/_parts/aaaaaaaaaaaaaaaaaaaaaa.js"],
     ["a slash", "/_parts/aaaaaaaaaaaaaaaaaaaaaa/x"],
   ])("answers 404 to %s", async (_, path) => {
@@ -150,7 +154,7 @@ describe("the part server", () => {
     const handler = server.handle();
     const made = publish(large);
     const response = await serve(
-      eventFor(`/_parts/${made.hash}`, { method: "POST" }),
+      eventFor(`/_parts/${made.hash}.json`, { method: "POST" }),
       handler,
     );
     expect(response.status).toBe(404);
@@ -159,7 +163,7 @@ describe("the part server", () => {
   it("answers an unknown part with 404 and no-store", async () => {
     const handler = server.handle();
     const response = await serve(
-      eventFor(`/_parts/${"a".repeat(22)}`),
+      eventFor(`/_parts/${"a".repeat(22)}.json`),
       handler,
     );
     expect(response.status).toBe(404);
@@ -183,7 +187,7 @@ describe("the part server", () => {
       ["a walk out and back in", "/_parts/../_parts/abc"],
     ])("refuses %s, for data and for HTML", async (_, source) => {
       const handler = server.handle();
-      for (const file of [missing, `${missing}.html`]) {
+      for (const file of [`${missing}.json`, `${missing}.html`]) {
         const fetcher = vi.fn(async (_target: URL) => new Response("{}"));
         const response = await serve(
           eventFor(`/_parts/${file}?u=${encodeURIComponent(source)}`, {
@@ -222,7 +226,7 @@ describe("the part server", () => {
         return new Response("{}");
       });
       const response = await serve(
-        eventFor(`/_parts/${hash}?u=${encodeURIComponent("/page?x=1")}`, {
+        eventFor(`/_parts/${hash}.json?u=${encodeURIComponent("/page?x=1")}`, {
           fetcher,
         }),
         fresh,
@@ -237,7 +241,8 @@ describe("the part server", () => {
     it("shares one run and then stops rerunning for misses", async () => {
       const handler = server.handle();
       const fetcher = vi.fn(async () => new Response("{}"));
-      const event = () => eventFor(`/_parts/${missing}?u=/page`, { fetcher });
+      const event = () =>
+        eventFor(`/_parts/${missing}.json?u=/page`, { fetcher });
       const responses = await Promise.all([
         serve(event(), handler),
         serve(event(), handler),
@@ -255,7 +260,7 @@ describe("the part server", () => {
       const fetcher = vi.fn(async () => new Response("{}"));
       for (const language of ["en", "fr", "en"]) {
         await serve(
-          eventFor(`/_parts/${missing}?u=/page`, {
+          eventFor(`/_parts/${missing}.json?u=/page`, {
             fetcher,
             headers: { "accept-language": language },
           }),
@@ -277,14 +282,14 @@ describe("the part server", () => {
           }),
       );
       const first = serve(
-        eventFor(`/_parts/${missing}?u=/a`, { fetcher }),
+        eventFor(`/_parts/${missing}.json?u=/a`, { fetcher }),
         handler,
       );
       await vi.waitFor(() => {
         expect(fetcher).toHaveBeenCalled();
       });
       const second = await serve(
-        eventFor(`/_parts/${missing}?u=/b`, { fetcher }),
+        eventFor(`/_parts/${missing}.json?u=/b`, { fetcher }),
         handler,
       );
       expect(second.status).toBe(503);
@@ -297,7 +302,7 @@ describe("the part server", () => {
     it("answers 503 when a rerun takes too long", async () => {
       const handler = server.handle({ rebuild: { timeout: 5 } });
       const response = await serve(
-        eventFor(`/_parts/${missing}?u=/a`, {
+        eventFor(`/_parts/${missing}.json?u=/a`, {
           fetcher: async () => new Promise<Response>(() => {}),
         }),
         handler,
@@ -309,7 +314,7 @@ describe("the part server", () => {
       const handler = server.handle({ rebuild: false });
       const fetcher = vi.fn(async () => new Response("{}"));
       const response = await serve(
-        eventFor(`/_parts/${missing}?u=/a`, { fetcher }),
+        eventFor(`/_parts/${missing}.json?u=/a`, { fetcher }),
         handler,
       );
       expect(response.status).toBe(404);
@@ -353,7 +358,10 @@ describe("the part server", () => {
       const made = publish(secret, { private: true });
       await Promise.resolve();
       expect(held.values().toArray().join("")).not.toContain("s3cret-token");
-      const response = await serve(eventFor(`/_parts/${made.hash}`), handler);
+      const response = await serve(
+        eventFor(`/_parts/${made.hash}.json`),
+        handler,
+      );
       expect(response.status).toBe(404);
     });
 
@@ -378,7 +386,7 @@ describe("the part server", () => {
         return new Response("{}");
       });
       const response = await serve(
-        eventFor(`/_parts/${made.hash}?u=/page`, { fetcher }),
+        eventFor(`/_parts/${made.hash}.json?u=/page`, { fetcher }),
         handler,
       );
       expect(response.status).toBe(404);
@@ -591,7 +599,7 @@ describe("the part server", () => {
     held.set(`p:${"b".repeat(22)}`, "stored");
     const handler = server.handle({ store });
     const response = await serve(
-      eventFor(`/_parts/${"b".repeat(22)}`),
+      eventFor(`/_parts/${"b".repeat(22)}.json`),
       handler,
     );
     expect(await response.text()).toBe("stored");
@@ -609,9 +617,15 @@ describe("the part server", () => {
       },
     });
     const made = publish(large);
-    const response = await serve(eventFor(`/_parts/${made.hash}`), handler);
+    const response = await serve(
+      eventFor(`/_parts/${made.hash}.json`),
+      handler,
+    );
     expect(response.status).toBe(200);
-    const unknown = await serve(eventFor(`/_parts/${"c".repeat(22)}`), handler);
+    const unknown = await serve(
+      eventFor(`/_parts/${"c".repeat(22)}.json`),
+      handler,
+    );
     expect(unknown.status).toBe(404);
   });
 
@@ -620,10 +634,10 @@ describe("the part server", () => {
     const first = publish({ rows: "a".repeat(6000) });
     const second = publish({ rows: "b".repeat(6000) });
     expect(
-      (await serve(eventFor(`/_parts/${first.hash}`), handler)).status,
+      (await serve(eventFor(`/_parts/${first.hash}.json`), handler)).status,
     ).toBe(404);
     expect(
-      (await serve(eventFor(`/_parts/${second.hash}`), handler)).status,
+      (await serve(eventFor(`/_parts/${second.hash}.json`), handler)).status,
     ).toBe(200);
   });
 
@@ -650,7 +664,7 @@ describe("the part server", () => {
         return new Response(transformed);
       },
     });
-    expect(transformed).toContain(`href="/_parts/${made.hash}"`);
+    expect(transformed).toContain(`href="/_parts/${made.hash}.json"`);
     expect(transformed).toContain('rel="preload"');
   });
 });

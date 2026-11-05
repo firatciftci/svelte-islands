@@ -32,18 +32,19 @@ test("a part written on one server reads from R2 on another", async ({
   test.skip(process.env.FIXTURE_STORE !== "r2", "This needs the R2 store.");
   const { hash } = await freshPart(request);
   await expect
-    .poll(async () => (await request.get(`${B}/_parts/${hash}`)).status(), {
-      timeout: 15_000,
-    })
+    .poll(
+      async () => (await request.get(`${B}/_parts/${hash}.json`)).status(),
+      { timeout: 15_000 },
+    )
     .toBe(200);
-  const body = await (await request.get(`${B}/_parts/${hash}`)).text();
+  const body = await (await request.get(`${B}/_parts/${hash}.json`)).text();
   expect(body.length).toBeGreaterThan(100);
 });
 
 test("simultaneous requests for one part all succeed", async ({ request }) => {
   const { hash } = await freshPart(request);
   const seen = await statuses(async () =>
-    request.get(`${A}/_parts/${hash}`, {
+    request.get(`${A}/_parts/${hash}.json`, {
       headers: { "accept-encoding": "br" },
     }),
   );
@@ -53,7 +54,7 @@ test("simultaneous requests for one part all succeed", async ({ request }) => {
 test("simultaneous rebuilds of one page all succeed", async ({ request }) => {
   const { hash, source } = await freshPart(request);
   const seen = await statuses(async () =>
-    request.get(`${B}/_parts/${hash}?u=${encodeURIComponent(source)}`),
+    request.get(`${B}/_parts/${hash}.json?u=${encodeURIComponent(source)}`),
   );
   expect(seen).toEqual(new Set([200]));
 });
