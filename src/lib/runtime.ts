@@ -1,6 +1,8 @@
+import { untrack } from "svelte";
 import { on } from "svelte/events";
 import { SvelteSet } from "svelte/reactivity";
 import type { Strategy } from "./part.js";
+import { emit, isObserved } from "./observe.js";
 import { deserialize, onArrival, Part, quietly, settings } from "./part.js";
 import { shape } from "./skeleton.js";
 
@@ -170,8 +172,34 @@ async function persist<T>(run: () => Promise<T>) {
   return run();
 }
 
-export async function markupOf(file: string, source: string) {
-  return persist(async () => fetched(file, source));
+export async function markupOf(
+  file: string,
+  source: string,
+  { name, hash }: Part,
+) {
+  const started = performance.now();
+  try {
+    const text = await persist(async () => fetched(file, source));
+    if (isObserved()) {
+      emit({
+        type: "markup",
+        name,
+        hash,
+        bytes: text.length,
+        duration: performance.now() - started,
+      });
+    }
+    return text;
+  } catch (error) {
+    report(name, hash, error);
+    throw error;
+  }
+}
+
+function report(name: string, hash: string, error: unknown) {
+  if (isObserved()) {
+    emit({ type: "fail", name, hash, message: String(error) });
+  }
 }
 
 export function markupNow(name: string, source: string) {
@@ -209,19 +237,32 @@ export function loadNow<T>(part: Part<T>): { value: T } | null {
 }
 
 async function request(part: Part) {
+  const started = performance.now();
   try {
     const value = deserialize(
       await persist(async () => fetched(part.hash, part.source)),
     );
     keep(part.hash, value, part.bytes);
+    if (isObserved()) {
+      emit({
+        type: "load",
+        name: part.name,
+        hash: part.hash,
+        bytes: part.bytes,
+        duration: performance.now() - started,
+      });
+    }
     return value;
+  } catch (error) {
+    report(part.name, part.hash, error);
+    throw error;
   } finally {
     pending.delete(part.hash);
   }
 }
 
 export async function load<T>(part: Part<T>): Promise<T> {
-  const known = peek(part);
+  const known = untrack(() => peek(part));
   if (known != null) {
     return known.value;
   }
@@ -460,6 +501,14 @@ function boxes(element: Element): Array<Element> {
   return getComputedStyle(element).display === "contents"
     ? [...element.children].flatMap((child) => boxes(child))
     : [element];
+}
+
+export function heightOf(element: Element) {
+  const rects = boxes(element).map((box) => box.getBoundingClientRect());
+  return rects.length === 0
+    ? 0
+    : Math.max(...rects.map(({ bottom }) => bottom)) -
+        Math.min(...rects.map(({ top }) => top));
 }
 
 function observerOf(margin: string) {

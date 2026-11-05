@@ -254,6 +254,33 @@ Neither component adds a box, so the content and its skeleton keep their places 
 - **Scheduled hydration.** When several islands are ready at once, they hydrate one after another in slices of about 8 ms, and the browser gets the main thread back between slices to handle input and paint. Islands that hydrate on interaction go first, then `visible` and `eager` islands, then `media` islands, then `idle` ones. An island with a held click moves to the front. Islands that render in the browser, after a client-side navigation or with `ssr={false}`, go through the same queue.
 - **Compact transport.** If a part's value is plain data (objects, arrays, strings, numbers, booleans, `null`, and `undefined`), it is sent as packed JSON rather than in devalue's format. Arrays of objects with the same keys are sent as columns. Repeated values, small objects, and lists are stored once and referred to by index. Runs of consecutive integers are sent as ranges, and arrays that are mostly zeros or nulls are sent as the positions of the other values. Arrays inside page data are packed the same way. Values such as dates, maps, and nested objects referenced from more than one place are sent in devalue's format. A small object of plain values referenced from several places arrives as separate copies. On our pages, packed parts were 3 to 7 times smaller than devalue's output, and about half the size after gzip.
 
+## Measuring real users
+
+`observe` calls your function with what each island does in the browser, so you can send real timings to your analytics. Call it once in your root layout, in the browser only:
+
+```ts
+import { browser } from "$app/env";
+import { observe } from "svelte-islands";
+
+if (browser) {
+  observe((event) => {
+    if (event.type === "hydrate") {
+      navigator.sendBeacon("/metrics", JSON.stringify(event));
+    }
+  });
+}
+```
+
+Each event has a `type`, plus the part's `name` and `hash`:
+
+- `load`: the browser downloaded and decoded a part's data. Also has `bytes` and `duration`.
+- `markup`: the browser downloaded a deferred island's HTML. Also has `bytes` and `duration`.
+- `hydrate`: an island became interactive. Also has `when`, the strategy that woke it, and `duration`.
+- `reveal`: content replaced a skeleton. `from` and `to` are the island's height in pixels before and after, so a large difference means the skeleton shifted the page.
+- `fail`: a part or deferred HTML could not be downloaded. Also has `message`.
+
+The library measures heights only while a listener is attached, so an app that never calls `observe` pays nothing for it.
+
 ## Private data
 
 Parts larger than `inline` are stored under a hash of their contents and served from a public URL with `cache-control: public, immutable`. That is what makes them fast, and it also means anyone with the URL can read them, and any CDN or proxy between you and your visitors can keep a copy. Do not put anything that differs per visitor in an ordinary part.

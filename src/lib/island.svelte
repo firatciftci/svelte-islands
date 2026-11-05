@@ -1,5 +1,6 @@
 <script lang="ts" generics="T">
   import type { Snippet } from "svelte";
+  import { dev } from "$app/env";
   import { invalidateAll } from "$app/navigation";
   import {
     flushSync,
@@ -12,6 +13,7 @@
   import type { Part, Strategy } from "./part.js";
   import type { Claimed } from "./runtime.js";
   import Frame from "./frame.svelte";
+  import { emit, isObserved } from "./observe.js";
   import { quietly, scope } from "./part.js";
   import {
     boot,
@@ -19,6 +21,7 @@
     claim,
     fallback,
     Gone,
+    heightOf,
     intercept,
     isFirstGone,
     load,
@@ -185,6 +188,27 @@
     attempt++;
   }
 
+  let before: number | null = null;
+
+  function measure(target: HTMLElement | null) {
+    if (target != null && isObserved()) {
+      before = heightOf(target);
+    }
+  }
+
+  function revealed(target: HTMLElement) {
+    if (before != null && isObserved()) {
+      emit({
+        type: "reveal",
+        name: origin.name,
+        hash: origin.hash,
+        from: before,
+        to: heightOf(target),
+      });
+    }
+    before = null;
+  }
+
   function release() {
     isReleased = true;
   }
@@ -219,8 +243,18 @@
         return;
       }
       stopWanting();
+      const started = performance.now();
       instance = hydrate(Frame, { target, props: { body, value }, context });
       target.dataset.islandState = "live";
+      if (isObserved()) {
+        emit({
+          type: "hydrate",
+          name: origin.name,
+          hash: origin.hash,
+          when: plan.when,
+          duration: performance.now() - started,
+        });
+      }
       if (held?.isHolding() === true) {
         flushSync();
       }
@@ -291,12 +325,14 @@
         return;
       }
       stopWanting();
+      measure(target);
       const template = document.createElement("template");
       template.innerHTML = html;
       target.querySelector(":scope > .island-outline")?.remove();
       skeleton.replaceWith(template.content);
       target.dataset.islandState = "static";
       target.removeAttribute("aria-busy");
+      revealed(target);
       rest = awaken(target);
     };
     const stop = arm(target, plan.fetch, () => {
@@ -304,7 +340,7 @@
       if (strategy === "eager" || strategy === "visible") {
         void quietly(load(origin));
       }
-      markupOf(file, origin.source).then(show, () => {
+      markupOf(file, origin.source, origin).then(show, () => {
         if (isLive) {
           release();
         }
@@ -338,7 +374,10 @@
     }
     let job: ReturnType<typeof schedule> | null = null;
     const stop = arm(target, plan.when, () => {
-      job = later(release);
+      job = later(() => {
+        measure(target);
+        release();
+      });
     });
     const stopWanting =
       adopted?.isBusy === false
@@ -362,10 +401,14 @@
     };
   }
 
+  let empty: HTMLElement | null = null;
+
   function learn(target: HTMLElement) {
     if (current != null) {
+      revealed(target);
       return capture(key, target);
     }
+    empty = target;
   }
 
   onMount(boot);
@@ -390,6 +433,7 @@
       (value) => {
         if (isLive) {
           job = later(() => {
+            measure(empty);
             fetched = { hash: target.hash, value };
           });
         }
@@ -416,6 +460,8 @@
   <div
     class={["island", className]}
     data-island={origin.hash}
+    data-island-name={dev ? origin.name : undefined}
+    data-island-bytes={dev ? origin.bytes : undefined}
     data-island-state={adopted.state}
     data-island-file={adopted.file}
     data-island-needs={adopted.needs}
@@ -430,6 +476,8 @@
   <div
     class={["island", className]}
     data-island={part.hash}
+    data-island-name={dev ? part.name : undefined}
+    data-island-bytes={dev ? part.bytes : undefined}
     aria-busy={current == null ? "true" : undefined}
     {@attach learn}
   >

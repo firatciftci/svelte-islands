@@ -46,9 +46,18 @@ async function reach(page: Page, testId: string) {
 
 async function hydrated(page: Page) {
   await page.waitForFunction(
+    () => document.documentElement.dataset.hydrated === "true",
+  );
+}
+
+async function observed(page: Page) {
+  return page.evaluate(
     () =>
-      document.querySelector("[data-island-state]") != null &&
-      document.readyState === "complete",
+      (
+        globalThis as unknown as {
+          islandEvents: Array<Record<string, unknown>>;
+        }
+      ).islandEvents,
   );
 }
 
@@ -302,8 +311,62 @@ test.describe("recovery", () => {
     await hydrated(page);
     const retry = await reach(page, "retry");
     isDown = false;
+    await expect(page.getByTestId("deferred")).toBeAttached();
+    await expect(retry).toBeVisible();
     await retry.click();
     await expect(page.getByTestId("client")).toBeVisible();
+    expect(await observed(page)).toContainEqual(
+      expect.objectContaining({ type: "fail", name: "client.rows" }),
+    );
+  });
+
+  test("an eager island keeps its state when another part arrives", async ({
+    page,
+  }) => {
+    await page.goto(`/eager?seed=${crypto.randomUUID()}`);
+    await hydrated(page);
+    await expect(page.locator('[data-island-state="live"]')).toHaveCount(1);
+    const press = page.getByTestId("eager-press");
+    await press.click();
+    await expect(press).toHaveText("pressed 1");
+    await page.getByTestId("fetch").click();
+    await expect(page.getByTestId("fetched")).toHaveText("true");
+    await expect(page.locator('[data-island-state="live"]')).toHaveCount(1);
+    await expect(press).toHaveText("pressed 1");
+    await press.click();
+    await expect(press).toHaveText("pressed 2");
+  });
+});
+
+test.describe("observe", () => {
+  test("reports each load, hydration, and skeleton swap", async ({ page }) => {
+    await page.goto(seeded());
+    await hydrated(page);
+    await (await reach(page, "deferred")).getByRole("button").click();
+    await reach(page, "client");
+    await expect
+      .poll(async () => observed(page))
+      .toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ type: "markup", name: "deferred.rows" }),
+          expect.objectContaining({
+            type: "reveal",
+            name: "deferred.rows",
+            to: expect.any(Number),
+          }),
+          expect.objectContaining({
+            type: "hydrate",
+            name: "deferred.rows",
+            when: "interaction",
+          }),
+          expect.objectContaining({ type: "load", name: "client.rows" }),
+          expect.objectContaining({ type: "reveal", name: "client.rows" }),
+        ]),
+      );
+    const reveal = (await observed(page)).find(
+      (event) => event.type === "reveal" && event.name === "deferred.rows",
+    );
+    expect(reveal?.to).toBeGreaterThan(1000);
   });
 });
 
