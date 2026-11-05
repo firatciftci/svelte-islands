@@ -2,6 +2,8 @@
 
 Islands for SvelteKit. Heavy parts of a page render on the server as plain HTML, and the browser downloads their data and hydrates them only when they're needed: when they scroll into view, when the browser is idle, when a media query matches, or when someone interacts with them. An island can also leave its HTML out of the page entirely and fetch it as it nears the viewport. Client-side navigation keeps working, and while a part's data loads, the island shows a skeleton generated from what it rendered last time.
 
+Guides: [Moving a page to islands](docs/migrating.md) and [Troubleshooting](docs/troubleshooting.md).
+
 ## Why
 
 A SvelteKit page ships its load data twice: once as HTML and once as serialized data for hydration. For a page with a large table, map, or chart, the serialized copy can be several megabytes that the browser parses before anything is interactive. svelte-islands takes that data out of the page. Each part is stored under a hash of its contents and served from its own immutable URL, so browsers and CDNs can cache it for good. Deferred islands do the same for HTML, so a long table below the fold costs the page a small skeleton instead of hundreds of kilobytes of markup.
@@ -107,7 +109,7 @@ If a deferred island's HTML can't be fetched, it renders in the browser instead.
 
 `part()` takes an options object as its third argument. Its `fetch` option sets when the browser downloads the part's data:
 
-- `auto` (the default): on the first page load, the browser downloads the data when the island needs it. When someone navigates to the page from elsewhere in the app, the browser starts downloading it as soon as the page's data arrives. If a link uses `data-sveltekit-preload-data="hover"`, the download can start as soon as someone hovers over the link. Use `lazy` for data that is expensive to download.
+- `auto` (the default): on the first page load, the browser downloads the data when the island needs it. When someone navigates to the page from elsewhere in the app, the browser starts downloading it as soon as the page's data arrives. If a link uses `data-sveltekit-preload-data="hover"`, the download can start as soon as someone hovers over the link on SvelteKit 3.1 or later, and when they click it on 3.0. Use `lazy` for data that is expensive to download.
 - `lazy`: the browser downloads the data only when the island needs it or when you call `load(part)`.
 - `preload`: the browser starts downloading the data as soon as the page arrives. On the first page load, the server also adds a `<link rel="preload">` for the data to the page's head, as long as the part is ready before the server sends the head. Use it for data the page needs right away that is too large to inline, such as the data behind a chart at the top of the page.
 
@@ -128,6 +130,7 @@ export const load = async () => ({
 - `view`: a name for this rendering, when the same part renders in more than one way. Each view learns its own skeleton.
 - `failed`: a snippet shown when the data can't be loaded. It receives a `retry` function.
 - `class`: a class for the island's wrapper.
+- `as`: the wrapper's tag, `div` by default. Use `tbody` to put an island inside a table. See [Long tables](#long-tables).
 
 ### Reading parts in script
 
@@ -196,6 +199,41 @@ The script skips links and submit buttons because the browser has already acted 
 </ol>
 ```
 
+### Long tables
+
+A table with thousands of elements takes a long time to hydrate in one go, and a `div` can't sit between a `table` and its rows. There are two ways to handle one.
+
+If the table starts below the fold, defer it. The page then holds only a skeleton, and the rows arrive when someone scrolls close to the table. The skeleton keeps the first few rows and adds one spacer row for the rest, so the table holds about the right height while it waits. Set `--island-item` to the height of a row so that the spacer matches.
+
+```svelte
+<div style="--island-item: 2.75rem">
+  <Island part={data.rows} defer when="visible">
+    {#snippet children(rows)}
+      <ResultsTable {rows} />
+    {/snippet}
+  </Island>
+</div>
+```
+
+If the table is near the top of the page, or its HTML has to be in the page, split it into a `tbody` per chunk with `as="tbody"`. Each chunk hydrates on its own when it comes into view, and all the chunks share one part, so the data downloads once.
+
+```svelte
+<table>
+  <thead>...</thead>
+  {#each ["0", "1", "2"] as chunk (chunk)}
+    <Island part={data.rows} view={chunk} as="tbody" when="visible">
+      {#snippet children(rows)}
+        {#each rows.slice(Number(chunk) * 100, (Number(chunk) + 1) * 100) as row (row.id)}
+          <tr><td>{row.name}</td></tr>
+        {/each}
+      {/snippet}
+    </Island>
+  {/each}
+</table>
+```
+
+`as="tbody"` needs its server HTML in the page, because a skeleton's wrapper can't live inside a table. It throws an error if you combine it with `defer` or `ssr={false}`.
+
 ### Printing, find in page, and no JavaScript
 
 Content that hasn't loaded still prints, and people can still find it. When the browser is about to print, each static island hydrates, each deferred island fetches its HTML, and each `unroll` list renders every item. Browsers don't wait for asynchronous work after `beforeprint`, so these steps use synchronous requests; this is the only time the library blocks the main thread on the network. When someone presses Ctrl+F or Cmd+F, islands start loading as they would on scroll, and `unroll` lists keep growing, so their text becomes searchable. Choosing Find from the browser's menu sends the page no event, so the library can't react to it.
@@ -248,7 +286,7 @@ Neither component adds a box, so the content and its skeleton keep their places 
 - **Content-addressed parts.** `part()` serializes the value, hashes it, and keeps the text in memory and in your store. Parts of 4,096 characters or less are inlined into the page instead. Deferred HTML is stored the same way, at `/_parts/<hash>.html`.
 - **Rebuilds.** If a part or deferred HTML is requested after the server no longer has it, the client asks again with the page it came from, and the server reruns that page to recover it. If the data has changed since, the page reloads its data.
 - **Retries.** A failed fetch is retried after 1, 3, and 5 seconds before the island shows its failure state. A part the server can no longer rebuild isn't retried.
-- **Learned skeletons.** The server turns each island's rendered HTML into a skeleton made of bars and blocks, and the client does the same from the live DOM. A skeleton keeps the island's layout classes but drops content with no text or media, and it keeps only the first few of a run of repeated elements, such as table rows, so it stays under 12 KB. `Await` also renders its children on the server once its promise resolves and learns from that HTML, so later visitors get a skeleton based on a server render that waited on streamed data. Skeletons are kept per part name and view. A page's HTML holds only the skeletons it shows right away. The client fetches the rest from `/_parts/skeletons` when it's idle, so that client-side navigation can show them, and it saves the skeletons it learns from the DOM in `localStorage`.
+- **Learned skeletons.** The server turns each island's rendered HTML into a skeleton made of bars and blocks, and the client does the same from the live DOM. A skeleton keeps the island's layout classes but drops content with no text or media, and it keeps only the first few of a run of repeated elements, such as table rows, so it stays under 12 KB. Table rows it leaves out become one spacer row that holds their height. `Await` also renders its children on the server once its promise resolves and learns from that HTML, so later visitors get a skeleton based on a server render that waited on streamed data. Skeletons are kept per part name and view. A page's HTML holds only the skeletons it shows right away. The client fetches the rest from `/_parts/skeletons` when it's idle, so that client-side navigation can show them, and it saves the skeletons it learns from the DOM in `localStorage`.
 - **Part needs.** While the server renders an island, it records every other part the island reads and writes the ones that aren't inlined to `data-island-needs`. The browser loads them with the island's own part before it hydrates. Without this, the island could render differently from the server's HTML, and Svelte would clear that block until the part arrived.
 - **Shared observers.** Islands with the same `margin` share one `IntersectionObserver`.
 - **Scheduled hydration.** When several islands are ready at once, they hydrate one after another in slices of about 8 ms, and the browser gets the main thread back between slices to handle input and paint. Islands that hydrate on interaction go first, then `visible` and `eager` islands, then `media` islands, then `idle` ones. An island with a held click moves to the front. Islands that render in the browser, after a client-side navigation or with `ssr={false}`, go through the same queue.
@@ -301,9 +339,35 @@ Skeletons remove text, attribute values, images, and URLs, but they keep the cla
 
 In dev, the library warns when a public part is made during a request that has read cookies. Turn the warning off with `handle({ warnOnCookies: false })`.
 
+## Stores
+
+A store keeps parts, deferred HTML, and skeletons where every server can read them, so a server that restarted or never made a part doesn't have to rerun a page to recover it. `svelte-islands/stores` has ready-made ones:
+
+```ts
+import { Redis } from "ioredis";
+import { handle as islands } from "svelte-islands/server";
+import { compressed, redisStore } from "svelte-islands/stores";
+
+const client = new Redis(process.env.REDIS_URL);
+
+export const handle = islands({
+  store: compressed(redisStore(client, { ttl: 60 * 60 * 24 * 30 })),
+});
+```
+
+- `fileStore({ directory })`: files in a directory, for one server or several sharing a disk. Writes are atomic. It never deletes anything, so prune old files yourself.
+- `redisStore(client, { prefix, ttl })`: Redis, with a client from `ioredis` or `redis`. `ttl` takes the expiry in seconds, and entries don't expire without it.
+- `r2Store(bucket, { prefix })`: a Cloudflare R2 binding. See [Cloudflare Workers](#cloudflare-workers).
+- `s3Store({ client, bucket, prefix, GetObjectCommand, PutObjectCommand })`: S3 or any service that speaks its API, through the AWS SDK. You pass in the two commands so that the library doesn't depend on the SDK.
+- `compressed(store)`: gzips what another store keeps. It can still read entries stored uncompressed, so you can add it to a store that already has data.
+
+You can also write your own: a store is any object with `get(key)` and `set(key, text)`, both returning promises.
+
+A store is a cache, so a read or write that fails doesn't fail the request. The library reads the entry from memory or reruns the page instead. So that a serverless platform doesn't freeze a function in the middle of a write, the library hands its writes to `waitUntil` when the platform provides it, and otherwise holds the response for up to 1 second while they finish.
+
 ## Where it runs
 
-CI runs the browser tests against Svelte 5.57.0 with Kit 3.0.0, against the newest release of both, and with Svelte's async mode turned on.
+CI runs the browser tests against Svelte 5.57.0 with Kit 3.0.0, against the newest release of both, with Svelte's async mode turned on, and on Cloudflare's workerd runtime with and without an R2 store.
 
 ### Node servers
 
@@ -318,9 +382,116 @@ A static host has no server to rebuild a missing part, which leads to two differ
 - After a deploy, a visitor who still has an old page open can only load its parts if the host still has the old files. Keep the previous build's `_parts/` files in place for a while if that matters to you. Their names are hashes of their contents, so old and new files never collide.
 - The skeleton file holds the shapes learned up to the moment the crawler requested it. A page that was crawled later still has its own skeletons in its HTML. A client navigation to that page can show a plain placeholder instead of a learned skeleton.
 
+### Cloudflare Workers
+
+Add the `nodejs_compat` flag, which the library needs for `node:crypto`, and bind a bucket:
+
+```jsonc
+{
+  "compatibility_flags": ["nodejs_compat"],
+  "r2_buckets": [{ "binding": "PARTS", "bucket_name": "parts" }],
+}
+```
+
+```ts
+import { env } from "cloudflare:workers";
+import { handle as islands } from "svelte-islands/server";
+import { r2Store } from "svelte-islands/stores";
+
+export const handle = islands({
+  store: r2Store(() => env.PARTS),
+  memory: 16 * 1024 * 1024,
+});
+```
+
+Pass `r2Store` a function rather than the binding, because reading `env` during a prerender throws an error. Lower `memory` too: a Worker's limit is 128 MB, and the default keeps up to 64 MiB of parts.
+
+Workers run without a store, but isolates don't share memory, so a part made in one is rebuilt in another. Use a store if you can.
+
+### Serverless functions and other runtimes
+
+Node functions on platforms such as Vercel, Netlify, and AWS Lambda run the same code as `adapter-node`, though CI doesn't test them directly. Their instances stop often and don't share memory, so pass a shared store such as Redis, R2, or S3. `fileStore` doesn't suit them unless the instances share a persistent disk.
+
+A runtime without `node:crypto`, such as Vercel's Edge runtime, isn't supported. `part()` has to hash its value synchronously, and Web Crypto can only hash asynchronously.
+
 ### Svelte's async mode
 
 Async mode works with or without `await` in your components. An island's server HTML has to render synchronously, though, so an island whose children use `await` can't be part of it. That island shows a skeleton and renders in the browser when it comes into view, and in dev the library logs a warning naming the part. To keep the island in the server HTML, load the data into its part.
+
+## Service workers
+
+`svelte-islands/sw` lets a page work offline once someone has visited it. Call `serveParts` first in your `fetch` listener. It returns `true` when it handled the request:
+
+```ts
+import { version } from "$app/env";
+import { assets, immutable } from "$app/manifest";
+import { self } from "$app/service-worker";
+import { serveParts } from "svelte-islands/sw";
+
+const FILES = [...immutable, ...assets].map((file) => file.path);
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(`assets-${version}`).then((cache) => cache.addAll(FILES)),
+  );
+});
+
+self.addEventListener("fetch", (event) => {
+  if (serveParts(event)) {
+    return;
+  }
+  // Handle your pages and assets here.
+});
+```
+
+Parts and deferred HTML come from the cache first, because their names are hashes of their contents. The skeleton file comes from the network first, because it changes over time. The helper keeps the newest 500 entries. Pass `serveParts(event, { prefix, cache, limit })` to change the URL prefix, the cache's name, or that limit. If your app sets `paths.base`, the prefix has to include it.
+
+## Tooling
+
+### Budget check
+
+`svelte-islands check` fetches your pages from a running server and fails if any of them is over its budget, so you can run it in CI or before a deploy. Put the budget in `islands.budget.json`. Limits are in KiB, and a page can have its own:
+
+```json
+{
+  "limits": { "raw": 400, "gzip": 60, "inline": 150 },
+  "pages": { "/": {}, "/largest-page": { "raw": 800 } }
+}
+```
+
+```sh
+npx svelte-islands check http://localhost:4173
+```
+
+`raw` is the size of the HTML, `gzip` is its compressed size, and `inline` is how much of it is inline script. The command exits with 0 when every page is within budget, 1 when a page is over, and 2 for a usage or configuration error. `--config <file>` points it at another budget file.
+
+### ESLint rules
+
+```js
+import islands from "svelte-islands/eslint";
+
+export default [islands.configs.recommended];
+```
+
+- `no-public-per-visitor-part` warns when a function that reads `cookies` or `locals` makes a part without `private: true`, and it can suggest adding it.
+- `no-server-import-in-client` flags an import of `svelte-islands/server` in a component or a universal load file.
+- `no-loaded-in-client` flags a read of `.loaded` in browser code. That value is only set where the part was made, so it's `null` in the browser for most parts. Use `peek` or `load` instead.
+- `stable-part-name` warns when a part's name is built from data, because skeletons are learned per name and a new name never reuses one.
+
+### Overlay
+
+Render `Devtools` in development to see every island on the page, with its state, data size, and timings. It flags failed downloads, parts over 256 KiB, and skeletons that were off by more than 16 pixels. Those two limits are its `large` and `shift` props.
+
+```svelte
+<script lang="ts">
+  import { dev } from "$app/env";
+  import Devtools from "svelte-islands/devtools";
+</script>
+
+{#if dev}
+  <Devtools />
+{/if}
+```
 
 ## Options
 
@@ -332,7 +503,7 @@ Async mode works with or without `await` in your components. An island's server 
 
 `handle({ store, memory, prepare, vary, rebuild, compress, warnOnCookies })`
 
-- `store`: an object with `get(key)` and `set(key, text)` that persists parts, deferred HTML, and skeletons across restarts and servers, such as Redis.
+- `store`: an object with `get(key)` and `set(key, text)` that persists parts, deferred HTML, and skeletons across restarts and servers. See [Stores](#stores).
 - `memory`: how many characters of parts and deferred HTML to keep in memory. The default is 67,108,864 (64 × 1024²).
 - `prepare(request, event)`: lets you adjust the internal request used to rebuild a part, for example to add a header your load functions read.
 - `vary(event)`: returns any value other than an island's data that can change its text, such as the locale, so each value gets its own cached outline.
@@ -349,6 +520,7 @@ Skeletons inherit the island's text color. Set these custom properties to change
 - `--island-pulse`: the length of the pulse animation.
 - `--island-surface`: the background of a region that has no learned skeleton yet. The default is transparent.
 - `--island-inset`: the padding of that region. The default is 0.
+- `--island-item`: the height of the spacer row for each table row a skeleton leaves out. The default is `2em`.
 
 The pulse stops when the user prefers reduced motion. While an island shows a skeleton and has no outline, its wrapper has `aria-busy="true"`. `data-island-state` is `static`, `deferred`, `client`, or `live`.
 
