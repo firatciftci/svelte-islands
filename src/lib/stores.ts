@@ -1,6 +1,8 @@
 /** Where parts, deferred HTML, and learned skeletons persist. Values are strings. */
 export type Store = {
+  /** Returns the text stored under `key`, or `null` if there's none. */
   get: (key: string) => Promise<string | null>;
+  /** Stores `text` under `key`. */
   set: (key: string, text: string) => Promise<unknown>;
 };
 
@@ -57,7 +59,7 @@ type RedisClient = {
  *
  * @param client A connected client.
  * @param options Settings for the store.
- * @param options.prefix Added to each key. The default is `islands:`.
+ * @param options.prefix Added to each key. The default is `"islands:"`.
  * @param options.ttl Seconds until an entry expires. By default entries don't expire.
  */
 export function redisStore(
@@ -90,7 +92,7 @@ type R2Bucket = {
  * such as `() => env.PARTS`, when the app prerenders any route, because reading
  * `env` from `cloudflare:workers` throws during the build.
  * @param options Settings for the store.
- * @param options.prefix Added to each key. The default is `islands/`.
+ * @param options.prefix Added to each key. The default is `"islands/"`.
  */
 export function r2Store(
   bucket: R2Bucket | (() => R2Bucket),
@@ -116,7 +118,7 @@ type S3Client<Command> = { send: (command: Command) => Promise<unknown> };
  * @param options Settings for the store.
  * @param options.client An `S3Client`.
  * @param options.bucket The bucket's name.
- * @param options.prefix Added to each key. The default is `islands/`.
+ * @param options.prefix Added to each key. The default is `"islands/"`.
  * @param options.GetObjectCommand The SDK's `GetObjectCommand` class.
  * @param options.PutObjectCommand The SDK's `PutObjectCommand` class.
  */

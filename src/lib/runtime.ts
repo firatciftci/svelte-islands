@@ -1,3 +1,4 @@
+import type { Attachment } from "svelte/attachments";
 import { untrack } from "svelte";
 import { on } from "svelte/events";
 import { SvelteSet } from "svelte/reactivity";
@@ -367,7 +368,7 @@ function listen() {
  * @param run Called with the reason. Printing needs its content before this returns.
  * @returns A function that stops listening.
  */
-export function whenWanted(run: (want: Want) => void) {
+export function whenWanted(run: (want: Want) => void): () => void {
   listen();
   wants.add(run);
   if (state.isFinding) {
@@ -530,7 +531,7 @@ export function capture(key: string, element: Element) {
  * @param name The skeleton's name.
  * @returns The attachment, for `{@attach learn("name")}`.
  */
-export function learn(name: string) {
+export function learn(name: string): Attachment {
   return (element: Element) => capture(name, element);
 }
 
@@ -738,7 +739,7 @@ const ACTIVE =
  * @param target The element to press.
  * @param press The original click.
  */
-export function replay(target: HTMLElement, press: MouseEvent) {
+export function replay(target: HTMLElement, press: MouseEvent): void {
   if (press.detail === 0) {
     target.click();
     return;

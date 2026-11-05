@@ -16,7 +16,12 @@ const BUDGET = 8;
  * @param initial How many rows to render at first. This is what the server sends.
  * @returns `limit`, the number of rows to render, and `tail(total)`, the attachment.
  */
-export const unroll = (initial: number) => {
+export const unroll = (
+  initial: number,
+): {
+  readonly limit: number;
+  tail: (total: number) => Attachment<HTMLElement>;
+} => {
   let limit = $state(initial);
   let size = 16;
   return {

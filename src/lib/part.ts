@@ -88,7 +88,7 @@ export class Part<T = unknown> {
   }
 
   /** Whether the value is small enough, or private, to stay in the page's data. */
-  get isInline() {
+  get isInline(): boolean {
     return (
       this.loaded != null && (this.isPrivate || this.bytes <= settings.inline)
     );
@@ -251,7 +251,7 @@ export function islands({
   codecs = {},
   inline = settings.inline,
   prefix = settings.prefix,
-}: { codecs?: Transport; inline?: number; prefix?: string } = {}) {
+}: { codecs?: Transport; inline?: number; prefix?: string } = {}): Transport {
   settings.inline = inline;
   settings.prefix = prefix.endsWith("/") ? prefix : `${prefix}/`;
   index(codecs);

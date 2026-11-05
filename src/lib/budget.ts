@@ -8,14 +8,22 @@ const SCRIPT = /<script(?![^>]*\ssrc=)[^>]*>(.*?)<\/script>/gisu;
 const CONFIG = "islands.budget.json";
 const USAGE = `Usage: svelte-islands check <url> [--config <file>]
 
-Fetches each page in the budget from <url> and fails if a page is over a limit.
-Limits are in KiB: raw is the HTML, gzip is the HTML after gzip, and inline is
-the scripts written into the page. The default config file is ${CONFIG}:
+Fetches each page in the budget from <url> and fails if a page is over
+a limit. Limits are in KiB: raw is the HTML, gzip is the HTML after
+gzip, and inline is the scripts written into the page. The default
+config file is ${CONFIG}:
 
   {
     "limits": { "raw": 400, "gzip": 60, "inline": 150 },
     "pages": { "/": {}, "/largest-page": { "raw": 800 } }
   }
+
+Options:
+  -c, --config <file>  The budget file
+  -h, --help           Prints this text
+
+Exit codes: 0 when every page is within its limits, 1 when a page is
+over one, and 2 when the command or the config file is wrong.
 `;
 
 type Kind = (typeof KINDS)[number];

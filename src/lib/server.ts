@@ -326,7 +326,7 @@ export function part<T>(
     fetch = "auto",
     private: isPrivate = false,
   }: { fetch?: Fetch; private?: boolean } = {},
-) {
+): Part<T> {
   const event = getRequestEvent();
   const made = digest(value, isPrivate);
   const found = track(event.locals);

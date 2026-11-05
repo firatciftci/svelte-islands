@@ -1,7 +1,12 @@
+/** Limits on rerunning a page to recover a part that's missing from memory and the store. */
 export type RebuildOptions = {
+  /** How many pages can rerun at once. The default is `4`. */
   concurrency?: number;
+  /** How many can wait for a turn. When the queue is full, the server answers 503 and the browser retries. The default is `32`. */
   queue?: number;
+  /** How long before the same page can rerun, in milliseconds. The default is `30_000`. */
   cooldown?: number;
+  /** How long each run can take, in milliseconds. The default is `30_000`. */
   timeout?: number;
 };
 

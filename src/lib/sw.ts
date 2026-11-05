@@ -64,7 +64,7 @@ export function serveParts(
     cache: name = CACHE,
     limit = LIMIT,
   }: { prefix?: string; cache?: string; limit?: number } = {},
-) {
+): boolean {
   const { request } = event;
   const url = new URL(request.url);
   if (

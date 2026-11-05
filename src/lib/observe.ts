@@ -31,9 +31,9 @@ export type Observation =
 const listeners = new Set<(observation: Observation) => void>();
 
 /**
- * Calls `listener` with each observation in this browser tab. Returns a
- * function that stops listening. The library only measures heights while a
- * listener is attached, so an app that never calls this pays nothing for it.
+ * Calls `listener` with each observation in this browser tab. The library only
+ * measures heights while a listener is attached, so an app that never calls
+ * this pays nothing for it.
  *
  * Send timings to your analytics from here:
  *
@@ -44,8 +44,13 @@ const listeners = new Set<(observation: Observation) => void>();
  *   }
  * });
  * ```
+ *
+ * @param listener Called with each observation.
+ * @returns A function that stops listening.
  */
-export function observe(listener: (observation: Observation) => void) {
+export function observe(
+  listener: (observation: Observation) => void,
+): () => void {
   listeners.add(listener);
   return () => {
     listeners.delete(listener);
