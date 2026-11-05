@@ -41,7 +41,7 @@ const tsTypeAwareOverrides = {
 };
 
 export default antfu({
-  ignores: ["fixtures/**"],
+  ignores: ["fixtures/**", "site/**"],
   stylistic: false,
   markdown: false,
   antislop: true,
@@ -122,6 +122,11 @@ export default antfu({
     "prefer-const": "off",
   },
 }).append(
+  {
+    name: "local/docs",
+    files: ["docs/**", "README.md"],
+    rules: { "slop/no-em-dash": "off" },
+  },
   {
     name: "local/tests",
     files: ["tests/**", "playwright.config.ts", "playwright.workers.config.ts"],
