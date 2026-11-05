@@ -176,6 +176,9 @@
                 context,
               });
               target.dataset.islandState = "live";
+              if (held?.isHolding() === true) {
+                flushSync();
+              }
               held?.release();
             },
             untrack(() => when) ?? plan.when,

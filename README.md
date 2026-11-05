@@ -64,7 +64,7 @@ Render it with `Island`. The snippet receives the value:
 </Island>
 ```
 
-On the first page load, the island's HTML comes from the server and stays static until the `when` strategy fires. Then the island fetches its data and hydrates. A click on a button inside the island before then is held and replayed once the island is live. When you navigate to the page from elsewhere in the app, the island shows a skeleton until its data arrives.
+On the first page load, the island's HTML comes from the server and stays static until the `when` strategy fires. Then the island fetches its data and hydrates. If someone clicks a button inside the island before then, the island holds the click, hydrates, and replays it as a full press, so controls that open on pointer events respond too. When you navigate to the page from elsewhere in the app, the island shows a skeleton until its data arrives.
 
 ### Strategies
 
@@ -130,6 +130,47 @@ export const load = async () => ({
 ### Reading parts in script
 
 `peek(part)` returns `{ value }` if the part's data is already in memory and `null` otherwise. It's reactive, so a `$derived` that reads it updates when the data arrives. `load(part)` returns a promise of the value.
+
+### Clicks before hydration
+
+An island holds the clicks that land inside it once its code has loaded. A click can also land before any of your code has loaded. To keep that click, remember it in a small inline script in `app.html`, then pass it to `replay(target, press)` when the root layout hydrates:
+
+```html
+<script>
+  (() => {
+    let early = null;
+    const hold = (event) => {
+      const target = event.target.closest?.('button, [role="button"]');
+      if (
+        target &&
+        target.closest("a[href]") == null &&
+        !(target.type === "submit" && target.form != null)
+      )
+        early = { event, target };
+    };
+    addEventListener("click", hold, true);
+    window.takeEarlyClick = () => {
+      removeEventListener("click", hold, true);
+      return early;
+    };
+  })();
+</script>
+```
+
+```svelte
+<script>
+  import { replay } from "svelte-islands";
+
+  $effect(() => {
+    const early = window.takeEarlyClick();
+    if (early?.target.isConnected) {
+      replay(early.target, early.event);
+    }
+  });
+</script>
+```
+
+The script skips links and submit buttons because the browser has already acted on those clicks. `replay` dispatches the pointer, mouse, and click events of a real press, in order, with the original coordinates and modifier keys. A click from the keyboard or a screen reader has a `detail` of 0, and `replay` repeats it with `target.click()`.
 
 ### Long lists
 

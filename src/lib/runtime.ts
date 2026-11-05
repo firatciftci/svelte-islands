@@ -511,13 +511,53 @@ export function watch(
 const ACTIVE =
   'button, input, select, textarea, label, summary, [role="button"], [role="tab"], [role="switch"], [role="checkbox"], [role="menuitem"], [role="option"], [tabindex]:not([tabindex="-1"])';
 
+export function replay(target: HTMLElement, press: MouseEvent) {
+  if (press.detail === 0) {
+    target.click();
+    return;
+  }
+  const { detail } = press;
+  const init = {
+    altKey: press.altKey,
+    bubbles: true,
+    button: press.button,
+    cancelable: true,
+    clientX: press.clientX,
+    clientY: press.clientY,
+    composed: true,
+    ctrlKey: press.ctrlKey,
+    isPrimary: true,
+    metaKey: press.metaKey,
+    pointerType:
+      press instanceof PointerEvent && press.pointerType !== ""
+        ? press.pointerType
+        : matchMedia("(pointer: coarse)").matches
+          ? "touch"
+          : "mouse",
+    shiftKey: press.shiftKey,
+  };
+  const fire = (type: string, extra: MouseEventInit = {}) => {
+    const Kind = type.startsWith("mouse") ? MouseEvent : PointerEvent;
+    return target.dispatchEvent(new Kind(type, { ...init, ...extra }));
+  };
+  const isCompatible = fire("pointerdown", { buttons: 1 });
+  if (isCompatible) {
+    fire("mousedown", { buttons: 1, detail });
+  }
+  fire("pointerup");
+  if (isCompatible) {
+    fire("mouseup", { detail });
+  }
+  fire("click", { detail });
+}
+
 export function intercept(element: Element, onHold: () => void) {
-  let held: HTMLElement | null = null;
+  let held: { press: MouseEvent; target: HTMLElement } | null = null;
   const stop = on(
     element,
     "click",
     (event) => {
-      if (!(event.target instanceof Element)) {
+      if (!(event instanceof MouseEvent && event.target instanceof Element)) {
         return;
       }
       const target = event.target.closest(ACTIVE);
@@ -528,7 +568,7 @@ export function intercept(element: Element, onHold: () => void) {
       ) {
         event.preventDefault();
         event.stopImmediatePropagation();
-        held = target;
+        held = { press: event, target };
         onHold();
       }
     },
@@ -538,10 +578,10 @@ export function intercept(element: Element, onHold: () => void) {
     isHolding: () => held != null,
     release: () => {
       stop();
-      const target = held;
+      const last = held;
       held = null;
-      if (target?.isConnected === true) {
-        target.click();
+      if (last?.target.isConnected === true) {
+        replay(last.target, last.press);
       }
     },
     stop,
