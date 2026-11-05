@@ -115,7 +115,7 @@ function hold({ hash, text }: Digest) {
   recent.set(hash, text);
   state.held += text.length;
   for (const [oldest, kept] of recent) {
-    if (state.held <= config.memory) {
+    if (building || state.held <= config.memory) {
       break;
     }
     recent.delete(oldest);
@@ -328,6 +328,7 @@ export function part<T>(
     source: sourceOf(event.url),
     bytes: made.text.length,
     fetch,
+    isEager: fetch === "preload" || (fetch === "auto" && event.isDataRequest),
     isPrivate,
     loaded: { value },
   });
@@ -349,7 +350,6 @@ provide(() => {
     return null;
   }
   return {
-    isData: event.isDataRequest,
     render: (body, value, context, prefix) =>
       render(Frame, { props: { body, value }, context, idPrefix: prefix }).body,
     skeleton: (name, key, html) => {
@@ -368,22 +368,43 @@ provide(() => {
     },
     outline: (identity, html, view) =>
       outlined(`${config.vary(event)}:${identity}`, html, view),
+    awaited: (error, name) => {
+      const isAwait =
+        error instanceof Error && error.message.includes("await_invalid");
+      if (isAwait && dev) {
+        console.warn(
+          `svelte-islands: the island for part("${name}") uses await while rendering, so it renders in the browser instead of the server HTML. To keep it in the server HTML, load that data into the part.`,
+        );
+      }
+      return isAwait;
+    },
   };
 });
 
-function preload(html: string, found: { parts: Set<Part> }) {
-  const at = html.indexOf("</head>");
-  const links = found.parts
+function preloads({ parts }: { parts: Set<Part> }) {
+  return parts
     .values()
     .filter((created) => created.fetch === "preload" && !created.isInline)
     .map(
       (created) =>
         `<link rel="preload" href="${settings.prefix}${created.hash}" as="fetch" crossorigin="anonymous">`,
-    )
-    .toArray();
-  return at === -1 || links.length === 0
-    ? html
-    : `${html.slice(0, at)}${links.join("")}${html.slice(at)}`;
+    );
+}
+
+function crawlable({ parts, files }: { parts: Set<Part>; files: Set<string> }) {
+  const published = new Set([
+    SHAPES,
+    ...files,
+    ...parts
+      .values()
+      .filter((created) => !created.isInline)
+      .map((created) => created.hash),
+  ]);
+  return published
+    .values()
+    .map(
+      (file) => `<link rel="svelte-islands" href="${settings.prefix}${file}">`,
+    );
 }
 
 function inject(html: string, event: RequestEvent) {
@@ -392,7 +413,11 @@ function inject(html: string, event: RequestEvent) {
     return html;
   }
   found.isHeaded = true;
-  return preload(html, found);
+  const at = html.indexOf("</head>");
+  const links = (building ? crawlable(found) : preloads(found)).toArray();
+  return at === -1 || links.length === 0
+    ? html
+    : `${html.slice(0, at)}${links.join("")}${html.slice(at)}`;
 }
 
 async function shapes() {
@@ -594,24 +619,6 @@ function watchCookies(event: RequestEvent) {
   };
 }
 
-async function publish(event: RequestEvent) {
-  const found = requests.get(event.locals);
-  const files = [
-    SHAPES,
-    ...(found?.files ?? []),
-    ...(found?.parts
-      .values()
-      .filter((made) => !made.isInline)
-      .map((made) => made.hash) ?? []),
-  ];
-  await Promise.all(
-    files.map(async (file) => {
-      const response = await event.fetch(`${settings.prefix}${file}`);
-      await response.arrayBuffer();
-    }),
-  );
-}
-
 const handler: Handle = async ({ event, resolve }) => {
   if (event.url.pathname.startsWith(settings.prefix)) {
     return respond(event);
@@ -619,13 +626,9 @@ const handler: Handle = async ({ event, resolve }) => {
   if (dev && config.warnOnCookies) {
     watchCookies(event);
   }
-  const response = await resolve(event, {
+  return resolve(event, {
     transformPageChunk: ({ html }) => inject(html, event),
   });
-  if (building) {
-    await publish(event);
-  }
-  return response;
 };
 
 /**

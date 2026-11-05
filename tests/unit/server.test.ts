@@ -317,6 +317,33 @@ describe("the part server", () => {
     });
   });
 
+  describe("eager parts", () => {
+    function made(
+      isDataRequest: boolean,
+      options?: Parameters<Server["part"]>[2],
+    ) {
+      const event = eventFor("/page");
+      enter({ ...event, isDataRequest });
+      return server.part("thing", { rows: "x".repeat(8000) }, options);
+    }
+
+    it("starts loading auto parts as soon as a data request arrives", () => {
+      expect(made(true).isEager).toBe(true);
+    });
+
+    it("leaves auto parts to the island on a full page load", () => {
+      expect(made(false).isEager).toBe(false);
+    });
+
+    it("always starts preload parts", () => {
+      expect(made(false, { fetch: "preload" }).isEager).toBe(true);
+    });
+
+    it("never starts lazy parts", () => {
+      expect(made(true, { fetch: "lazy" }).isEager).toBe(false);
+    });
+  });
+
   describe("private parts", () => {
     const secret = { token: "s3cret-token", rows: "z".repeat(8000) };
 

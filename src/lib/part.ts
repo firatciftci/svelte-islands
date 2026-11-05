@@ -62,7 +62,6 @@ export class Part<T = unknown> {
 }
 
 export type Scope = {
-  isData: boolean;
   render: (
     body: Snippet<[never]>,
     value: unknown,
@@ -73,6 +72,7 @@ export type Scope = {
   shape: (name: string) => string | null;
   stash: (html: string) => string;
   outline: (identity: string, html: () => string, view?: string) => string;
+  awaited: (error: unknown, name: string) => boolean;
 };
 
 const state: {
@@ -121,40 +121,38 @@ type Head = [
 
 type Encoded = Head | [...Head, unknown];
 
-function encode(value: unknown, isData: boolean) {
-  if (!(value instanceof Part)) {
-    return false;
-  }
+function encoded(value: Part, isEager: boolean) {
   const head: Head = [
     value.name,
     value.hash,
     value.source,
     value.bytes,
-    (isData && value.fetch === "auto") || value.fetch === "preload" ? 1 : 0,
+    isEager ? 1 : 0,
   ];
-  const encoded: Encoded =
+  const result: Encoded =
     value.isInline && value.loaded != null
       ? [...head, value.loaded.value]
       : head;
-  return encoded;
+  return result;
 }
 
-function decode(encoded: Encoded) {
-  const [name, hash, source, bytes, isEager] = encoded;
+function decode(sent: Encoded) {
+  const [name, hash, source, bytes, isEager] = sent;
   const part = new Part({
     name,
     hash,
     source,
     bytes,
     isEager: isEager === 1,
-    loaded: encoded.length > 5 ? { value: encoded[5] } : null,
+    loaded: sent.length > 5 ? { value: sent[5] } : null,
   });
   state.arrived(part);
   return part;
 }
 
 const codec = {
-  encode: (value: unknown) => encode(value, scope()?.isData === true),
+  encode: (value: unknown) =>
+    value instanceof Part && encoded(value, value.isEager),
   decode,
 };
 
@@ -168,7 +166,11 @@ const packed = {
 
 const compact = { pack: packed };
 
-const nested = { encode: (value: unknown) => encode(value, false), decode };
+const nested = {
+  encode: (value: unknown) =>
+    value instanceof Part && encoded(value, value.fetch === "preload"),
+  decode,
+};
 
 function index(codecs: Transport) {
   claim(Object.values(codecs).map(({ encode: reduce }) => reduce));

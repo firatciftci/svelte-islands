@@ -24,3 +24,8 @@ vite.config.ts.timestamp-*
 
 # Package
 /dist
+/fixtures/app/.svelte-kit
+/fixtures/app/build
+/fixtures/app/build-static
+/test-results
+/playwright-report

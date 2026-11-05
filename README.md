@@ -107,7 +107,7 @@ If a deferred island's HTML can't be fetched, it renders in the browser instead.
 
 `part()` takes an options object as its third argument. Its `fetch` option sets when the browser downloads the part's data:
 
-- `auto` (the default): on the first page load, the browser downloads the data when the island needs it. When someone navigates to the page from elsewhere in the app, the browser starts downloading it as soon as the page's data arrives.
+- `auto` (the default): on the first page load, the browser downloads the data when the island needs it. When someone navigates to the page from elsewhere in the app, the browser starts downloading it as soon as the page's data arrives. If a link uses `data-sveltekit-preload-data="hover"`, the download can start as soon as someone hovers over the link. Use `lazy` for data that is expensive to download.
 - `lazy`: the browser downloads the data only when the island needs it or when you call `load(part)`.
 - `preload`: the browser starts downloading the data as soon as the page arrives. On the first page load, the server also adds a `<link rel="preload">` for the data to the page's head, as long as the part is ready before the server sends the head. Use it for data the page needs right away that is too large to inline, such as the data behind a chart at the top of the page.
 
@@ -273,6 +273,27 @@ For content that comes from an `<Await>` rather than a part, set `<Await private
 Skeletons remove text, attribute values, images, and URLs, but they keep the class names and layout of what they were learned from. Mark a part or `<Await>` as private if even that structure is sensitive.
 
 In dev, the library warns when a public part is made during a request that has read cookies. Turn the warning off with `handle({ warnOnCookies: false })`.
+
+## Where it runs
+
+CI runs the browser tests against Svelte 5.57.0 with Kit 3.0.0, against the newest release of both, and with Svelte's async mode turned on.
+
+### Node servers
+
+Any Node adapter works. If you run more than one process, pass `handle()` a shared `store` so each process can serve parts another one made. Without a store, a process that doesn't have a part renders the page that made it again. These rebuilds are limited, so a burst of requests for missing parts can't overload the server. See `rebuild` under [Options](#options).
+
+### Prerendered pages and static hosts
+
+When SvelteKit prerenders a page, the library writes the page's parts, its deferred HTML, and the skeleton file into the build under `_parts/`. `adapter-static` and other static hosts serve them like any other file.
+
+A static host has no server to rebuild a missing part, which leads to two differences:
+
+- After a deploy, a visitor who still has an old page open can only load its parts if the host still has the old files. Keep the previous build's `_parts/` files in place for a while if that matters to you. Their names are hashes of their contents, so old and new files never collide.
+- The skeleton file holds the shapes learned up to the moment the crawler requested it. A page that was crawled later still has its own skeletons in its HTML. A client navigation to that page can show a plain placeholder instead of a learned skeleton.
+
+### Svelte's async mode
+
+Async mode works with or without `await` in your components. An island's server HTML has to render synchronously, though, so an island whose children use `await` can't be part of it. That island shows a skeleton and renders in the browser when it comes into view, and in dev the library logs a warning naming the part. To keep the island in the server HTML, load the data into its part.
 
 ## Options
 

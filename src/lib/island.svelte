@@ -111,7 +111,21 @@
         html: `${outlined}${shell(server.skeleton(origin.name, first, html))}`,
       };
     }
-    const rendered = draw().result;
+    let rendered: string;
+    try {
+      rendered = draw().result;
+    } catch (error) {
+      if (!server.awaited(error, origin.name)) {
+        throw error;
+      }
+      return {
+        state: "client",
+        file: null,
+        needs: null,
+        isBusy: true,
+        html: shell(server.skeleton(origin.name, first, html)),
+      };
+    }
     const needs = needsOf(draw().reads, origin);
     if (!plan.isDeferred || isSecret()) {
       return {
@@ -132,6 +146,10 @@
       html: `${outlined}${shell(server.skeleton(origin.name, first, html))}`,
     };
   });
+
+  if (adopted?.state === "client") {
+    plan.when = untrack(() => when) ?? "visible";
+  }
 
   let isLatched = adopted != null;
   let isReleased = $state(false);
@@ -227,8 +245,11 @@
             job.hurry();
           }
         },
-        () => {
+        (error: unknown) => {
           held?.stop();
+          if (isLive && error instanceof Gone && isFirstGone(origin.hash)) {
+            void invalidateAll();
+          }
         },
       );
     });

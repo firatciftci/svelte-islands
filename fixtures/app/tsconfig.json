@@ -1,0 +1,12 @@
+{
+  "extends": "$app/tsconfig",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "#waiting": ["./src/lib/waiting.svelte"],
+      "svelte-islands/server": ["../../src/lib/server.ts"],
+      "svelte-islands": ["../../src/lib/index.ts"]
+    }
+  },
+  "include": ["src/**/*", "vite.config.ts"]
+}

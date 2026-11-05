@@ -41,6 +41,7 @@ const tsTypeAwareOverrides = {
 };
 
 export default antfu({
+  ignores: ["fixtures/**"],
   stylistic: false,
   markdown: false,
   antislop: true,
@@ -123,8 +124,12 @@ export default antfu({
 }).append(
   {
     name: "local/tests",
-    files: ["tests/**", "fixtures/**"],
+    files: ["tests/**", "playwright.config.ts"],
     rules: {
+      "node/no-process-env": "off",
+      "node/prefer-global/process": "off",
+      "ts/promise-function-async": "off",
+      "unicorn/import-style": "off",
       "e18e/prefer-array-fill": "off",
       "no-sparse-arrays": "off",
       "slop/no-chained-type-assertions": "off",
