@@ -6,18 +6,14 @@ import { createHash, randomUUID } from "node:crypto";
 import { render } from "svelte/server";
 import type { Fetch } from "./part.js";
 import type { RebuildOptions } from "./rebuild.js";
+import type { Store } from "./stores.js";
 import Frame from "./frame.svelte";
 import { Part, provide, quietly, serialize, settings } from "./part.js";
 import { REBUILD_DEFAULTS, rebuilds } from "./rebuild.js";
 import { outline, skeletonize } from "./skeleton.js";
 
-/** Where parts, deferred HTML, and learned skeletons persist. Values are strings. */
-export type Store = {
-  get: (key: string) => Promise<string | null>;
-  set: (key: string, text: string) => Promise<unknown>;
-};
-
 export type { RebuildOptions } from "./rebuild.js";
+export type { Store } from "./stores.js";
 
 const TOKEN = "x-svelte-islands-token";
 const SHAPES = "skeletons";
@@ -28,6 +24,7 @@ const OUTLINES = 4096;
 const HOLLOW = 3;
 const IMMUTABLE = "public, max-age=31536000, immutable";
 const MIN_COMPRESSED = 1024;
+const SETTLE = 1000;
 
 type Digest = { text: string; hash: string };
 
@@ -43,6 +40,7 @@ const requests = new WeakMap<
     files: Set<string>;
     isHeaded: boolean;
     isPersonal: boolean;
+    writes: Array<Promise<unknown>>;
   }
 >();
 const warned = new Set<string>();
@@ -124,9 +122,16 @@ function hold({ hash, text }: Digest) {
   return true;
 }
 
+function write(key: string, text: string, event: RequestEvent | null) {
+  const work = quietly(config.store?.set(key, text));
+  if (event != null && config.store != null) {
+    track(event.locals).writes.push(work);
+  }
+}
+
 function keep(made: Digest, event: RequestEvent) {
   if (hold(made)) {
-    void quietly(config.store?.set(`p:${made.hash}`, made.text));
+    write(`p:${made.hash}`, made.text, event);
   }
   const token = event.request.headers.get(TOKEN);
   if (token != null) {
@@ -142,6 +147,7 @@ function track(locals: object) {
       files: new Set(),
       isHeaded: false,
       isPersonal: false,
+      writes: [],
     };
     requests.set(locals, found);
   }
@@ -237,6 +243,14 @@ async function index() {
   await config.store?.set(NAMES, JSON.stringify(exemplars.keys().toArray()));
 }
 
+function current() {
+  try {
+    return getRequestEvent();
+  } catch {
+    return null;
+  }
+}
+
 function learn(name: string, key: string, html: () => string) {
   const known = examplesOf(name);
   const found = known.get(key);
@@ -250,9 +264,7 @@ function learn(name: string, key: string, html: () => string) {
   const isNew = known.size === 0;
   known.set(key, { html: shaped, at: Date.now() });
   if (found?.html !== shaped) {
-    void quietly(
-      config.store?.set(`skeletons:${name}`, JSON.stringify(flatten(known))),
-    );
+    write(`skeletons:${name}`, JSON.stringify(flatten(known)), current());
   }
   if (isNew) {
     void quietly(index());
@@ -334,14 +346,6 @@ export function part<T>(
   });
   found.parts.add(created);
   return created;
-}
-
-function current() {
-  try {
-    return getRequestEvent();
-  } catch {
-    return null;
-  }
 }
 
 provide(() => {
@@ -605,6 +609,33 @@ async function respond(event: RequestEvent) {
   });
 }
 
+async function settle(event: RequestEvent) {
+  const writes = requests.get(event.locals)?.writes ?? [];
+  if (writes.length === 0) {
+    return;
+  }
+  const work = Promise.all(writes);
+  const platform = event.platform as
+    | {
+        ctx?: { waitUntil?: (work: Promise<unknown>) => void };
+        context?: { waitUntil?: (work: Promise<unknown>) => void };
+      }
+    | undefined;
+  const lifetime = platform?.ctx ?? platform?.context;
+  if (lifetime?.waitUntil != null) {
+    lifetime.waitUntil(work);
+    return;
+  }
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  await Promise.race([
+    work,
+    new Promise((resolve) => {
+      timer = setTimeout(resolve, SETTLE);
+    }),
+  ]);
+  clearTimeout(timer);
+}
+
 function watchCookies(event: RequestEvent) {
   const { cookies } = event;
   const found = track(event.locals);
@@ -626,9 +657,11 @@ const handler: Handle = async ({ event, resolve }) => {
   if (dev && config.warnOnCookies) {
     watchCookies(event);
   }
-  return resolve(event, {
+  const response = await resolve(event, {
     transformPageChunk: ({ html }) => inject(html, event),
   });
+  await settle(event);
+  return response;
 };
 
 /**

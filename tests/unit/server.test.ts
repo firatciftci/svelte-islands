@@ -501,6 +501,91 @@ describe("the part server", () => {
     expect(set).toHaveBeenCalledTimes(1);
   });
 
+  describe("waiting for the store", () => {
+    function slowStore() {
+      const finished: Array<string> = [];
+      const { promise, resolve: finish } = Promise.withResolvers<void>();
+      const store: Store = {
+        get: async () => null,
+        set: async (key) => {
+          await promise;
+          finished.push(key);
+        },
+      };
+      return { finished, store, finish };
+    }
+
+    async function pageWith(
+      event: RequestEvent,
+      handler: ReturnType<Server["handle"]>,
+    ) {
+      enter(event);
+      return handler({
+        event,
+        resolve: async () => {
+          server.part("big", "x".repeat(5000));
+          return new Response("page");
+        },
+      });
+    }
+
+    it("holds the response until new parts are stored", async () => {
+      const { finished, store, finish } = slowStore();
+      const handler = server.handle({ store });
+      const response = pageWith(eventFor("/page"), handler);
+      let isDone = false;
+      void response.then(() => {
+        isDone = true;
+      });
+      await new Promise((resolve) => {
+        setTimeout(resolve, 20);
+      });
+      expect(isDone).toBe(false);
+      finish();
+      await response;
+      expect(finished).toHaveLength(1);
+    });
+
+    it("answers anyway when the store is too slow", async () => {
+      const { store } = slowStore();
+      const started = Date.now();
+      await pageWith(eventFor("/page"), server.handle({ store }));
+      expect(Date.now() - started).toBeGreaterThanOrEqual(900);
+      expect(Date.now() - started).toBeLessThan(3000);
+    });
+
+    it("uses waitUntil where the platform has it", async () => {
+      const { store } = slowStore();
+      const kept: Array<Promise<unknown>> = [];
+      const event = eventFor("/page");
+      Object.assign(event, {
+        platform: {
+          ctx: {
+            waitUntil: (work: Promise<unknown>) => {
+              kept.push(work);
+            },
+          },
+        },
+      });
+      await pageWith(event, server.handle({ store }));
+      expect(kept).toHaveLength(1);
+    });
+
+    it("doesn't wait when nothing new was made", async () => {
+      const { store, finish } = slowStore();
+      const handler = server.handle({ store });
+      const first = pageWith(eventFor("/page"), handler);
+      await new Promise((resolve) => {
+        setTimeout(resolve, 5);
+      });
+      finish();
+      await first;
+      const started = Date.now();
+      await pageWith(eventFor("/page"), handler);
+      expect(Date.now() - started).toBeLessThan(200);
+    });
+  });
+
   it("reads a part from the store after memory forgets it", async () => {
     const { held, store } = memoryStore();
     held.set(`p:${"b".repeat(22)}`, "stored");
