@@ -79,23 +79,30 @@
       return null;
     }
     const prefix = `s${origin.hash.slice(0, 6).replaceAll("-", "_")}`;
-    const html = () => server.render(children, loaded.value, context, prefix);
+    let markup: string | null = null;
+    const html = () =>
+      (markup ??= server.render(children, loaded.value, context, prefix));
     if (!ssr) {
+      const outlined = server.outline(`${origin.hash}:${first}`, html, first);
       return {
         state: "client",
         file: null,
-        html: shell(server.skeleton(origin.name, first, html)),
+        isBusy: outlined === "",
+        html: `${outlined}${shell(server.skeleton(origin.name, first, html))}`,
       };
     }
     const rendered = html();
-    const skeleton = server.skeleton(origin.name, first, () => rendered);
-    return plan.isDeferred
-      ? {
-          state: "deferred",
-          file: server.stash(rendered),
-          html: shell(skeleton),
-        }
-      : { state: "static", file: null, html: rendered };
+    if (!plan.isDeferred) {
+      return { state: "static", file: null, isBusy: false, html: rendered };
+    }
+    const file = server.stash(rendered);
+    const outlined = server.outline(file, html);
+    return {
+      state: "deferred",
+      file,
+      isBusy: outlined === "",
+      html: `${outlined}${shell(server.skeleton(origin.name, first, html))}`,
+    };
   });
 
   let isLatched = adopted != null;
@@ -220,6 +227,7 @@
           }
           const template = document.createElement("template");
           template.innerHTML = html;
+          target.querySelector(":scope > .island-outline")?.remove();
           skeleton.replaceWith(template.content);
           target.dataset.islandState = "static";
           target.removeAttribute("aria-busy");
@@ -312,7 +320,7 @@
     data-island={origin.hash}
     data-island-state={adopted.state}
     data-island-file={adopted.file}
-    aria-busy={adopted.state === "static" ? undefined : "true"}
+    aria-busy={adopted.isBusy ? "true" : undefined}
     {@attach activate}
   >
     <!-- svelte-ignore hydration_html_changed -->

@@ -6,7 +6,7 @@ import { render } from "svelte/server";
 import type { Fetch } from "./part.js";
 import Frame from "./frame.svelte";
 import { Part, provide, quietly, serialize, settings } from "./part.js";
-import { skeletonize } from "./skeleton.js";
+import { outline, skeletonize } from "./skeleton.js";
 
 export type Store = {
   get: (key: string) => Promise<string | null>;
@@ -18,6 +18,8 @@ const SHAPES = "skeletons";
 const NAMES = "skeleton-names";
 const FILE = /^[\w-]{22}(?:\.html)?$/u;
 const RELEARN = 10 * 60_000;
+const OUTLINES = 4096;
+const HOLLOW = 3;
 const IMMUTABLE = "public, max-age=31536000, immutable";
 
 type Digest = { text: string; hash: string };
@@ -28,16 +30,19 @@ const exemplars = new Map<string, Map<string, { html: string; at: number }>>();
 const asked = new Set<string>();
 const waiting = new Map<string, Map<string, Digest>>();
 const requests = new WeakMap<object, { parts: Set<Part>; isHeaded: boolean }>();
+const outlines = new Map<string, string>();
+const hollow = new Map<string, { count: number; at: number }>();
 type Prepare = (
   request: { url: URL; headers: Headers },
   event: RequestEvent,
 ) => void;
 
-const config: { store: Store | null; memory: number; prepare: Prepare } = {
-  store: null,
-  memory: 64 * 1024 ** 2,
-  prepare: () => {},
-};
+const config: {
+  store: Store | null;
+  memory: number;
+  prepare: Prepare;
+  vary: (event: RequestEvent) => string;
+} = { store: null, memory: 64 * 1024 ** 2, prepare: () => {}, vary: () => "" };
 const state: { held: number; names: Promise<unknown> | null } = {
   held: 0,
   names: null,
@@ -128,6 +133,38 @@ function attempt(html: () => string) {
   } catch {
     return null;
   }
+}
+
+function outlined(identity: string, html: () => string, view?: string) {
+  const found = outlines.get(identity);
+  if (found != null) {
+    return found;
+  }
+  const seen = view == null ? null : hollow.get(view);
+  if (seen != null && seen.count >= HOLLOW && Date.now() - seen.at < RELEARN) {
+    return "";
+  }
+  let made = "";
+  try {
+    made = outline(html());
+  } catch {
+    made = "";
+  }
+  if (view != null) {
+    if (made === "") {
+      hollow.set(view, { count: (seen?.count ?? 0) + 1, at: Date.now() });
+    } else {
+      hollow.delete(view);
+    }
+  }
+  if (outlines.size >= OUTLINES) {
+    const oldest = outlines.keys().next();
+    if (!oldest.done) {
+      outlines.delete(oldest.value);
+    }
+  }
+  outlines.set(identity, made);
+  return made;
 }
 
 async function recallAll() {
@@ -249,6 +286,8 @@ provide(() => {
       keep(made, event);
       return made.hash;
     },
+    outline: (identity, html, view) =>
+      outlined(`${config.vary(event)}:${identity}`, html, view),
   };
 });
 
@@ -377,9 +416,16 @@ export function handle({
   store = null,
   memory = config.memory,
   prepare = () => {},
-}: { store?: Store | null; memory?: number; prepare?: Prepare } = {}): Handle {
+  vary = () => "",
+}: {
+  store?: Store | null;
+  memory?: number;
+  prepare?: Prepare;
+  vary?: (event: RequestEvent) => string;
+} = {}): Handle {
   config.store = store;
   config.memory = memory;
   config.prepare = prepare;
+  config.vary = vary;
   return handler;
 }

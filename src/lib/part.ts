@@ -66,6 +66,7 @@ export type Scope = {
   skeleton: (name: string, key: string, html: () => string) => string | null;
   shape: (name: string) => string | null;
   stash: (html: string) => string;
+  outline: (identity: string, html: () => string, view?: string) => string;
 };
 
 const state: {

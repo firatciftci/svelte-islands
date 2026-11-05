@@ -51,6 +51,7 @@ export type Options = { margin?: string; media?: string };
 export type Claimed = {
   state: "static" | "deferred" | "client";
   file: string | null;
+  isBusy: boolean;
 };
 
 function nothing() {}
@@ -225,7 +226,11 @@ export function claim(part: Part, key: string): Claimed | null {
       ) {
         skeletons.set(key, skeleton.getHTML());
       }
-      return { state: found, file: element.dataset.islandFile ?? null };
+      return {
+        state: found,
+        file: element.dataset.islandFile ?? null,
+        isBusy: element.getAttribute("aria-busy") === "true",
+      };
     }
   }
   return null;

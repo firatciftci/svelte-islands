@@ -99,6 +99,8 @@ An island renders in one of three ways on the first page load:
 </Island>
 ```
 
+Screen readers can reach an island before it loads. A deferred or client-only island puts a visually hidden outline in the page, built from the server's rendering: its headings with their ids, inside the named regions that hold them. The real content replaces the outline when it arrives. The server caches each outline by part, view, and `vary` value, so a client-only island doesn't render on every request. The server stops rendering that view as an outline for ten minutes after three renders with no headings, as with a map.
+
 If a deferred island's HTML can't be fetched, it renders in the browser instead.
 
 ### Fetching a part's data
@@ -249,11 +251,12 @@ Neither component adds a box, so the content and its skeleton keep their places 
 - `inline`: the largest part, in characters, that is inlined into the page. The default is 4096.
 - `prefix`: the URL prefix for parts. The default is `/_parts/`.
 
-`handle({ store, memory, prepare })`
+`handle({ store, memory, prepare, vary })`
 
 - `store`: an object with `get(key)` and `set(key, text)` that persists parts, deferred HTML, and skeletons across restarts and servers, such as Redis.
 - `memory`: how many characters of parts and deferred HTML to keep in memory. The default is 67,108,864 (64 × 1024²).
 - `prepare(request, event)`: lets you adjust the internal request used to rebuild a part, for example to add a header your load functions read.
+- `vary(event)`: returns any value other than an island's data that can change its text, such as the locale, so each value gets its own cached outline.
 
 ## Styling
 
@@ -265,7 +268,7 @@ Skeletons inherit the island's text color. Set these custom properties to change
 - `--island-surface`: the background of a region that has no learned skeleton yet. The default is transparent.
 - `--island-inset`: the padding of that region. The default is 0.
 
-The pulse stops when the user prefers reduced motion. While an island shows a skeleton, its wrapper has `aria-busy="true"`, and `data-island-state` is `static`, `deferred`, `client`, or `live`.
+The pulse stops when the user prefers reduced motion. While an island shows a skeleton and has no outline, its wrapper has `aria-busy="true"`. `data-island-state` is `static`, `deferred`, `client`, or `live`.
 
 ## Credits
 

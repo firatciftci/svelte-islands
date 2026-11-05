@@ -66,6 +66,24 @@ const PAINTED =
 
 const LIMITS = [12, 6, 3, 1];
 
+const HEADING = /^h[1-6]$/u;
+
+const ANY_HEADING = /<h[1-6][\s>]/iu;
+
+const LANDMARKS = new Set(["section", "nav", "aside", "form", "search"]);
+
+const LANDMARK_ROLES = new Set([
+  "region",
+  "navigation",
+  "complementary",
+  "search",
+  "form",
+]);
+
+const OUTLINE = "island-outline";
+
+const OUTLINE_LIMIT = 32;
+
 const BUDGET = 12 * 1024;
 
 const SHOWN = "svg, canvas, math, video, iframe, picture, img";
@@ -182,13 +200,11 @@ function restyle(style: string) {
 }
 
 function aspect(element: Branch) {
-  const read = (name: string) =>
-    element.attributes.find(([key]) => key === name)?.[1];
-  const box = read("viewbox")
+  const box = read(element, "viewbox")
     ?.trim()
     .split(/[\s,]+/u);
-  const width = Number(box?.[2] ?? read("width"));
-  const height = Number(box?.[3] ?? read("height"));
+  const width = Number(box?.[2] ?? read(element, "width"));
+  const height = Number(box?.[3] ?? read(element, "height"));
   return width > 0 && height > 0 ? `aspect-ratio:${width}/${height}` : null;
 }
 
@@ -255,12 +271,20 @@ function media(node: Branch) {
     : `${open(element, "span", ["island-media"])}</span>`;
 }
 
+function read(element: Branch, name: string) {
+  return element.attributes.find(([key]) => key === name)?.[1];
+}
+
+function isOutline(element: Branch) {
+  return read(element, "class")?.split(/\s+/u).includes(OUTLINE) === true;
+}
+
 function emit(node: Twig, limit: number, out: Array<string>) {
   if (typeof node === "string") {
     text(node, out);
     return;
   }
-  if (DROPPED.has(node.tag)) {
+  if (DROPPED.has(node.tag) || isOutline(node)) {
     return;
   }
   if (MEDIA.has(node.tag) || node.tag === "img") {
@@ -341,6 +365,127 @@ function trim(children: Iterable<Twig>) {
 
 export function skeletonize(html: string) {
   return trim(parse(html).children);
+}
+
+function isConcealed(node: Parsed) {
+  return (
+    DROPPED.has(node.tag) ||
+    read(node, "aria-hidden") === "true" ||
+    read(node, "hidden") != null
+  );
+}
+
+function spoken(node: Parsed | string): string {
+  if (typeof node === "string") {
+    return node;
+  }
+  return isConcealed(node)
+    ? ""
+    : node.children.map((child) => spoken(child)).join("");
+}
+
+function tidy(words: string) {
+  return words.replaceAll(/\s+/gu, " ").trim();
+}
+
+function indexed(node: Parsed, found: Map<string, Parsed>) {
+  const id = read(node, "id");
+  if (id != null) {
+    found.set(id, node);
+  }
+  for (const child of node.children) {
+    if (typeof child !== "string") {
+      indexed(child, found);
+    }
+  }
+  return found;
+}
+
+function landmark(node: Parsed, ids: Map<string, Parsed>) {
+  const role = read(node, "role");
+  if (role == null ? !LANDMARKS.has(node.tag) : !LANDMARK_ROLES.has(role)) {
+    return null;
+  }
+  const named =
+    read(node, "aria-label") ??
+    read(node, "aria-labelledby")
+      ?.trim()
+      .split(/\s+/u)
+      .map((id) => {
+        const target = ids.get(id);
+        return target == null ? "" : spoken(target);
+      })
+      .join(" ");
+  const label = named == null ? "" : tidy(named);
+  if (label === "") {
+    return null;
+  }
+  return { label, role };
+}
+
+function heading(node: Parsed) {
+  const name = tidy(read(node, "aria-label") ?? spoken(node));
+  if (name === "") {
+    return null;
+  }
+  const id = read(node, "id");
+  const anchor = id == null ? "" : ` id="${escape(id)}"`;
+  return `<${node.tag}${anchor}>${escape(name)}</${node.tag}>`;
+}
+
+function place(
+  node: Parsed,
+  ids: Map<string, Parsed>,
+  room: { left: number },
+  out: Array<string>,
+) {
+  if (HEADING.test(node.tag)) {
+    const made = heading(node);
+    if (made != null) {
+      room.left -= 1;
+      out.push(made);
+    }
+    return;
+  }
+  const found = landmark(node, ids);
+  const inner = found == null ? out : [];
+  walk(node, ids, room, inner);
+  if (found != null && inner.length > 0) {
+    const role = found.role == null ? "" : ` role="${escape(found.role)}"`;
+    out.push(
+      `<${node.tag}${role} aria-label="${escape(found.label)}">`,
+      ...inner,
+      `</${node.tag}>`,
+    );
+  }
+}
+
+function walk(
+  node: Parsed,
+  ids: Map<string, Parsed>,
+  room: { left: number },
+  out: Array<string>,
+) {
+  for (const child of node.children) {
+    if (room.left === 0) {
+      return;
+    }
+    if (typeof child !== "string" && !isConcealed(child)) {
+      place(child, ids, room, out);
+    }
+  }
+}
+
+export function outline(html: string) {
+  if (!ANY_HEADING.test(html)) {
+    return "";
+  }
+  const root = parse(html);
+  const out: Array<string> = [];
+  walk(root, indexed(root, new Map()), { left: OUTLINE_LIMIT }, out);
+  return out.length === 0
+    ? ""
+    : `<div class="${OUTLINE}">${out.join("")}</div>`;
 }
 
 export function shape(element: Element) {
