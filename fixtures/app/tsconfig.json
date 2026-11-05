@@ -5,9 +5,11 @@
     "paths": {
       "#waiting": ["./src/lib/waiting.svelte"],
       "svelte-islands/devtools": ["../../src/lib/devtools.svelte"],
+      "svelte-islands/sw": ["../../src/lib/sw.ts"],
       "svelte-islands/server": ["../../src/lib/server.ts"],
       "svelte-islands": ["../../src/lib/index.ts"]
     }
   },
-  "include": ["src/**/*", "vite.config.ts"]
+  "include": ["src/**/*", "vite.config.ts"],
+  "exclude": ["src/service-worker"]
 }

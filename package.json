@@ -54,6 +54,10 @@
       "svelte": "./dist/devtools.svelte",
       "default": "./dist/devtools.svelte"
     },
+    "./sw": {
+      "types": "./dist/sw.d.ts",
+      "default": "./dist/sw.js"
+    },
     "./eslint": {
       "types": "./dist/eslint.d.ts",
       "default": "./dist/eslint.js"
@@ -67,7 +71,7 @@
     "dev": "svelte-package --watch",
     "prepare": "svelte-kit sync || echo ''",
     "build": "svelte-kit sync && svelte-package && publint",
-    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && cd fixtures/app && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && cd fixtures/app && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && tsc --noEmit -p src/service-worker/tsconfig.json",
     "test": "svelte-kit sync && vitest run",
     "size": "node --experimental-strip-types scripts/size.ts",
     "test:e2e": "pnpm run fixture && playwright test",

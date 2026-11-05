@@ -26,6 +26,7 @@ export default defineConfig({
           })
         : node({ out: "build" }),
       compilerOptions: { experimental: { async: isAsync } },
+      serviceWorker: { register: false },
     }),
   ],
   resolve: {
@@ -34,6 +35,7 @@ export default defineConfig({
         isAsync ? "async/waiting.svelte" : "src/lib/waiting.svelte",
       ),
       "svelte-islands/devtools": library("devtools.svelte"),
+      "svelte-islands/sw": library("sw.ts"),
       "svelte-islands/server": library("server.ts"),
       "svelte-islands/styles.css": library("styles.css"),
       "svelte-islands": library("index.ts"),
