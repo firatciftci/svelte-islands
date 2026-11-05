@@ -1,17 +1,23 @@
 import type { RequestEvent } from "@sveltejs/kit";
 import type { Handle } from "@sveltejs/kit/hooks";
+import { building, dev } from "$app/env";
 import { getRequestEvent } from "$app/server";
 import { createHash, randomUUID } from "node:crypto";
 import { render } from "svelte/server";
 import type { Fetch } from "./part.js";
+import type { RebuildOptions } from "./rebuild.js";
 import Frame from "./frame.svelte";
 import { Part, provide, quietly, serialize, settings } from "./part.js";
+import { REBUILD_DEFAULTS, rebuilds } from "./rebuild.js";
 import { outline, skeletonize } from "./skeleton.js";
 
+/** Where parts, deferred HTML, and learned skeletons persist. Values are strings. */
 export type Store = {
   get: (key: string) => Promise<string | null>;
   set: (key: string, text: string) => Promise<unknown>;
 };
+
+export type { RebuildOptions } from "./rebuild.js";
 
 const TOKEN = "x-svelte-islands-token";
 const SHAPES = "skeletons";
@@ -21,6 +27,7 @@ const RELEARN = 10 * 60_000;
 const OUTLINES = 4096;
 const HOLLOW = 3;
 const IMMUTABLE = "public, max-age=31536000, immutable";
+const MIN_COMPRESSED = 1024;
 
 type Digest = { text: string; hash: string };
 
@@ -29,7 +36,20 @@ const recent = new Map<string, string>();
 const exemplars = new Map<string, Map<string, { html: string; at: number }>>();
 const asked = new Set<string>();
 const waiting = new Map<string, Map<string, Digest>>();
-const requests = new WeakMap<object, { parts: Set<Part>; isHeaded: boolean }>();
+const requests = new WeakMap<
+  object,
+  {
+    parts: Set<Part>;
+    files: Set<string>;
+    isHeaded: boolean;
+    isPersonal: boolean;
+  }
+>();
+const warned = new Set<string>();
+const squeezed = new Map<
+  string,
+  { size: number; work: Promise<Uint8Array<ArrayBuffer> | null> }
+>();
 const outlines = new Map<string, string>();
 const hollow = new Map<string, { count: number; at: number }>();
 type Prepare = (
@@ -42,17 +62,36 @@ const config: {
   memory: number;
   prepare: Prepare;
   vary: (event: RequestEvent) => string;
-} = { store: null, memory: 64 * 1024 ** 2, prepare: () => {}, vary: () => "" };
-const state: { held: number; names: Promise<unknown> | null } = {
-  held: 0,
-  names: null,
+  rebuild: Required<RebuildOptions> | null;
+  compress: boolean;
+  warnOnCookies: boolean;
+} = {
+  store: null,
+  memory: 64 * 1024 ** 2,
+  prepare: () => {},
+  vary: () => "",
+  rebuild: REBUILD_DEFAULTS,
+  compress: true,
+  warnOnCookies: true,
 };
+const state: {
+  held: number;
+  squeezed: number;
+  names: Promise<unknown> | null;
+} = { held: 0, squeezed: 0, names: null };
+const rebuild = rebuilds<Map<string, Digest>>(
+  () => config.rebuild ?? REBUILD_DEFAULTS,
+);
 
 function hashOf(text: string) {
   return createHash("sha256").update(text).digest("base64url").slice(0, 22);
 }
 
-function digest(value: unknown) {
+function digest(value: unknown, isPrivate: boolean) {
+  if (isPrivate) {
+    const text = serialize(value, true);
+    return { text, hash: hashOf(text) };
+  }
   const isObject = typeof value === "object" && value != null;
   const known = isObject ? digests.get(value) : undefined;
   if (known != null) {
@@ -98,13 +137,21 @@ function keep(made: Digest, event: RequestEvent) {
 function track(locals: object) {
   let found = requests.get(locals);
   if (found == null) {
-    found = { parts: new Set(), isHeaded: false };
+    found = {
+      parts: new Set(),
+      files: new Set(),
+      isHeaded: false,
+      isPersonal: false,
+    };
     requests.set(locals, found);
   }
   return found;
 }
 
 function sourceOf(url: URL) {
+  if (building) {
+    return url.pathname;
+  }
   const search = new URLSearchParams(
     [...url.searchParams].filter(([name]) => !name.startsWith("x-sveltekit-")),
   ).toString();
@@ -236,23 +283,55 @@ async function recall(name: string) {
   }
 }
 
+function warnPersonal(name: string, found: { isPersonal: boolean }) {
+  if (!dev || !config.warnOnCookies || !found.isPersonal || warned.has(name)) {
+    return;
+  }
+  warned.add(name);
+  console.warn(
+    `svelte-islands: part("${name}") was made during a request that read cookies. Parts are served from a public, immutable URL. If this value differs per visitor, pass { private: true }. If it doesn't, pass warnOnCookies: false to handle().`,
+  );
+}
+
+/**
+ * Wraps a value from a server `load` so it travels outside the page's data.
+ *
+ * Parts over the `inline` limit are stored under a hash of their contents and
+ * served from a public, immutable URL. Pass `private: true` for anything that
+ * differs per visitor: a private part is never stored and always stays in the
+ * page's data.
+ *
+ * @param name A stable name for this kind of data. Skeletons are learned per name.
+ * @param value The value to send. Plain data travels in a compact packed form.
+ * @param options When the part loads and who may see it.
+ * @param options.fetch When the browser requests the part: `"auto"`, `"lazy"`, or `"preload"`.
+ * @param options.private Keeps the part out of the store and off public URLs.
+ */
 export function part<T>(
   name: string,
   value: T,
-  { fetch = "auto" }: { fetch?: Fetch } = {},
+  {
+    fetch = "auto",
+    private: isPrivate = false,
+  }: { fetch?: Fetch; private?: boolean } = {},
 ) {
   const event = getRequestEvent();
-  const made = digest(value);
-  keep(made, event);
+  const made = digest(value, isPrivate);
+  const found = track(event.locals);
+  if (!isPrivate) {
+    warnPersonal(name, found);
+    keep(made, event);
+  }
   const created = new Part<T>({
     name,
     hash: made.hash,
     source: sourceOf(event.url),
     bytes: made.text.length,
     fetch,
+    isPrivate,
     loaded: { value },
   });
-  track(event.locals).parts.add(created);
+  found.parts.add(created);
   return created;
 }
 
@@ -284,6 +363,7 @@ provide(() => {
     stash: (html) => {
       const made = { text: html, hash: `${hashOf(html)}.html` };
       keep(made, event);
+      track(event.locals).files.add(made.hash);
       return made.hash;
     },
     outline: (identity, html, view) =>
@@ -331,22 +411,28 @@ async function shapes() {
   });
 }
 
-async function rebuild(file: string, event: RequestEvent) {
+function pageOf(event: RequestEvent) {
   const source = event.url.searchParams.get("u");
-  if (
-    source == null ||
-    !source.startsWith("/") ||
-    source.startsWith("//") ||
-    source.startsWith(settings.prefix)
-  ) {
+  if (source?.startsWith("/") !== true) {
     return null;
   }
+  try {
+    const target = new URL(source, event.url.origin);
+    return target.origin === event.url.origin &&
+      !target.pathname.startsWith(settings.prefix)
+      ? target
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+async function rerun(isMarkup: boolean, target: URL, event: RequestEvent) {
   const token = randomUUID();
   const found = new Map<string, Digest>();
   waiting.set(token, found);
   try {
-    const target = new URL(source, event.url.origin);
-    const data = file.endsWith(".html")
+    const data = isMarkup
       ? target
       : new URL(
           `${target.pathname.replace(/\/$/u, "")}/__data.json${target.search}`,
@@ -360,10 +446,89 @@ async function rebuild(file: string, event: RequestEvent) {
     config.prepare({ url: data, headers }, event);
     const response = await event.fetch(data, { headers });
     await response.arrayBuffer();
-    return found.get(file)?.text ?? null;
+    return found;
   } finally {
     waiting.delete(token);
   }
+}
+
+async function recover(file: string, event: RequestEvent) {
+  const target = building || config.rebuild == null ? null : pageOf(event);
+  if (target == null) {
+    return null;
+  }
+  const isMarkup = file.endsWith(".html");
+  const language = event.request.headers.get("accept-language") ?? "";
+  const outcome = await rebuild(
+    [
+      isMarkup ? "html" : "data",
+      config.vary(event),
+      language,
+      `${target.pathname}${target.search}`,
+    ].join("\n"),
+    async () => rerun(isMarkup, target, event),
+  );
+  if (outcome.status === "busy") {
+    throw new Error("busy");
+  }
+  return outcome.status === "ran"
+    ? (outcome.found.get(file)?.text ?? null)
+    : null;
+}
+
+async function brotli(text: string) {
+  try {
+    const { brotliCompress, constants } = await import("node:zlib");
+    return await new Promise<Uint8Array<ArrayBuffer> | null>((resolve) => {
+      brotliCompress(
+        text,
+        {
+          params: {
+            [constants.BROTLI_PARAM_QUALITY]: text.length > 1024 ** 2 ? 5 : 9,
+            [constants.BROTLI_PARAM_SIZE_HINT]: text.length,
+          },
+        },
+        (error, result) => {
+          resolve(error == null ? new Uint8Array(result) : null);
+        },
+      );
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function squeeze(file: string, text: string) {
+  const known = squeezed.get(file);
+  if (known != null) {
+    return known.work;
+  }
+  const entry = { size: 0, work: brotli(text) };
+  squeezed.set(file, entry);
+  const result = await entry.work;
+  if (result == null) {
+    squeezed.delete(file);
+    return null;
+  }
+  entry.size = result.length;
+  state.squeezed += result.length;
+  for (const [oldest, { size }] of squeezed) {
+    if (state.squeezed <= config.memory / 4) {
+      break;
+    }
+    squeezed.delete(oldest);
+    state.squeezed -= size;
+  }
+  return result;
+}
+
+async function encoded(file: string, text: string, event: RequestEvent) {
+  const accepts = event.request.headers.get("accept-encoding") ?? "";
+  return config.compress &&
+    text.length >= MIN_COMPRESSED &&
+    /\bbr\b/u.test(accepts)
+    ? squeeze(file, text)
+    : null;
 }
 
 async function respond(event: RequestEvent) {
@@ -376,56 +541,129 @@ async function respond(event: RequestEvent) {
     return new Response(null, { status: 404 });
   }
   const etag = `"${file}"`;
-  if (event.request.headers.get("if-none-match") === etag) {
+  if (event.request.headers.get("if-none-match")?.includes(file) === true) {
     return new Response(null, {
       status: 304,
-      headers: { etag, "cache-control": IMMUTABLE },
+      headers: { etag, "cache-control": IMMUTABLE, vary: "accept-encoding" },
     });
   }
-  const text =
-    recent.get(file) ??
-    (await quietly(config.store?.get(`p:${file}`))) ??
-    (await rebuild(file, event));
+  let text: string | null = null;
+  try {
+    text =
+      recent.get(file) ??
+      (await quietly(config.store?.get(`p:${file}`))) ??
+      (await recover(file, event));
+  } catch {
+    return new Response(null, {
+      status: 503,
+      headers: { "cache-control": "no-store", "retry-after": "1" },
+    });
+  }
   if (text == null) {
     return new Response(null, {
       status: 404,
       headers: { "cache-control": "no-store" },
     });
   }
-  return new Response(text, {
+  const compressed = await encoded(file, text, event);
+  const type = file.endsWith(".html")
+    ? "text/html; charset=utf-8"
+    : "application/json; charset=utf-8";
+  return new Response(compressed ?? text, {
     headers: {
-      "content-type": file.endsWith(".html")
-        ? "text/html; charset=utf-8"
-        : "application/json; charset=utf-8",
+      "content-type": type,
       "cache-control": IMMUTABLE,
-      etag,
+      vary: "accept-encoding",
+      etag: compressed == null ? etag : `"${file}-br"`,
+      ...(compressed != null && { "content-encoding": "br" }),
     },
   });
+}
+
+function watchCookies(event: RequestEvent) {
+  const { cookies } = event;
+  const found = track(event.locals);
+  const { get, getAll } = cookies;
+  cookies.get = (...args) => {
+    found.isPersonal = true;
+    return get.apply(cookies, args);
+  };
+  cookies.getAll = (...args) => {
+    found.isPersonal = true;
+    return getAll.apply(cookies, args);
+  };
+}
+
+async function publish(event: RequestEvent) {
+  const found = requests.get(event.locals);
+  const files = [
+    SHAPES,
+    ...(found?.files ?? []),
+    ...(found?.parts
+      .values()
+      .filter((made) => !made.isInline)
+      .map((made) => made.hash) ?? []),
+  ];
+  await Promise.all(
+    files.map(async (file) => {
+      const response = await event.fetch(`${settings.prefix}${file}`);
+      await response.arrayBuffer();
+    }),
+  );
 }
 
 const handler: Handle = async ({ event, resolve }) => {
   if (event.url.pathname.startsWith(settings.prefix)) {
     return respond(event);
   }
-  return resolve(event, {
+  if (dev && config.warnOnCookies) {
+    watchCookies(event);
+  }
+  const response = await resolve(event, {
     transformPageChunk: ({ html }) => inject(html, event),
   });
+  if (building) {
+    await publish(event);
+  }
+  return response;
 };
 
+/**
+ * The SvelteKit handle that serves parts and deferred HTML and adds preload links.
+ * Add it to `sequence()` in `hooks.server.ts`.
+ *
+ * @param options Settings for the handle.
+ * @param options.store Persists parts, deferred HTML, and skeletons across restarts and servers.
+ * @param options.memory How many characters of parts and deferred HTML to keep in memory. The default is 64 MiB.
+ * @param options.prepare Adjusts the internal request used to rebuild a part.
+ * @param options.vary Returns anything other than an island's data that changes its text, such as the locale.
+ * @param options.rebuild Limits on rerunning a page to recover a missing part, or `false` to answer 404 instead.
+ * @param options.compress Serves parts with Brotli when the browser accepts it. The default is `true`.
+ * @param options.warnOnCookies Warns in dev when a public part is made after a request read cookies. The default is `true`.
+ */
 export function handle({
   store = null,
   memory = config.memory,
   prepare = () => {},
   vary = () => "",
+  rebuild: limits = {},
+  compress = true,
+  warnOnCookies = true,
 }: {
   store?: Store | null;
   memory?: number;
   prepare?: Prepare;
   vary?: (event: RequestEvent) => string;
+  rebuild?: RebuildOptions | false;
+  compress?: boolean;
+  warnOnCookies?: boolean;
 } = {}): Handle {
   config.store = store;
   config.memory = memory;
   config.prepare = prepare;
   config.vary = vary;
+  config.rebuild = limits === false ? null : { ...REBUILD_DEFAULTS, ...limits };
+  config.compress = compress;
+  config.warnOnCookies = warnOnCookies;
   return handler;
 }

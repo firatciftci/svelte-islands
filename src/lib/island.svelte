@@ -67,7 +67,7 @@
   const plan = untrack(() => ({
     when: when ?? (ssr ? "interaction" : "visible"),
     fetch: typeof defer === "string" ? defer : "visible",
-    isDeferred: defer !== false,
+    isDeferred: defer !== false && !part.isPrivate,
     options: { margin, media },
   }));
 
@@ -90,7 +90,17 @@
       (drawn ??= reading(() =>
         server.render(children, loaded.value, context, prefix),
       ));
-    const html = () => draw().result;
+    const isSecret = () =>
+      origin.isPrivate ||
+      draw()
+        .reads.values()
+        .some((read) => read.isPrivate);
+    const html = () => {
+      if (isSecret()) {
+        throw new Error("private");
+      }
+      return draw().result;
+    };
     if (!ssr) {
       const outlined = server.outline(`${origin.hash}:${first}`, html, first);
       return {
@@ -101,9 +111,9 @@
         html: `${outlined}${shell(server.skeleton(origin.name, first, html))}`,
       };
     }
-    const rendered = html();
+    const rendered = draw().result;
     const needs = needsOf(draw().reads, origin);
-    if (!plan.isDeferred) {
+    if (!plan.isDeferred || isSecret()) {
       return {
         state: "static",
         file: null,

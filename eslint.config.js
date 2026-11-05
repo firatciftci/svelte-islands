@@ -120,8 +120,23 @@ export default antfu({
     "pnpm/yaml-enforce-settings": "off",
     "prefer-const": "off",
   },
-}).append({
-  name: "local/plain-text-parser",
-  files: [GLOB_STYLE, GLOB_MARKDOWN, GLOB_XML, GLOB_HTML],
-  languageOptions: { parser: parserPlain },
-});
+}).append(
+  {
+    name: "local/tests",
+    files: ["tests/**", "fixtures/**"],
+    rules: {
+      "e18e/prefer-array-fill": "off",
+      "no-sparse-arrays": "off",
+      "slop/no-chained-type-assertions": "off",
+      "unicorn/consistent-boolean-name": "off",
+      "unicorn/consistent-function-scoping": "off",
+      "unicorn/no-await-expression-member": "off",
+      "unicorn/prefer-structured-clone": "off",
+    },
+  },
+  {
+    name: "local/plain-text-parser",
+    files: [GLOB_STYLE, GLOB_MARKDOWN, GLOB_XML, GLOB_HTML],
+    languageOptions: { parser: parserPlain },
+  },
+);

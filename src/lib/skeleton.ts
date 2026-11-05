@@ -64,6 +64,10 @@ const PAINT = /color|background|fill|stroke|shadow|outline|border-image/u;
 const PAINTED =
   /#[\da-f]{3,8}\b|\b(?:rgb|hsl|oklch|oklab|lab|lch|color-mix)\(|var\(--(?:party|color|tint|swatch|hue)/iu;
 
+const OPAQUE = /url\([^)]*\)|"[^"]*"|'[^']*'/giu;
+
+const OPAQUE_MARK = "\0";
+
 const LIMITS = [12, 6, 3, 1];
 
 const HEADING = /^h[1-6]$/u;
@@ -183,11 +187,12 @@ function parse(html: string) {
 
 function restyle(style: string) {
   return style
+    .replaceAll(OPAQUE, () => OPAQUE_MARK)
     .split(";")
     .map((declaration) => declaration.trim())
     .filter((declaration) => {
       const at = declaration.indexOf(":");
-      if (at <= 0) {
+      if (at <= 0 || declaration.includes(OPAQUE_MARK)) {
         return false;
       }
       const property = declaration.slice(0, at).trim().toLowerCase();

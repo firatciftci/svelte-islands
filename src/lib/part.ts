@@ -22,6 +22,7 @@ export class Part<T = unknown> {
   readonly bytes: number;
   readonly isEager: boolean;
   readonly fetch: Fetch;
+  readonly isPrivate: boolean;
   readonly loaded: { value: T } | null;
 
   constructor({
@@ -31,6 +32,7 @@ export class Part<T = unknown> {
     bytes,
     isEager = false,
     fetch = "auto",
+    isPrivate = false,
     loaded = null,
   }: {
     name: string;
@@ -39,6 +41,7 @@ export class Part<T = unknown> {
     bytes: number;
     isEager?: boolean;
     fetch?: Fetch;
+    isPrivate?: boolean;
     loaded?: { value: T } | null;
   }) {
     this.name = name;
@@ -47,11 +50,14 @@ export class Part<T = unknown> {
     this.bytes = bytes;
     this.isEager = isEager;
     this.fetch = fetch;
+    this.isPrivate = isPrivate;
     this.loaded = loaded;
   }
 
   get isInline() {
-    return this.loaded != null && this.bytes <= settings.inline;
+    return (
+      this.loaded != null && (this.isPrivate || this.bytes <= settings.inline)
+    );
   }
 }
 
@@ -73,8 +79,15 @@ const state: {
   read: () => Scope | null;
   arrived: (part: Part) => void;
   reducers: Record<string, (value: unknown) => unknown>;
+  sealed: Record<string, (value: unknown) => unknown>;
   revivers: Record<string, (value: unknown) => unknown>;
-} = { read: () => null, arrived: () => {}, reducers: {}, revivers: {} };
+} = {
+  read: () => null,
+  arrived: () => {},
+  reducers: {},
+  sealed: {},
+  revivers: {},
+};
 
 export function provide(reader: () => Scope | null) {
   state.read = reader;
@@ -161,12 +174,23 @@ function index(codecs: Transport) {
   claim(Object.values(codecs).map(({ encode: reduce }) => reduce));
   const merged: Transport = { ...codecs, ...compact, part: nested };
   const all = Object.entries(merged);
-  state.reducers = Object.fromEntries(
+  state.sealed = Object.fromEntries(
     all.map(([key, { encode: reduce }]) => [
       key,
       (value: unknown): unknown => reduce(value),
     ]),
   );
+  state.reducers = {
+    ...state.sealed,
+    part: (value: unknown): unknown => {
+      if (value instanceof Part && value.isPrivate) {
+        throw new Error(
+          `svelte-islands: the private part "${value.name}" is inside a public part, which would publish it. Make the outer part private too.`,
+        );
+      }
+      return nested.encode(value);
+    },
+  };
   state.revivers = Object.fromEntries(
     all.map(([key, { decode: revive }]) => [
       key,
@@ -188,10 +212,10 @@ export function islands({
   return { ...codecs, ...compact, part: codec } satisfies Transport;
 }
 
-export function serialize(value: unknown) {
+export function serialize(value: unknown, isPrivate = false) {
   return isPackable(value)
     ? `~${JSON.stringify(pack(value))}`
-    : stringify(value, state.reducers);
+    : stringify(value, isPrivate ? state.sealed : state.reducers);
 }
 
 export function deserialize(text: string): unknown {

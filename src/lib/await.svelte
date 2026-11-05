@@ -8,6 +8,7 @@
     promise,
     name,
     reserve,
+    private: isPrivate = false,
     children,
     failed,
     class: className,
@@ -15,13 +16,14 @@
     promise: T;
     name: string;
     reserve?: string;
+    private?: boolean;
     children: Snippet<[Awaited<T>]>;
     failed?: Snippet<[unknown]>;
     class?: string;
   } = $props();
 
   const server = scope();
-  if (server != null) {
+  if (server != null && untrack(() => !isPrivate)) {
     const context = getAllContexts();
     const { body, key, waited } = untrack(() => ({
       body: children,

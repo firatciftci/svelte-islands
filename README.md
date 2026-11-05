@@ -254,20 +254,43 @@ Neither component adds a box, so the content and its skeleton keep their places 
 - **Scheduled hydration.** When several islands are ready at once, they hydrate one after another in slices of about 8 ms, and the browser gets the main thread back between slices to handle input and paint. Islands that hydrate on interaction go first, then `visible` and `eager` islands, then `media` islands, then `idle` ones. An island with a held click moves to the front. Islands that render in the browser, after a client-side navigation or with `ssr={false}`, go through the same queue.
 - **Compact transport.** If a part's value is plain data (objects, arrays, strings, numbers, booleans, `null`, and `undefined`), it is sent as packed JSON rather than in devalue's format. Arrays of objects with the same keys are sent as columns. Repeated values, small objects, and lists are stored once and referred to by index. Runs of consecutive integers are sent as ranges, and arrays that are mostly zeros or nulls are sent as the positions of the other values. Arrays inside page data are packed the same way. Values such as dates, maps, and nested objects referenced from more than one place are sent in devalue's format. A small object of plain values referenced from several places arrives as separate copies. On our pages, packed parts were 3 to 7 times smaller than devalue's output, and about half the size after gzip.
 
+## Private data
+
+Parts larger than `inline` are stored under a hash of their contents and served from a public URL with `cache-control: public, immutable`. That is what makes them fast, and it also means anyone with the URL can read them, and any CDN or proxy between you and your visitors can keep a copy. Do not put anything that differs per visitor in an ordinary part.
+
+Pass `private: true` for that data:
+
+```ts
+export const load = async ({ cookies }) => ({
+  account: part("account", await accountFor(cookies), { private: true }),
+});
+```
+
+The library never stores a private part or gives it a URL. It stays in the page's data, and SvelteKit sends it to the browser the same way it sends the rest of your load's data. An island that reads a private part renders as a static island: its HTML is in the page, it is not deferred to a public URL, and the library does not learn a skeleton from it. A private part nested inside a public part throws an error, because the outer part would publish it.
+
+For content that comes from an `<Await>` rather than a part, set `<Await private>` so no skeleton is learned from it.
+
+Skeletons remove text, attribute values, images, and URLs, but they keep the class names and layout of what they were learned from. Mark a part or `<Await>` as private if even that structure is sensitive.
+
+In dev, the library warns when a public part is made during a request that has read cookies. Turn the warning off with `handle({ warnOnCookies: false })`.
+
 ## Options
 
 `islands({ codecs, inline, prefix })`
 
 - `codecs`: your own transport codecs.
 - `inline`: the largest part, in characters, that is inlined into the page. The default is 4096.
-- `prefix`: the URL prefix for parts. The default is `/_parts/`.
+- `prefix`: the URL prefix for parts. The default is `/_parts/`. If your app sets `paths.base`, include it here, for example `/docs/_parts/`.
 
-`handle({ store, memory, prepare, vary })`
+`handle({ store, memory, prepare, vary, rebuild, compress, warnOnCookies })`
 
 - `store`: an object with `get(key)` and `set(key, text)` that persists parts, deferred HTML, and skeletons across restarts and servers, such as Redis.
 - `memory`: how many characters of parts and deferred HTML to keep in memory. The default is 67,108,864 (64 × 1024²).
 - `prepare(request, event)`: lets you adjust the internal request used to rebuild a part, for example to add a header your load functions read.
 - `vary(event)`: returns any value other than an island's data that can change its text, such as the locale, so each value gets its own cached outline.
+- `rebuild`: limits on rerunning a page to recover a part that this server doesn't have, usually because it restarted or another server made the part. Simultaneous requests for the same page share one run. `{ concurrency, queue, cooldown, timeout }` default to 4 runs at once, 32 waiting, 30 seconds before the same page can run again, and 30 seconds per run. When the queue is full, the server answers 503 and the browser retries. Pass `false` to answer 404 instead of rerunning anything.
+- `compress`: serves parts of 1 KiB or more with Brotli when the browser accepts it, keeping the compressed copies in memory. The default is `true`. Turn it off if your proxy or CDN already compresses these responses.
+- `warnOnCookies`: warns in dev when a public part is made during a request that has read cookies. The default is `true`.
 
 ## Styling
 
