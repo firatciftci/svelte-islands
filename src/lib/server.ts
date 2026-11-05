@@ -615,7 +615,7 @@ async function settle(event: RequestEvent) {
     return;
   }
   const work = Promise.all(writes);
-  const platform = event.platform as
+  const platform = event.platform as unknown as
     | {
         ctx?: { waitUntil?: (work: Promise<unknown>) => void };
         context?: { waitUntil?: (work: Promise<unknown>) => void };

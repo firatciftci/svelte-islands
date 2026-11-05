@@ -214,7 +214,7 @@ const noLoadedInClient: Rule.RuleModule = {
           reads.push(node);
         }
       },
-      "Program:exit"() {
+      "Program:exit": () => {
         if (!isLibraryFile) {
           return;
         }

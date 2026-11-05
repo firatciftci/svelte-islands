@@ -497,7 +497,7 @@ export function learn(name: string) {
   return (element: Element) => capture(name, element);
 }
 
-function boxes(element: Element): Array<Element> {
+export function boxes(element: Element): Array<Element> {
   return getComputedStyle(element).display === "contents"
     ? [...element.children].flatMap((child) => boxes(child))
     : [element];

@@ -1,9 +1,10 @@
 <script lang="ts">
   import "svelte-islands/styles.css";
-  import { browser } from "$app/env";
+  import { browser, dev } from "$app/env";
   import { onMount } from "svelte";
   import { observe } from "svelte-islands";
   import type { Observation } from "svelte-islands";
+  import Devtools from "svelte-islands/devtools";
 
   const { children } = $props();
 
@@ -21,3 +22,7 @@
 </script>
 
 {@render children()}
+
+{#if dev}
+  <Devtools />
+{/if}

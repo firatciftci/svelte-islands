@@ -4,6 +4,7 @@
     "strict": true,
     "paths": {
       "#waiting": ["./src/lib/waiting.svelte"],
+      "svelte-islands/devtools": ["../../src/lib/devtools.svelte"],
       "svelte-islands/server": ["../../src/lib/server.ts"],
       "svelte-islands": ["../../src/lib/index.ts"]
     }

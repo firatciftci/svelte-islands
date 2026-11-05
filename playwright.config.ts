@@ -4,6 +4,7 @@ const chromium = process.env.PLAYWRIGHT_CHROMIUM_PATH;
 const A = 5301;
 const B = 5302;
 const STATIC = 5303;
+const DEV = 5304;
 
 function node(port: number) {
   return {
@@ -31,6 +32,12 @@ export default defineConfig({
   webServer: [
     node(A),
     node(B),
+    {
+      command: `npx vite dev --host 127.0.0.1 --port ${DEV} --strictPort`,
+      cwd: "fixtures/app",
+      port: DEV,
+      reuseExistingServer: false,
+    },
     {
       command: `node tests/e2e/static-server.ts fixtures/app/build-static ${STATIC}`,
       port: STATIC,

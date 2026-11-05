@@ -33,6 +33,7 @@ export default defineConfig({
       "#waiting": here(
         isAsync ? "async/waiting.svelte" : "src/lib/waiting.svelte",
       ),
+      "svelte-islands/devtools": library("devtools.svelte"),
       "svelte-islands/server": library("server.ts"),
       "svelte-islands/styles.css": library("styles.css"),
       "svelte-islands": library("index.ts"),

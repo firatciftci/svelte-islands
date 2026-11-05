@@ -49,6 +49,11 @@
       "types": "./dist/stores.d.ts",
       "default": "./dist/stores.js"
     },
+    "./devtools": {
+      "types": "./dist/devtools.svelte.d.ts",
+      "svelte": "./dist/devtools.svelte",
+      "default": "./dist/devtools.svelte"
+    },
     "./eslint": {
       "types": "./dist/eslint.d.ts",
       "default": "./dist/eslint.js"
