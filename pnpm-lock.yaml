@@ -197,6 +197,9 @@ importers:
       '@types/node':
         specifier: ^24.19.2
         version: 24.19.2
+      '@typescript-eslint/parser':
+        specifier: 8.72.1
+        version: 8.72.1(eslint@10.14.0(jiti@2.7.0))(typescript@6.0.3)
       bumpp:
         specifier: ^12.3.0
         version: 12.3.0
@@ -239,6 +242,9 @@ importers:
       svelte-check:
         specifier: ^4.7.7
         version: 4.7.8(picomatch@4.0.7)(svelte@5.57.3(@typescript-eslint/types@8.72.1))(typescript@6.0.3)
+      svelte-eslint-parser:
+        specifier: 1.10.1
+        version: 1.10.1(svelte@5.57.3(@typescript-eslint/types@8.72.1))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
