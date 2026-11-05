@@ -75,6 +75,7 @@
     "test": "svelte-kit sync && vitest run",
     "size": "node --experimental-strip-types scripts/size.ts",
     "test:e2e": "pnpm run fixture && playwright test",
+    "test:workers": "svelte-kit sync && cd fixtures/app && svelte-kit sync && FIXTURE_ADAPTER=cloudflare vite build && cd ../.. && playwright test -c playwright.workers.config.ts",
     "fixture": "svelte-kit sync && cd fixtures/app && svelte-kit sync && vite build && FIXTURE_ADAPTER=static vite build",
     "lint": "knip && SVELTE_ESLINT_PARSER_EXPERIMENTAL_TS_SYS_HOOK=1 eslint .",
     "lint:fix": "knip --fix && SVELTE_ESLINT_PARSER_EXPERIMENTAL_TS_SYS_HOOK=1 eslint --fix .",
@@ -99,6 +100,7 @@
     "@antfu/eslint-config": "^9.5.1",
     "@aws-sdk/client-s3": "^3.1161.0",
     "@playwright/test": "^1.64.1",
+    "@sveltejs/adapter-cloudflare": "8.0.2",
     "@sveltejs/adapter-node": "^6.0.1",
     "@sveltejs/adapter-static": "^4.0.1",
     "@sveltejs/kit": "^3.1.0",
@@ -123,7 +125,8 @@
     "svelte-eslint-parser": "1.10.1",
     "typescript": "^6.0.3",
     "vite": "^8.3.4",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.0",
+    "wrangler": "4.157.0"
   },
   "packageManager": "pnpm@12.11.2",
   "bin": {

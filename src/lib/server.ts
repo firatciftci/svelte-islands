@@ -505,6 +505,8 @@ async function recover(file: string, event: RequestEvent) {
     : null;
 }
 
+const ALREADY_ENCODED = { encodeBody: "manual" } as const;
+
 async function brotli(text: string) {
   try {
     const { brotliCompress, constants } = await import("node:zlib");
@@ -598,7 +600,8 @@ async function respond(event: RequestEvent) {
   const type = file.endsWith(".html")
     ? "text/html; charset=utf-8"
     : "application/json; charset=utf-8";
-  return new Response(compressed ?? text, {
+  const init: ResponseInit & typeof ALREADY_ENCODED = {
+    ...ALREADY_ENCODED,
     headers: {
       "content-type": type,
       "cache-control": IMMUTABLE,
@@ -606,7 +609,8 @@ async function respond(event: RequestEvent) {
       etag: compressed == null ? etag : `"${file}-br"`,
       ...(compressed != null && { "content-encoding": "br" }),
     },
-  });
+  };
+  return new Response(compressed ?? text, init);
 }
 
 function lifetimeOf(platform: unknown) {

@@ -195,6 +195,28 @@ describe("r2Store", () => {
     expect(objects.get("islands/a")).toBe("text");
     expect(await store.get("a")).toBe("text");
   });
+
+  it("opens the binding only when it's used, so a build can import it", async () => {
+    let opened = 0;
+    const store = r2Store(() => {
+      opened += 1;
+      return {
+        get: async () => ({ text: async () => "text" }),
+        put: async () => null,
+      };
+    });
+    expect(opened).toBe(0);
+    expect(await store.get("a")).toBe("text");
+    expect(opened).toBe(1);
+  });
+
+  it("turns a binding that throws into a failed read, not a thrown call", async () => {
+    const store = r2Store(() => {
+      throw new Error("no env while prerendering");
+    });
+    await expect(store.get("a")).rejects.toThrow("no env");
+    await expect(store.set("a", "text")).rejects.toThrow("no env");
+  });
 });
 
 describe("s3Store", () => {

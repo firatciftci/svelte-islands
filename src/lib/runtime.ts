@@ -62,6 +62,7 @@ const queue: Array<Job> = [];
 
 export type Options = { margin?: string; media?: string };
 
+/** Why the reader needs everything now: find in page, or printing. */
 export type Want = "find" | "print";
 
 export type Claimed = {
@@ -119,6 +120,13 @@ export function partsOf(needs: string | null) {
       );
 }
 
+/**
+ * Reads a part's value if it's already here, without requesting it. Use it in
+ * script or markup, where it stays reactive to the part arriving.
+ *
+ * @param part The part to read.
+ * @returns The value in a wrapper, or `null` if the part hasn't arrived.
+ */
 export function peek<T>(part: Part<T>): { value: T } | null {
   state.reads?.add(part);
   if (part.loaded != null) {
@@ -197,6 +205,7 @@ export async function markupOf(
 }
 
 function report(name: string, hash: string, error: unknown) {
+  console.warn(`svelte-islands: could not load the part "${name}".`, error);
   if (isObserved()) {
     emit({ type: "fail", name, hash, message: String(error) });
   }
@@ -222,6 +231,13 @@ export function markupNow(name: string, source: string) {
   }
 }
 
+/**
+ * Reads a part right now, blocking the page with a synchronous request if it
+ * has to. Keep it for moments that can't wait, such as `beforeprint`.
+ *
+ * @param part The part to read.
+ * @returns The value in a wrapper, or `null` if the request failed.
+ */
 export function loadNow<T>(part: Part<T>): { value: T } | null {
   const known = peek(part);
   if (known != null) {
@@ -261,6 +277,13 @@ async function request(part: Part) {
   }
 }
 
+/**
+ * Requests a part's value, or returns it if it's already here. Requests for the
+ * same part share one download, and failed downloads are retried.
+ *
+ * @param part The part to read.
+ * @returns The value.
+ */
 export async function load<T>(part: Part<T>): Promise<T> {
   const known = untrack(() => peek(part));
   if (known != null) {
@@ -337,6 +360,13 @@ function listen() {
   });
 }
 
+/**
+ * Calls back when the reader needs content that's waiting on the page: when they
+ * open find in page, or are about to print. Use it for anything you load later.
+ *
+ * @param run Called with the reason. Printing needs its content before this returns.
+ * @returns A function that stops listening.
+ */
 export function whenWanted(run: (want: Want) => void) {
   listen();
   wants.add(run);
@@ -493,6 +523,13 @@ export function capture(key: string, element: Element) {
   };
 }
 
+/**
+ * An attachment that records an element's shape as the skeleton for `name`, for
+ * content you render yourself without an island.
+ *
+ * @param name The skeleton's name.
+ * @returns The attachment, for `{@attach learn("name")}`.
+ */
 export function learn(name: string) {
   return (element: Element) => capture(name, element);
 }
@@ -694,6 +731,13 @@ export function watch(
 const ACTIVE =
   'button, input, select, textarea, label, summary, [role="button"], [role="tab"], [role="switch"], [role="checkbox"], [role="menuitem"], [role="option"], [tabindex]:not([tabindex="-1"])';
 
+/**
+ * Presses an element again as if the reader had, for a click held before the
+ * code behind it had loaded.
+ *
+ * @param target The element to press.
+ * @param press The original click.
+ */
 export function replay(target: HTMLElement, press: MouseEvent) {
   if (press.detail === 0) {
     target.click();

@@ -21,6 +21,7 @@ function node(port: number) {
 
 export default defineConfig({
   testDir: "tests/e2e",
+  testIgnore: "workers.spec.ts",
   fullyParallel: true,
   forbidOnly: true,
   retries: 0,

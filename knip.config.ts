@@ -6,7 +6,11 @@ const config: KnipConfig = {
     "fixtures/app/src/**/*",
     "tests/e2e/*.ts",
   ],
-  ignoreFiles: ["changelogithub.config.ts", "fixtures/app/async/**"],
+  ignoreFiles: [
+    "changelogithub.config.ts",
+    "fixtures/app/async/**",
+    "fixtures/app/workers/**",
+  ],
   ignoreUnresolved: ["#waiting"],
   ignoreIssues: { ".github/**/*.yml": ["binaries"] },
   treatConfigHintsAsErrors: true,

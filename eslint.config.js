@@ -124,7 +124,7 @@ export default antfu({
 }).append(
   {
     name: "local/tests",
-    files: ["tests/**", "playwright.config.ts"],
+    files: ["tests/**", "playwright.config.ts", "playwright.workers.config.ts"],
     rules: {
       "node/no-process-env": "off",
       "node/prefer-global/process": "off",

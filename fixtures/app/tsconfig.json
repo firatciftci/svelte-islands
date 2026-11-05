@@ -3,6 +3,7 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
+      "#store": ["./src/lib/store.ts"],
       "#waiting": ["./src/lib/waiting.svelte"],
       "svelte-islands/devtools": ["../../src/lib/devtools.svelte"],
       "svelte-islands/sw": ["../../src/lib/sw.ts"],

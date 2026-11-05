@@ -86,20 +86,23 @@ type R2Bucket = {
 /**
  * Keeps entries in a Cloudflare R2 bucket.
  *
- * @param bucket The R2 binding, such as `platform.env.PARTS`.
+ * @param bucket The R2 binding, or a function that returns it. Use a function,
+ * such as `() => env.PARTS`, when the app prerenders any route, because reading
+ * `env` from `cloudflare:workers` throws during the build.
  * @param options Settings for the store.
  * @param options.prefix Added to each key. The default is `islands/`.
  */
 export function r2Store(
-  bucket: R2Bucket,
+  bucket: R2Bucket | (() => R2Bucket),
   { prefix = "islands/" }: { prefix?: string } = {},
 ): Store {
+  const open = typeof bucket === "function" ? bucket : () => bucket;
   return {
     get: async (key) => {
-      const found = await bucket.get(`${prefix}${key}`);
+      const found = await open().get(`${prefix}${key}`);
       return found == null ? null : found.text();
     },
-    set: async (key, text) => bucket.put(`${prefix}${key}`, text),
+    set: async (key, text) => open().put(`${prefix}${key}`, text),
   };
 }
 
