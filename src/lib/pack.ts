@@ -295,7 +295,68 @@ export function pack(value: Value): Json {
 }
 
 function numbers(value: unknown) {
-  return Array.isArray(value) ? value.map(Number) : [];
+  return Array.isArray(value) ? (value as Array<number>) : [];
+}
+
+function put(row: Record<string, unknown>, name: string, value: unknown) {
+  if (name === "__proto__") {
+    Object.defineProperty(row, name, {
+      value,
+      configurable: true,
+      enumerable: true,
+      writable: true,
+    });
+  } else {
+    row[name] = value;
+  }
+}
+
+function untable(keys: unknown, columns: Array<unknown>) {
+  const names = Array.isArray(keys) ? keys.map(String) : [];
+  const cells = columns.map((column) => unlist(column));
+  const rows: Array<unknown> = [];
+  for (let index = 0; index < (cells[0]?.length ?? 0); index += 1) {
+    const row: Record<string, unknown> = {};
+    let at = 0;
+    for (const name of names) {
+      put(row, name, cells[at]?.[index]);
+      at += 1;
+    }
+    rows.push(row);
+  }
+  return rows;
+}
+
+function unruns(bounds: Array<number>) {
+  const cells: Array<number> = [];
+  let start: number | null = null;
+  for (const bound of bounds) {
+    if (start == null) {
+      start = bound;
+    } else {
+      for (let cell = start; cell <= bound; cell += 1) {
+        cells.push(cell);
+      }
+      start = null;
+    }
+  }
+  return cells;
+}
+
+function unsparse(
+  length: unknown,
+  fill: unknown,
+  indices: unknown,
+  kept: unknown,
+) {
+  const cells = new Array<unknown>(Number(length)).fill(fill);
+  const items = unlist(kept);
+  let at = 0;
+  for (const index of numbers(indices)) {
+    cells[index] = items[at];
+    at += 1;
+  }
+  return cells;
 }
 
 function unlist(node: unknown): Array<unknown> {
@@ -303,14 +364,10 @@ function unlist(node: unknown): Array<unknown> {
     return [];
   }
   const fields: Array<unknown> = node;
-  const [tag, ...rest] = fields;
+  const tag = fields[0];
+  const rest = fields.slice(1);
   if (tag === TABLE) {
-    const [keys, ...columns] = rest;
-    const names = Array.isArray(keys) ? keys.map(String) : [];
-    const cells = columns.map((column) => unlist(column));
-    return Array.from({ length: cells[0]?.length ?? 0 }, (_, index) =>
-      Object.fromEntries(names.map((name, at) => [name, cells[at]?.[index]])),
-    );
+    return untable(rest[0], rest.slice(1));
   }
   if (tag === DICTIONARY) {
     const distinct = unlist(rest[0]);
@@ -335,24 +392,10 @@ function unlist(node: unknown): Array<unknown> {
     });
   }
   if (tag === RUNS) {
-    const bounds = numbers(rest);
-    return bounds.flatMap((start, at) =>
-      at % 2 === 0
-        ? Array.from(
-            { length: (bounds[at + 1] ?? start) - start + 1 },
-            (_, step) => start + step,
-          )
-        : [],
-    );
+    return unruns(numbers(rest));
   }
   if (tag === SPARSE) {
-    const [length, fill, indices, kept] = rest;
-    const items = unlist(kept);
-    const spots = new Map(numbers(indices).map((index, at) => [index, at]));
-    return Array.from({ length: Number(length) }, (_, index) => {
-      const at = spots.get(index);
-      return at == null ? fill : items[at];
-    });
+    return unsparse(rest[0], rest[1], rest[2], rest[3]);
   }
   if (tag === NULLABLE) {
     const empty = new Set(numbers(rest[0]));
@@ -374,9 +417,11 @@ export function unpack(node: unknown): unknown {
     return node[0] === UNDEFINED ? undefined : unlist(node);
   }
   if (node !== null && typeof node === "object") {
-    return Object.fromEntries(
-      Object.entries(node).map(([key, item]) => [key, unpack(item)]),
-    );
+    const row: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(node)) {
+      put(row, key, unpack(item));
+    }
+    return row;
   }
   return node;
 }

@@ -111,6 +111,21 @@ describe("pack", () => {
     );
   });
 
+  it.each([
+    ["an object", '{"__proto__":{"polluted":true},"a":1}'],
+    [
+      "table rows",
+      '[{"__proto__":{"polluted":true},"a":1},{"__proto__":{"polluted":true},"a":2}]',
+    ],
+  ])("keeps a __proto__ key in %s as plain data", (_, source) => {
+    const value: unknown = JSON.parse(source);
+    const decoded: unknown = unpack(pack(value as never));
+    expect(JSON.stringify(decoded)).toBe(source);
+    const first: unknown = Array.isArray(decoded) ? decoded[0] : decoded;
+    expect(Object.getPrototypeOf(first)).toBe(Object.prototype);
+    expect(Object.keys(first as object)).toContain("__proto__");
+  });
+
   it("gives objects from a dictionary their own copies", () => {
     const shared = { a: 1 };
     const rows = Array.from({ length: 20 }, () => shared);

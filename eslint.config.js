@@ -140,6 +140,11 @@ export default antfu({
     },
   },
   {
+    name: "local/decoder",
+    files: ["src/lib/pack.ts"],
+    rules: { "unicorn/no-new-array": "off" },
+  },
+  {
     name: "local/plain-text-parser",
     files: [GLOB_STYLE, GLOB_MARKDOWN, GLOB_XML, GLOB_HTML],
     languageOptions: { parser: parserPlain },
