@@ -1,6 +1,6 @@
 {
   "name": "svelte-islands",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Islands for SvelteKit: content-addressed page data, server HTML adopted without hydration, and skeletons learned from your own markup.",
   "keywords": [
     "svelte",
