@@ -63,6 +63,29 @@
   padding: var(--island-inset, 0);
 }
 
+@media print {
+  .island-shell,
+  .island-skeleton {
+    display: none;
+  }
+}
+
+@media (scripting: none) {
+  .island-shell,
+  .island-skeleton {
+    display: none;
+  }
+
+  .island-outline {
+    position: static;
+    inline-size: auto;
+    block-size: auto;
+    overflow: visible;
+    clip-path: none;
+    white-space: normal;
+  }
+}
+
 @keyframes island-pulse {
   to {
     opacity: 0.5;

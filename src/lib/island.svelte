@@ -22,11 +22,17 @@
     intercept,
     isFirstGone,
     load,
+    loadNow,
+    markupNow,
     markupOf,
+    needsOf,
+    partsOf,
     peek,
+    reading,
     schedule,
     skeletonOf,
     watch,
+    whenWanted,
   } from "./runtime.js";
 
   const {
@@ -79,27 +85,39 @@
       return null;
     }
     const prefix = `s${origin.hash.slice(0, 6).replaceAll("-", "_")}`;
-    let markup: string | null = null;
-    const html = () =>
-      (markup ??= server.render(children, loaded.value, context, prefix));
+    let drawn: { result: string; reads: Set<Part> } | null = null;
+    const draw = () =>
+      (drawn ??= reading(() =>
+        server.render(children, loaded.value, context, prefix),
+      ));
+    const html = () => draw().result;
     if (!ssr) {
       const outlined = server.outline(`${origin.hash}:${first}`, html, first);
       return {
         state: "client",
         file: null,
+        needs: null,
         isBusy: outlined === "",
         html: `${outlined}${shell(server.skeleton(origin.name, first, html))}`,
       };
     }
     const rendered = html();
+    const needs = needsOf(draw().reads, origin);
     if (!plan.isDeferred) {
-      return { state: "static", file: null, isBusy: false, html: rendered };
+      return {
+        state: "static",
+        file: null,
+        needs,
+        isBusy: false,
+        html: rendered,
+      };
     }
     const file = server.stash(rendered);
     const outlined = server.outline(file, html);
     return {
       state: "deferred",
       file,
+      needs,
       isBusy: outlined === "",
       html: `${outlined}${shell(server.skeleton(origin.name, first, html))}`,
     };
@@ -164,29 +182,34 @@
             job?.hurry();
           });
     const stopCapture = capture(first, target);
+    const needs = partsOf(adopted?.needs ?? null);
     let instance: ReturnType<typeof hydrate> | null = null;
     let isLive = true;
+    let stopWanting = () => {};
+    const mount = (value: T) => {
+      if (!isLive || instance != null) {
+        return;
+      }
+      stopWanting();
+      instance = hydrate(Frame, { target, props: { body, value }, context });
+      target.dataset.islandState = "live";
+      if (held?.isHolding() === true) {
+        flushSync();
+      }
+      held?.release();
+    };
     const stop = arm(target, plan.when, () => {
-      load(origin).then(
-        (value) => {
+      Promise.all([
+        load(origin),
+        ...needs.map(async (need) => load(need)),
+      ]).then(
+        ([value]) => {
           if (!isLive) {
             return;
           }
           job = schedule(
             () => {
-              if (!isLive) {
-                return;
-              }
-              instance = hydrate(Frame, {
-                target,
-                props: { body, value },
-                context,
-              });
-              target.dataset.islandState = "live";
-              if (held?.isHolding() === true) {
-                flushSync();
-              }
-              held?.release();
+              mount(value);
             },
             untrack(() => when) ?? plan.when,
           );
@@ -199,10 +222,26 @@
         },
       );
     });
+    if (plan.when !== "never") {
+      stopWanting = whenWanted((want) => {
+        if (want === "find") {
+          rouse();
+          return;
+        }
+        const found = loadNow(origin);
+        if (found != null && needs.every((need) => loadNow(need) != null)) {
+          stop();
+          job?.cancel();
+          mount(found.value);
+          flushSync();
+        }
+      });
+    }
     return () => {
       isLive = false;
       job?.cancel();
       stop();
+      stopWanting();
       stopCapture();
       held?.stop();
       if (instance != null) {
@@ -214,35 +253,47 @@
   function reveal(target: HTMLElement, file: string) {
     let isLive = true;
     let rest = () => {};
+    let stopWanting = () => {};
+    const show = (html: string) => {
+      const skeleton = target.querySelector(":scope > .island-shell");
+      if (!isLive || skeleton == null) {
+        return;
+      }
+      stopWanting();
+      const template = document.createElement("template");
+      template.innerHTML = html;
+      target.querySelector(":scope > .island-outline")?.remove();
+      skeleton.replaceWith(template.content);
+      target.dataset.islandState = "static";
+      target.removeAttribute("aria-busy");
+      rest = awaken(target);
+    };
     const stop = arm(target, plan.fetch, () => {
       const strategy = untrack(() => when) ?? plan.when;
       if (strategy === "eager" || strategy === "visible") {
         void quietly(load(origin));
       }
-      markupOf(file, origin.source).then(
-        (html) => {
-          const skeleton = target.querySelector(":scope > .island-shell");
-          if (!isLive || skeleton == null) {
-            return;
-          }
-          const template = document.createElement("template");
-          template.innerHTML = html;
-          target.querySelector(":scope > .island-outline")?.remove();
-          skeleton.replaceWith(template.content);
-          target.dataset.islandState = "static";
-          target.removeAttribute("aria-busy");
-          rest = awaken(target);
-        },
-        () => {
-          if (isLive) {
-            release();
-          }
-        },
-      );
+      markupOf(file, origin.source).then(show, () => {
+        if (isLive) {
+          release();
+        }
+      });
+    });
+    stopWanting = whenWanted((want) => {
+      if (want === "find") {
+        rouse();
+        return;
+      }
+      const html = markupNow(file, origin.source);
+      if (html != null) {
+        stop();
+        show(html);
+      }
     });
     return () => {
       isLive = false;
       stop();
+      stopWanting();
       rest();
     };
   }
@@ -258,9 +309,25 @@
     const stop = arm(target, plan.when, () => {
       job = later(release);
     });
+    const stopWanting =
+      adopted?.isBusy === false
+        ? whenWanted((want) => {
+            if (want === "find") {
+              rouse();
+              return;
+            }
+            if (loadNow(origin) != null) {
+              stop();
+              job?.cancel();
+              release();
+              flushSync();
+            }
+          })
+        : () => {};
     return () => {
       job?.cancel();
       stop();
+      stopWanting();
     };
   }
 
@@ -320,6 +387,7 @@
     data-island={origin.hash}
     data-island-state={adopted.state}
     data-island-file={adopted.file}
+    data-island-needs={adopted.needs}
     aria-busy={adopted.isBusy ? "true" : undefined}
     {@attach activate}
   >

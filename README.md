@@ -176,7 +176,7 @@ The script skips links and submit buttons because the browser has already acted 
 
 ### Long lists
 
-`unroll(initial)` renders a long list a piece at a time. Its `limit` starts at `initial`. Put an empty element right after the last item you render and attach `tail(total)` to it. When that element comes within a screen's height of the viewport, `limit` grows by a few items each frame until the element moves out of range or `limit` reaches `total`. The number of items per frame adapts so that rendering them takes about 8 ms. The tail copies the class and the shape of the item before it, so it shows a skeleton of the next item until that item renders, and it is hidden from screen readers.
+`unroll(initial)` renders a long list a piece at a time. Its `limit` starts at `initial`. Put an empty element right after the last item you render and attach `tail(total)` to it. When that element is on screen or within a screen's height below it, `limit` grows by a few items each frame until the element moves out of range or `limit` reaches `total`. Growth stops once the element scrolls above the screen, so the list doesn't push down what someone is reading below it in a browser without scroll anchoring. The number of items per frame adapts so that rendering them takes about 8 ms. The tail copies the class and the shape of the item before it, so it shows a skeleton of the next item until that item renders, and it is hidden from screen readers.
 
 ```svelte
 <script lang="ts">
@@ -195,6 +195,16 @@ The script skips links and submit buttons because the browser has already acted 
   {/if}
 </ol>
 ```
+
+### Printing, find in page, and no JavaScript
+
+Content that hasn't loaded still prints, and people can still find it. When the browser is about to print, each static island hydrates, each deferred island fetches its HTML, and each `unroll` list renders every item. Browsers don't wait for asynchronous work after `beforeprint`, so these steps use synchronous requests; this is the only time the library blocks the main thread on the network. When someone presses Ctrl+F or Cmd+F, islands start loading as they would on scroll, and `unroll` lists keep growing, so their text becomes searchable. Choosing Find from the browser's menu sends the page no event, so the library can't react to it.
+
+A client-only island has no server HTML and is often a map, so it joins in only if it has an outline. Maps with no headings never load because of printing or a search, and any skeleton left over is hidden on paper.
+
+Without JavaScript, `@media (scripting: none)` hides skeletons and shows outlines as plain headings, so the page needs no `<noscript>` for them. The content itself can't arrive without JavaScript, so link to another copy of it if you have one.
+
+Your own lazy content can join in with `whenWanted(run)`. It calls `run("print")` or `run("find")` and returns a function that stops listening. Do the work for `"print"` synchronously: `loadNow(part)` returns `{ value }` for a part, using a synchronous request if it has to, or `null` if the request fails.
 
 ### Other things that load
 
@@ -239,6 +249,7 @@ Neither component adds a box, so the content and its skeleton keep their places 
 - **Rebuilds.** If a part or deferred HTML is requested after the server no longer has it, the client asks again with the page it came from, and the server reruns that page to recover it. If the data has changed since, the page reloads its data.
 - **Retries.** A failed fetch is retried after 1, 3, and 5 seconds before the island shows its failure state. A part the server can no longer rebuild isn't retried.
 - **Learned skeletons.** The server turns each island's rendered HTML into a skeleton made of bars and blocks, and the client does the same from the live DOM. A skeleton keeps the island's layout classes but drops content with no text or media, and it keeps only the first few of a run of repeated elements, such as table rows, so it stays under 12 KB. `Await` also renders its children on the server once its promise resolves and learns from that HTML, so later visitors get a skeleton based on a server render that waited on streamed data. Skeletons are kept per part name and view. A page's HTML holds only the skeletons it shows right away. The client fetches the rest from `/_parts/skeletons` when it's idle, so that client-side navigation can show them, and it saves the skeletons it learns from the DOM in `localStorage`.
+- **Part needs.** While the server renders an island, it records every other part the island reads and writes the ones that aren't inlined to `data-island-needs`. The browser loads them with the island's own part before it hydrates. Without this, the island could render differently from the server's HTML, and Svelte would clear that block until the part arrived.
 - **Shared observers.** Islands with the same `margin` share one `IntersectionObserver`.
 - **Scheduled hydration.** When several islands are ready at once, they hydrate one after another in slices of about 8 ms, and the browser gets the main thread back between slices to handle input and paint. Islands that hydrate on interaction go first, then `visible` and `eager` islands, then `media` islands, then `idle` ones. An island with a held click moves to the front. Islands that render in the browser, after a client-side navigation or with `ssr={false}`, go through the same queue.
 - **Compact transport.** If a part's value is plain data (objects, arrays, strings, numbers, booleans, `null`, and `undefined`), it is sent as packed JSON rather than in devalue's format. Arrays of objects with the same keys are sent as columns. Repeated values, small objects, and lists are stored once and referred to by index. Runs of consecutive integers are sent as ranges, and arrays that are mostly zeros or nulls are sent as the positions of the other values. Arrays inside page data are packed the same way. Values such as dates, maps, and nested objects referenced from more than one place are sent in devalue's format. A small object of plain values referenced from several places arrives as separate copies. On our pages, packed parts were 3 to 7 times smaller than devalue's output, and about half the size after gzip.

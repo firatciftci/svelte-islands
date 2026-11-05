@@ -1,7 +1,7 @@
 import { on } from "svelte/events";
 import { SvelteSet } from "svelte/reactivity";
-import type { Part, Strategy } from "./part.js";
-import { deserialize, onArrival, quietly, settings } from "./part.js";
+import type { Strategy } from "./part.js";
+import { deserialize, onArrival, Part, quietly, settings } from "./part.js";
 import { shape } from "./skeleton.js";
 
 const BUDGET = 64 * 1024 ** 2;
@@ -35,12 +35,24 @@ const claimed = new WeakSet<Element>();
 const refreshed = new Set<string>();
 const watched = new Map<Element, Set<() => void>>();
 const observers = new Map<string, IntersectionObserver>();
+const wants = new Set<(want: Want) => void>();
 const state: {
   held: number;
   isBooted: boolean;
   isRead: boolean;
   isDraining: boolean;
-} = { held: 0, isBooted: false, isRead: false, isDraining: false };
+  isListening: boolean;
+  isFinding: boolean;
+  reads: Set<Part> | null;
+} = {
+  held: 0,
+  isBooted: false,
+  isRead: false,
+  isDraining: false,
+  isListening: false,
+  isFinding: false,
+  reads: null,
+};
 
 type Job = { run: () => void; rank: number; isDone: boolean };
 
@@ -48,9 +60,12 @@ const queue: Array<Job> = [];
 
 export type Options = { margin?: string; media?: string };
 
+export type Want = "find" | "print";
+
 export type Claimed = {
   state: "static" | "deferred" | "client";
   file: string | null;
+  needs: string | null;
   isBusy: boolean;
 };
 
@@ -70,7 +85,40 @@ function keep(hash: string, value: unknown, bytes: number) {
   }
 }
 
+export function reading<T>(run: () => T) {
+  const outer = state.reads;
+  const found = new Set<Part>();
+  state.reads = found;
+  try {
+    return { result: run(), reads: found };
+  } finally {
+    state.reads = outer;
+  }
+}
+
+export function needsOf(found: Set<Part>, self: Part) {
+  const needs = found
+    .values()
+    .filter(
+      (read) =>
+        read.hash !== self.hash && read.loaded != null && !read.isInline,
+    )
+    .map((read) => [read.hash, read.source, read.bytes])
+    .toArray();
+  return needs.length === 0 ? null : JSON.stringify(needs);
+}
+
+export function partsOf(needs: string | null) {
+  return needs == null
+    ? []
+    : (JSON.parse(needs) as Array<[string, string, number]>).map(
+        ([hash, source, bytes]) =>
+          new Part({ name: hash, hash, source, bytes }),
+      );
+}
+
 export function peek<T>(part: Part<T>): { value: T } | null {
+  state.reads?.add(part);
   if (part.loaded != null) {
     return part.loaded;
   }
@@ -124,6 +172,40 @@ async function persist<T>(run: () => Promise<T>) {
 
 export async function markupOf(file: string, source: string) {
   return persist(async () => fetched(file, source));
+}
+
+export function markupNow(name: string, source: string) {
+  const url = new URL(`${settings.prefix}${name}`, location.origin);
+  const send = () => {
+    const request = new XMLHttpRequest();
+    request.open("GET", url, false);
+    request.send();
+    return request;
+  };
+  try {
+    let found = send();
+    if (found.status === 404) {
+      url.searchParams.set("u", source);
+      found = send();
+    }
+    return found.status === 200 ? found.responseText : null;
+  } catch {
+    return null;
+  }
+}
+
+export function loadNow<T>(part: Part<T>): { value: T } | null {
+  const known = peek(part);
+  if (known != null) {
+    return known;
+  }
+  const text = markupNow(part.hash, part.source);
+  if (text == null) {
+    return null;
+  }
+  const value = deserialize(text) as T;
+  keep(part.hash, value, part.bytes);
+  return { value };
 }
 
 async function request(part: Part) {
@@ -183,6 +265,52 @@ async function fetchShapes() {
   }
 }
 
+function announce(want: Want) {
+  for (const run of wants) {
+    try {
+      run(want);
+    } catch (error) {
+      reportError(error);
+    }
+  }
+}
+
+function listen() {
+  if (state.isListening) {
+    return;
+  }
+  state.isListening = true;
+  addEventListener("beforeprint", () => {
+    announce("print");
+  });
+  addEventListener("keydown", (event) => {
+    if (
+      !(event.ctrlKey || event.metaKey) ||
+      event.defaultPrevented ||
+      event.key.toLowerCase() !== "f"
+    ) {
+      return;
+    }
+    state.isFinding = true;
+    announce("find");
+  });
+}
+
+export function whenWanted(run: (want: Want) => void) {
+  listen();
+  wants.add(run);
+  if (state.isFinding) {
+    queueMicrotask(() => {
+      if (wants.has(run)) {
+        run("find");
+      }
+    });
+  }
+  return () => {
+    wants.delete(run);
+  };
+}
+
 export function boot() {
   if (state.isBooted) {
     return;
@@ -229,6 +357,7 @@ export function claim(part: Part, key: string): Claimed | null {
       return {
         state: found,
         file: element.dataset.islandFile ?? null,
+        needs: element.dataset.islandNeeds ?? null,
         isBusy: element.getAttribute("aria-busy") === "true",
       };
     }
