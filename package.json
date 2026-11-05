@@ -60,6 +60,7 @@
     "build": "svelte-kit sync && svelte-package && publint",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && cd fixtures/app && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test": "svelte-kit sync && vitest run",
+    "size": "node --experimental-strip-types scripts/size.ts",
     "test:e2e": "pnpm run fixture && playwright test",
     "fixture": "svelte-kit sync && cd fixtures/app && svelte-kit sync && vite build && FIXTURE_ADAPTER=static vite build",
     "lint": "knip && SVELTE_ESLINT_PARSER_EXPERIMENTAL_TS_SYS_HOOK=1 eslint .",
@@ -103,5 +104,8 @@
     "vite": "^8.3.4",
     "vitest": "^5.1.0"
   },
-  "packageManager": "pnpm@12.11.2"
+  "packageManager": "pnpm@12.11.2",
+  "bin": {
+    "svelte-islands": "./dist/cli.js"
+  }
 }

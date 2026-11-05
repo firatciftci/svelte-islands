@@ -64,6 +64,12 @@ jobs:
       - name: Build
         run: pnpm run build
 
+      - name: Check the budget command
+        run: node dist/cli.js --help
+
+      - name: Check the client size
+        run: pnpm run size
+
   browser:
     name: Browser (${{ matrix.name }})
     runs-on: ubuntu-latest
