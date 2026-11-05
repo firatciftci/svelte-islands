@@ -284,6 +284,34 @@ function isOutline(element: Branch) {
   return read(element, "class")?.split(/\s+/u).includes(OUTLINE) === true;
 }
 
+function emitChildren(node: Branch, limit: number, out: Array<string>) {
+  const seen = new Map<string, number>();
+  let isSkipping = false;
+  let rows = 0;
+  for (const child of node.children) {
+    if (typeof child === "string") {
+      if (!isSkipping) {
+        text(child, out);
+      }
+      continue;
+    }
+    const signature = `${child.tag} ${read(child, "class") ?? ""}`;
+    const count = (seen.get(signature) ?? 0) + 1;
+    seen.set(signature, count);
+    isSkipping = count > limit;
+    if (!isSkipping) {
+      emit(child, limit, out);
+    } else if (child.tag === "tr") {
+      rows += 1;
+    }
+  }
+  if (rows > 0) {
+    out.push(
+      `<tr class="island-rest" style="--island-rest:${rows}"><td></td></tr>`,
+    );
+  }
+}
+
 function emit(node: Twig, limit: number, out: Array<string>) {
   if (typeof node === "string") {
     text(node, out);
@@ -306,23 +334,7 @@ function emit(node: Twig, limit: number, out: Array<string>) {
     out.push(`</${tag}>`);
     return;
   }
-  const seen = new Map<string, number>();
-  let isSkipping = false;
-  for (const child of node.children) {
-    if (typeof child === "string") {
-      if (!isSkipping) {
-        text(child, out);
-      }
-      continue;
-    }
-    const signature = `${child.tag} ${child.attributes.find(([name]) => name === "class")?.[1] ?? ""}`;
-    const count = (seen.get(signature) ?? 0) + 1;
-    seen.set(signature, count);
-    isSkipping = count > limit;
-    if (!isSkipping) {
-      emit(child, limit, out);
-    }
-  }
+  emitChildren(node, limit, out);
   out.push(`</${tag}>`);
 }
 

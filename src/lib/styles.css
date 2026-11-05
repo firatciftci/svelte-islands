@@ -25,6 +25,10 @@ tbody.island {
     alternate;
 }
 
+.island-rest {
+  block-size: calc(var(--island-rest) * var(--island-item, 2em));
+}
+
 :is(.island-skeleton, .island-shell) .island-bone {
   display: inline-block;
   inline-size: min(calc(var(--n, 12) * 0.55em), 100%);

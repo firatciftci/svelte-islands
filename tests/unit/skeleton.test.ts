@@ -54,6 +54,28 @@ describe("skeletonize", () => {
     expect(skeletonize("") ?? "").toBe("");
   });
 
+  it("holds the room of the table rows it leaves out", () => {
+    const shaped = skeletonize(
+      `<table><tbody>${"<tr><td>a</td></tr>".repeat(40)}</tbody></table>`,
+    );
+    expect(shaped?.match(/<tr>/gu)).toHaveLength(12);
+    expect(shaped).toContain(
+      '<tr class="island-rest" style="--island-rest:28"><td></td></tr>',
+    );
+  });
+
+  it("adds no spacer when every row fits", () => {
+    const shaped = skeletonize(
+      `<table><tbody>${"<tr><td>a</td></tr>".repeat(12)}</tbody></table>`,
+    );
+    expect(shaped).not.toContain("island-rest");
+  });
+
+  it("adds no spacer for other repeated elements", () => {
+    const shaped = skeletonize(`<ul>${"<li>a</li>".repeat(40)}</ul>`);
+    expect(shaped).not.toContain("island-rest");
+  });
+
   it("stays within its size budget", () => {
     const shaped = skeletonize(
       `<ul>${"<li><b>a</b><i>b</i></li>".repeat(5000)}</ul>`,
