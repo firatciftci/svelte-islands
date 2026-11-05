@@ -49,6 +49,7 @@
     children,
     failed,
     class: className,
+    as = "div",
   }: {
     part: Part<T>;
     view?: string;
@@ -60,6 +61,7 @@
     children: Snippet<[T]>;
     failed?: Snippet<[retry: () => void]>;
     class?: string;
+    as?: "div" | "tbody";
   } = $props();
 
   const context = getAllContexts();
@@ -82,6 +84,11 @@
     if (server == null) {
       const found = claim(origin, first);
       return found == null ? null : { ...found, html: " " };
+    }
+    if (as === "tbody" && (!ssr || defer !== false)) {
+      throw new Error(
+        `The island "${origin.name}" uses as="tbody", which needs its rows in the page. Remove defer and ssr={false}.`,
+      );
     }
     const { loaded } = origin;
     if (loaded == null || (origin.isInline && ssr && !plan.isDeferred)) {
@@ -457,7 +464,8 @@
 </script>
 
 {#if isAdopted && adopted != null}
-  <div
+  <svelte:element
+    this={as}
     class={["island", className]}
     data-island={origin.hash}
     data-island-name={dev ? origin.name : undefined}
@@ -471,9 +479,10 @@
     <!-- svelte-ignore hydration_html_changed -->
     <!-- eslint-disable-next-line svelte/no-at-html-tags -->
     {@html adopted.html}
-  </div>
+  </svelte:element>
 {:else}
-  <div
+  <svelte:element
+    this={as}
     class={["island", className]}
     data-island={part.hash}
     data-island-name={dev ? part.name : undefined}
@@ -496,5 +505,5 @@
         {@html skeletonOf(key) ?? fallback(part.bytes)}
       </div>
     {/if}
-  </div>
+  </svelte:element>
 {/if}

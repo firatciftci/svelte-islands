@@ -176,6 +176,61 @@ test.describe("deferred and client islands", () => {
   });
 });
 
+test.describe("tables", () => {
+  const body = "table > tbody[data-island]";
+
+  test("rows stay in the table without JavaScript", async ({ browser }) => {
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    const page = await context.newPage();
+    await page.goto(`${B}/table`);
+    await expect(page.locator(body)).toHaveCount(3);
+    await expect(page.locator(`${body} > tr`)).toHaveCount(300);
+    await expect(page.locator("body > div div.island-shell")).toHaveCount(0);
+    expect(
+      await page
+        .locator(body)
+        .first()
+        .evaluate((element) => getComputedStyle(element).display),
+    ).toBe("table-row-group");
+    await context.close();
+  });
+
+  test("each table body hydrates when it comes into view", async ({ page }) => {
+    const errors = watchErrors(page);
+    await page.goto(`${B}/table`);
+    await expect(page.locator(body).first()).toHaveAttribute(
+      "data-island-state",
+      "live",
+    );
+    await expect(page.locator(body).last()).toHaveAttribute(
+      "data-island-state",
+      "static",
+    );
+    await page.getByRole("button", { name: "row 3", exact: true }).click();
+    await expect(page.locator("[data-picked]")).toHaveText("row 3");
+
+    await page
+      .getByRole("button", { name: "row 299" })
+      .scrollIntoViewIfNeeded();
+    await expect(page.locator(body).last()).toHaveAttribute(
+      "data-island-state",
+      "live",
+    );
+    await page.getByRole("button", { name: "row 299" }).click();
+    await expect(page.locator("[data-picked]")).toHaveText("row 299");
+    await expect(page.locator(`${body} > tr`)).toHaveCount(300);
+    expect(errors).toEqual([]);
+  });
+
+  test("client navigation renders the rows in the table", async ({ page }) => {
+    await page.goto(`${B}/`);
+    await page.getByRole("link", { name: "Table" }).click();
+    await expect(page.locator(`${body} > tr`)).toHaveCount(300);
+    await page.getByRole("button", { name: "row 150" }).click();
+    await expect(page.locator("[data-picked]")).toHaveText("row 150");
+  });
+});
+
 test.describe("navigation", () => {
   test("client navigation, back, and forward keep every island working", async ({
     page,

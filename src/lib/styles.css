@@ -1,7 +1,10 @@
 .island,
-.island-body,
 .island-shell {
   display: contents;
+}
+
+tbody.island {
+  display: table-row-group;
 }
 
 .island-outline {
