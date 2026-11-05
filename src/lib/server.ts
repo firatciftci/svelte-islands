@@ -609,19 +609,24 @@ async function respond(event: RequestEvent) {
   });
 }
 
+function lifetimeOf(platform: unknown) {
+  if (typeof platform !== "object" || platform == null) {
+    return null;
+  }
+  const { ctx, context } = platform as {
+    ctx?: { waitUntil?: (work: Promise<unknown>) => void };
+    context?: { waitUntil?: (work: Promise<unknown>) => void };
+  };
+  return ctx ?? context ?? null;
+}
+
 async function settle(event: RequestEvent) {
   const writes = requests.get(event.locals)?.writes ?? [];
   if (writes.length === 0) {
     return;
   }
   const work = Promise.all(writes);
-  const platform = event.platform as unknown as
-    | {
-        ctx?: { waitUntil?: (work: Promise<unknown>) => void };
-        context?: { waitUntil?: (work: Promise<unknown>) => void };
-      }
-    | undefined;
-  const lifetime = platform?.ctx ?? platform?.context;
+  const lifetime = lifetimeOf(event.platform);
   if (lifetime?.waitUntil != null) {
     lifetime.waitUntil(work);
     return;
