@@ -1,3 +1,9 @@
+<!--
+  @component
+  A development overlay that lists the page's islands with their state, data size,
+  load and hydration times, and any problems it finds. It renders nothing in
+  production, and you can keep it out of the bundle with `{#if dev}`.
+-->
 <script lang="ts">
   import { dev } from "$app/env";
   import { onMount } from "svelte";
@@ -6,8 +12,15 @@
   import { observe } from "./observe.js";
   import { boxes } from "./runtime.js";
 
-  const { shift = 16, large = 256 }: { shift?: number; large?: number } =
-    $props();
+  const {
+    shift = 16,
+    large = 256,
+  }: {
+    /** Flags a skeleton that was off by more than this many pixels. */
+    shift?: number;
+    /** Flags a part larger than this many KiB. */
+    large?: number;
+  } = $props();
 
   const LOG = 50;
 

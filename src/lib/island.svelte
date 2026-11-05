@@ -1,3 +1,16 @@
+<!--
+  @component
+  Renders a part's value with its own loading and hydration. The server sends
+  HTML, and the browser loads the data and the code only when `when` says so.
+
+  ```svelte
+  <Island part={data.rows} when="visible">
+    {#snippet children(rows)}
+      <Rows {rows} />
+    {/snippet}
+  </Island>
+  ```
+-->
 <script lang="ts" generics="T">
   import type { Snippet } from "svelte";
   import { dev } from "$app/env";
@@ -51,16 +64,30 @@
     class: className,
     as = "div",
   }: {
+    /** The value to render, made with `part()` on the server. */
     part: Part<T>;
+    /** Names this island when several share one part, so each has its own skeleton. */
     view?: string;
+    /** When to hydrate. The default is `"interaction"`, or `"visible"` with `ssr={false}`. */
     when?: Strategy;
+    /** Set to `false` to render only in the browser, with a skeleton until then. */
     ssr?: boolean;
+    /** Keeps the HTML out of the page and brings it in later, by default when near the viewport. */
     defer?: boolean | Strategy;
+    /** How far from the viewport counts as near, as a CSS margin. The default is `"320px"`. */
     margin?: string;
+    /** The media query for the `"media"` strategy. */
     media?: string;
+    /** Renders the value. It also runs on the server, so it can't use `await`. */
     children: Snippet<[T]>;
+    /** Shown when a part can't be loaded. Call `retry` to try again. */
     failed?: Snippet<[retry: () => void]>;
+    /** A class for the island's wrapper. The wrapper is `display: contents` by default. */
     class?: string;
+    /**
+     * The wrapper's element. Use `"tbody"` to hydrate a long table a section at a
+     * time. A `tbody` needs its rows in the page, so it rules out `defer` and `ssr={false}`.
+     */
     as?: "div" | "tbody";
   } = $props();
 

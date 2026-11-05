@@ -5,6 +5,17 @@ import { shape } from "./skeleton.js";
 
 const BUDGET = 8;
 
+/**
+ * Renders a long list in growing batches as the reader scrolls toward its end,
+ * staying within a few milliseconds per frame. Find in page and printing bring
+ * in the rest.
+ *
+ * Slice your list to `limit`, and put an element with `{@attach tail(total)}`
+ * right after the last row. It shows a skeleton copied from that row.
+ *
+ * @param initial How many rows to render at first. This is what the server sends.
+ * @returns `limit`, the number of rows to render, and `tail(total)`, the attachment.
+ */
 export const unroll = (initial: number) => {
   let limit = $state(initial);
   let size = 16;

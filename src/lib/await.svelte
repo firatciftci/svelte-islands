@@ -1,3 +1,8 @@
+<!--
+  @component
+  Shows a promise from `load` with a skeleton learned from its finished content,
+  so that the page holds its shape while the data streams in.
+-->
 <script lang="ts" generics="T">
   import type { Snippet } from "svelte";
   import { getAllContexts, untrack } from "svelte";
@@ -13,12 +18,19 @@
     failed,
     class: className,
   }: {
+    /** The promise to wait for. */
     promise: T;
+    /** A stable name for this content. Skeletons are learned per name. */
     name: string;
+    /** The height to hold before a skeleton is known, as a CSS length. */
     reserve?: string;
+    /** Set to `true` if the content differs per visitor, so no skeleton is learned from it. */
     private?: boolean;
+    /** Renders the resolved value. */
     children: Snippet<[Awaited<T>]>;
+    /** Shown when the promise rejects. */
     failed?: Snippet<[unknown]>;
+    /** A class for the wrapper. */
     class?: string;
   } = $props();
 

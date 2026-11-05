@@ -3,6 +3,16 @@ import type { Snippet } from "svelte";
 import { parse, stringify } from "devalue";
 import { claim, isPackable, pack, unpack } from "./pack.js";
 
+/**
+ * When an island hydrates, or when a deferred island brings in its HTML.
+ *
+ * - `"visible"`: when it comes within `margin` of the viewport.
+ * - `"idle"`: when the browser is idle.
+ * - `"interaction"`: on the first pointer, focus, or touch inside it.
+ * - `"media"`: when the island's `media` query matches.
+ * - `"eager"`: right away.
+ * - `"never"`: never, so it stays as server HTML.
+ */
 export type Strategy =
   | "visible"
   | "idle"
@@ -11,18 +21,41 @@ export type Strategy =
   | "eager"
   | "never";
 
+/**
+ * When the browser downloads a part's data.
+ *
+ * - `"auto"`: on a first page load, when the island needs it. When someone
+ *   navigates to the page from elsewhere in the app, as soon as navigation starts.
+ * - `"lazy"`: only when the island needs it or you call `load(part)`.
+ * - `"preload"`: as soon as the page arrives.
+ */
 export type Fetch = "auto" | "lazy" | "preload";
 
 export const settings = { inline: 4096, prefix: "/_parts/" };
 
+/**
+ * A value that travels outside the page's data. Make one with `part()` in a
+ * server `load`, then read it with `<Island>`, `peek()`, or `load()`.
+ */
 export class Part<T = unknown> {
+  /** The name given to `part()`. Skeletons are learned per name. */
   readonly name: string;
+  /** A hash of the contents, which is also the file name under the prefix. */
   readonly hash: string;
+  /** The page that can make this part again if it's missing from the store. */
   readonly source: string;
+  /** The size of the serialized value, in characters. */
   readonly bytes: number;
+  /** Whether the browser starts downloading this part as soon as the page arrives. */
   readonly isEager: boolean;
+  /** When the browser requests this part. */
   readonly fetch: Fetch;
+  /** Whether the part stays in the page's data and off public URLs. */
   readonly isPrivate: boolean;
+  /**
+   * The value, where it's already at hand. It's `null` in the browser for most
+   * parts, so read values with `<Island>`, `peek()`, or `load()`.
+   */
   readonly loaded: { value: T } | null;
 
   constructor({
@@ -54,6 +87,7 @@ export class Part<T = unknown> {
     this.loaded = loaded;
   }
 
+  /** Whether the value is small enough, or private, to stay in the page's data. */
   get isInline() {
     return (
       this.loaded != null && (this.isPrivate || this.bytes <= settings.inline)
@@ -203,6 +237,16 @@ function index(codecs: Transport) {
 
 index({});
 
+/**
+ * The transport hook that carries parts through SvelteKit's page data. Export
+ * its result as `transport` from `src/hooks.ts`.
+ *
+ * @param options Settings shared by the server and the browser.
+ * @param options.codecs Your own `transport` entries, kept alongside the library's.
+ * @param options.inline Values up to this many characters stay in the page's data.
+ * @param options.prefix The URL prefix of parts. Include your base path if you have one.
+ * @returns The value to export as `transport`.
+ */
 export function islands({
   codecs = {},
   inline = settings.inline,

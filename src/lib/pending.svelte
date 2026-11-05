@@ -1,3 +1,8 @@
+<!--
+  @component
+  Shows a learned skeleton while `isPending` is true, and the content after that,
+  for loading states you drive yourself.
+-->
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { onMount } from "svelte";
@@ -11,10 +16,15 @@
     children,
     class: className,
   }: {
+    /** A stable name for this content. Skeletons are learned per name. */
     name: string;
+    /** Whether to show the skeleton. */
     isPending: boolean;
+    /** The height to hold before a skeleton is known, as a CSS length. */
     reserve?: string;
+    /** The finished content. */
     children?: Snippet;
+    /** A class for the wrapper. */
     class?: string;
   } = $props();
 
