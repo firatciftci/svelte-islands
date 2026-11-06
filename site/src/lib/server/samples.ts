@@ -57,7 +57,7 @@ function importsImpliedBy(code: string) {
 function isLeftToTheReader(code: number, text: string) {
   return (
     MISSING_NAME.has(code) ||
-    (code === MISSING_MODULE && !text.includes("'svelte-islands")) ||
+    (code === MISSING_MODULE && !/'(?:svelte-islands|\$lib)/u.test(text)) ||
     (code === MISSING_PROPERTY && text.includes("'Locals'"))
   );
 }

@@ -58,7 +58,7 @@ Pick the heaviest value on a page, and wrap it in `part` in the server `load` fu
 ```ts
 /// file: src/routes/results/+page.server.ts
 import { part } from "svelte-islands/server";
-import { get_rows } from "$lib/server/results";
+import { get_rows } from "#lib/server/results.js";
 
 export async function load() {
   return { rows: part("results.rows", await get_rows()) };
@@ -84,6 +84,8 @@ export async function load() {
 ```
 
 Now open the page with your browser's network panel showing. The table is in the HTML, but the rows aren't in the page's data any more. Move your pointer over the table and you'll see a request to `/_parts/`, followed by the table becoming interactive, because by default an island [wakes on the first interaction](../20-core-concepts/30-when-islands-wake.md).
+
+There's also a request for `/_parts/skeletons.json` soon after the page loads — that's the [skeleton file](../20-core-concepts/40-skeletons.md), which holds placeholder shapes, not your data.
 
 If you don't see a request, the value is probably small enough to [stay in the page](../20-core-concepts/10-parts.md#small-parts-stay-in-the-page).
 
