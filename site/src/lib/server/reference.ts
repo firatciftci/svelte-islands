@@ -357,7 +357,7 @@ function exportsOf(file: string): Array<Export> {
   return found;
 }
 
-function code(lines: Array<string>, lang = "ts") {
+function code(lines: Array<string>, lang = "ts declaration") {
   return `\`\`\`${lang}\n${lines.join("\n\n")}\n\`\`\``;
 }
 

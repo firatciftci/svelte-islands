@@ -39,6 +39,7 @@ The skeleton file comes from the network first, because it changes over time.
 The helper keeps the newest 500 entries. You can change that limit, the URL prefix, or the cache's name:
 
 ```ts
+/// file: src/service-worker/index.ts
 serveParts(event, { prefix: "/docs/_parts/", cache: "parts", limit: 1000 });
 ```
 

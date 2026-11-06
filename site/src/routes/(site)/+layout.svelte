@@ -5,6 +5,7 @@
   import Mark from "#lib/components/Mark.svelte";
   import Search from "#lib/components/Search.svelte";
   import ThemeToggle from "#lib/components/ThemeToggle.svelte";
+  import TypeTip from "#lib/components/TypeTip.svelte";
 
   let { data, children } = $props();
 
@@ -106,3 +107,4 @@
 {@render children()}
 
 <Search bind:this={search} index={data.search} />
+<TypeTip />

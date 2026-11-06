@@ -1,5 +1,10 @@
 import { Marked, type Tokens } from "marked";
-import { createCssVariablesTheme, createHighlighter } from "shiki";
+import {
+  createCssVariablesTheme,
+  createHighlighter,
+  type DecorationItem,
+} from "shiki";
+import { check } from "./samples";
 
 export type Heading = {
   id: string;
@@ -16,6 +21,7 @@ export type Segment =
 const EXAMPLE = /^<!-- example: ([\w-]+) -->$/u;
 const FILE_COMMENT = /^(?:\/\/\/ file: (.+)|<!--- file: (.+) --->)$/u;
 const CALLOUT = /^\[!(NOTE|LEGACY|DETAILS)\][ \t]*(.*)$/u;
+const TIPS = /<template data-tips>[\s\S]*?<\/template>/gu;
 
 const theme = createCssVariablesTheme({
   name: "chart",
@@ -58,13 +64,59 @@ function plain(tokens: Array<Tokens.Generic> | undefined): string {
   return text;
 }
 
-function highlight(code: string, lang: string) {
+const inline = new Marked({ async: false, gfm: true });
+
+function tipOf(signature: string, summary: string) {
+  const code = highlighter.codeToHtml(signature, {
+    lang: "ts",
+    theme: "chart",
+    structure: "inline",
+  });
+  const note =
+    summary === ""
+      ? ""
+      : `<p>${inline.parseInline(summary, { async: false })}</p>`;
+  return `<div><code>${code}</code>${note}</div>`;
+}
+
+function annotate(body: string, language: string, file: string | null) {
+  const { code, hovers } = check(body, language, file);
+  const tips: Array<string> = [];
+  const decorations: Array<DecorationItem> = [];
+  for (const { line, character, length, signature, summary } of hovers) {
+    const tip = tipOf(signature, summary);
+    const known = tips.indexOf(tip);
+    decorations.push({
+      start: { line, character },
+      end: { line, character: character + length },
+      properties: { "data-tip": known === -1 ? tips.push(tip) - 1 : known },
+    });
+  }
+  return {
+    code,
+    decorations,
+    tips:
+      tips.length === 0
+        ? ""
+        : `<template data-tips>${tips.join("")}</template>`,
+  };
+}
+
+function highlight(code: string, lang: string, isDeclaration: boolean) {
   const lines = code.split("\n");
   const header = FILE_COMMENT.exec(lines[0]?.trim() ?? "");
   const file = header?.[1] ?? header?.[2] ?? null;
   const body = (file == null ? lines : lines.slice(1)).join("\n");
   const language = lang === "" ? "text" : lang;
-  const html = highlighter.codeToHtml(body, { lang: language, theme: "chart" });
+  const annotated =
+    (language === "ts" || language === "js") && !isDeclaration
+      ? annotate(body, language, file)
+      : { code: body, decorations: [], tips: "" };
+  const html = highlighter.codeToHtml(annotated.code, {
+    lang: language,
+    theme: "chart",
+    decorations: annotated.decorations,
+  });
   return [
     `<figure class="code" data-lang="${escape(language)}">`,
     file == null
@@ -72,6 +124,7 @@ function highlight(code: string, lang: string) {
       : `<figcaption class="code-file">${escape(file)}</figcaption>`,
     `<button type="button" class="copy" data-copy aria-label="Copy code"><span class="copy-idle">Copy</span><span class="copy-done">Copied</span></button>`,
     html,
+    annotated.tips,
     "</figure>",
   ].join("");
 }
@@ -115,7 +168,8 @@ export async function render(
         return `<code${kept}>${escape(text)}</code>`;
       },
       code({ text, lang }) {
-        return highlight(text, (lang ?? "").split(/\s/u)[0] ?? "");
+        const [language = "", kind] = (lang ?? "").split(/\s/u);
+        return highlight(text, language, kind === "declaration");
       },
       table(token) {
         const header = token.header
@@ -219,7 +273,7 @@ function placeOnChart(segments: Array<Segment>, headings: Array<Heading>) {
       total += EXAMPLE_LENGTH;
       continue;
     }
-    const pieces = segment.html.split(/(?=<h[23] id=")/u);
+    const pieces = segment.html.replace(TIPS, "").split(/(?=<h[23] id=")/u);
     for (const piece of pieces) {
       const id = /^<h[23] id="([^"]+)"/u.exec(piece)?.[1];
       if (id != null) {

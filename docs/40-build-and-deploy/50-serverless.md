@@ -8,11 +8,12 @@ Their instances stop often and do not share memory, so you should pass a shared 
 
 ```ts
 /// file: src/hooks.server.ts
+import { REDIS_URL } from "$app/env/private";
 import { Redis } from "ioredis";
 import { handle as islands } from "svelte-islands/server";
 import { redisStore } from "svelte-islands/stores";
 
-const client = new Redis(process.env.REDIS_URL);
+const client = new Redis(REDIS_URL);
 
 export const handle = islands({
   store: redisStore(client, { ttl: 60 * 60 * 24 * 30 }),
