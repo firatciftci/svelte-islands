@@ -113,6 +113,7 @@ export default antfu({
   },
   rules: {
     "antfu/no-top-level-await": ["off"],
+    "jsdoc/check-param-names": ["warn", { checkDestructured: false }],
     "jsonc/sort-keys": "off",
     "node/no-process-env": "error",
     "no-console": ["warn"],

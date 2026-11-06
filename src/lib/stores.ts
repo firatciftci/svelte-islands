@@ -12,9 +12,13 @@ export type Store = {
  * yourself if the directory grows too large.
  *
  * @param options Settings for the store.
- * @param options.directory The directory to use. It is created if missing.
  */
-export function fileStore({ directory }: { directory: string }): Store {
+export function fileStore({
+  directory,
+}: {
+  /** The directory to use. It is created if missing. */
+  directory: string;
+}): Store {
   const pathOf = async (key: string) => {
     const { createHash } = await import("node:crypto");
     const name = createHash("sha256").update(key).digest("base64url");
@@ -59,12 +63,18 @@ type RedisClient = {
  *
  * @param client A connected client.
  * @param options Settings for the store.
- * @param options.prefix Added to each key. The default is `"islands:"`.
- * @param options.ttl Seconds until an entry expires. By default entries don't expire.
  */
 export function redisStore(
   client: RedisClient,
-  { prefix = "islands:", ttl }: { prefix?: string; ttl?: number } = {},
+  {
+    prefix = "islands:",
+    ttl,
+  }: {
+    /** Added to each key. The default is `"islands:"`. */
+    prefix?: string;
+    /** Seconds until an entry expires. By default entries don't expire. */
+    ttl?: number;
+  } = {},
 ): Store {
   return {
     get: async (key) => client.get(`${prefix}${key}`),
@@ -92,11 +102,15 @@ type R2Bucket = {
  * such as `() => env.PARTS`, when the app prerenders any route, because reading
  * `env` from `cloudflare:workers` throws during the build.
  * @param options Settings for the store.
- * @param options.prefix Added to each key. The default is `"islands/"`.
  */
 export function r2Store(
   bucket: R2Bucket | (() => R2Bucket),
-  { prefix = "islands/" }: { prefix?: string } = {},
+  {
+    prefix = "islands/",
+  }: {
+    /** Added to each key. The default is `"islands/"`. */
+    prefix?: string;
+  } = {},
 ): Store {
   const open = typeof bucket === "function" ? bucket : () => bucket;
   return {
@@ -116,11 +130,6 @@ type S3Client<Command> = { send: (command: Command) => Promise<unknown> };
  * depend on the SDK.
  *
  * @param options Settings for the store.
- * @param options.client An `S3Client`.
- * @param options.bucket The bucket's name.
- * @param options.prefix Added to each key. The default is `"islands/"`.
- * @param options.GetObjectCommand The SDK's `GetObjectCommand` class.
- * @param options.PutObjectCommand The SDK's `PutObjectCommand` class.
  */
 export function s3Store<Get, Put>({
   client,
@@ -129,10 +138,15 @@ export function s3Store<Get, Put>({
   GetObjectCommand,
   PutObjectCommand,
 }: {
+  /** An `S3Client`. */
   client: S3Client<Get | Put>;
+  /** The bucket's name. */
   bucket: string;
+  /** Added to each key. The default is `"islands/"`. */
   prefix?: string;
+  /** The SDK's `GetObjectCommand` class. */
   GetObjectCommand: new (input: { Bucket: string; Key: string }) => Get;
+  /** The SDK's `PutObjectCommand` class. */
   PutObjectCommand: new (input: {
     Bucket: string;
     Key: string;

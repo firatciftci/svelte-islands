@@ -387,12 +387,36 @@ function returnsLine(doc: Doc) {
 }
 
 function labelsOf(node: ts.SignatureDeclaration, doc: Doc) {
-  const named = [...doc.params.keys()].filter((key) => !key.includes("."));
+  const named = [...doc.params.keys()];
   return node.parameters.map((parameter, at) =>
     ts.isIdentifier(parameter.name)
       ? parameter.name.text
       : (named[at] ?? "options"),
   );
+}
+
+function optionDocs(
+  name: string,
+  node: ts.SignatureDeclaration,
+  labels: Array<string>,
+  source: ts.SourceFile,
+) {
+  const docs = new Map<string, string>();
+  for (const [at, parameter] of node.parameters.entries()) {
+    if (parameter.type == null || !ts.isTypeLiteralNode(parameter.type)) {
+      continue;
+    }
+    for (const member of parameter.type.members) {
+      const key = `${labels[at] ?? "options"}.${memberName(member, source)}`;
+      const text = docOf(member, source)?.text;
+      if (text == null) {
+        problems.push(`${name}: no TSDoc for ${key}`);
+      } else {
+        docs.set(key, text);
+      }
+    }
+  }
+  return docs;
 }
 
 function defaultsOf(
@@ -459,10 +483,14 @@ function functionBody(
   }
   const labels = labelsOf(entry.node, doc);
   const defaults = defaultsOf(entry.node, labels, source);
-  const keys = [...doc.params.keys()];
+  const params = new Map([
+    ...doc.params,
+    ...optionDocs(name, entry.node, labels, source),
+  ]);
+  const keys = [...params.keys()];
   for (const key of defaults.keys()) {
     if (!keys.includes(key)) {
-      problems.push(`${name}: no @param for ${key}`);
+      problems.push(`${name}: no TSDoc for ${key}`);
     }
   }
   const leaves = keys.filter(
@@ -484,7 +512,7 @@ function functionBody(
     bulletList(
       leaves.map((key) => ({
         name: key,
-        text: withDefault(doc.params.get(key) ?? "", defaults.get(key)),
+        text: withDefault(params.get(key) ?? "", defaults.get(key)),
       })),
     ),
     returnsLine(doc),

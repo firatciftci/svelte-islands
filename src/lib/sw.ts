@@ -45,25 +45,29 @@ async function keep(
  * Private parts never reach this cache, because they have no URL.
  *
  * @param event The service worker's fetch event.
- * @param event.request The request being made.
- * @param event.respondWith Answers the request.
- * @param event.waitUntil Keeps the worker alive while a response is stored.
  * @param options Where parts live and how many to keep.
- * @param options.prefix The URL prefix of parts. Include your base path if you have one.
- * @param options.cache The name of the cache to keep them in.
- * @param options.limit The most responses to keep. The oldest go first.
  */
 export function serveParts(
   event: {
+    /** The request being made. */
     request: Request;
+    /** Answers the request. */
     respondWith: (response: Promise<Response>) => void;
+    /** Keeps the worker alive while a response is stored. */
     waitUntil: (work: Promise<unknown>) => void;
   },
   {
     prefix = "/_parts/",
     cache: name = CACHE,
     limit = LIMIT,
-  }: { prefix?: string; cache?: string; limit?: number } = {},
+  }: {
+    /** The URL prefix of parts. Include your base path if you have one. */
+    prefix?: string;
+    /** The name of the cache to keep them in. */
+    cache?: string;
+    /** The most responses to keep. The oldest go first. */
+    limit?: number;
+  } = {},
 ): boolean {
   const { request } = event;
   const url = new URL(request.url);

@@ -316,8 +316,6 @@ function warnPersonal(name: string, found: { isPersonal: boolean }) {
  * @param name A stable name for this kind of data. Skeletons are learned per name.
  * @param value The value to send. Plain data travels in a compact packed form.
  * @param options When the part loads and who may see it.
- * @param options.fetch When the browser requests the part: `"auto"`, `"lazy"`, or `"preload"`.
- * @param options.private Keeps the part out of the store and off public URLs.
  */
 export function part<T>(
   name: string,
@@ -325,7 +323,12 @@ export function part<T>(
   {
     fetch = "auto",
     private: isPrivate = false,
-  }: { fetch?: Fetch; private?: boolean } = {},
+  }: {
+    /** When the browser requests the part: `"auto"`, `"lazy"`, or `"preload"`. */
+    fetch?: Fetch;
+    /** Keeps the part out of the store and off public URLs. */
+    private?: boolean;
+  } = {},
 ): Part<T> {
   const event = getRequestEvent();
   const made = digest(value, isPrivate);
@@ -684,13 +687,6 @@ const handler: Handle = async ({ event, resolve }) => {
  * Add it to `sequence()` in `hooks.server.ts`.
  *
  * @param options Settings for the handle.
- * @param options.store Persists parts, deferred HTML, and skeletons across restarts and servers.
- * @param options.memory How many characters of parts and deferred HTML to keep in memory. The default is 64 MiB.
- * @param options.prepare Adjusts the internal request used to rebuild a part.
- * @param options.vary Returns anything other than an island's data that changes its text, such as the locale.
- * @param options.rebuild Limits on rerunning a page to recover a missing part, or `false` to answer 404 instead.
- * @param options.compress Serves parts and the skeleton file with Brotli when the browser accepts it. The default is `true`.
- * @param options.warnOnCookies Warns in dev when a public part is made after a request read cookies. The default is `true`.
  */
 export function handle({
   store = null,
@@ -701,12 +697,19 @@ export function handle({
   compress = true,
   warnOnCookies = true,
 }: {
+  /** Persists parts, deferred HTML, and skeletons across restarts and servers. */
   store?: Store | null;
+  /** How many characters of parts and deferred HTML to keep in memory. The default is 64 MiB. */
   memory?: number;
+  /** Adjusts the internal request used to rebuild a part. */
   prepare?: Prepare;
+  /** Returns anything other than an island's data that changes its text, such as the locale. */
   vary?: (event: RequestEvent) => string;
+  /** Limits on rerunning a page to recover a missing part, or `false` to answer 404 instead. */
   rebuild?: RebuildOptions | false;
+  /** Serves parts and the skeleton file with Brotli when the browser accepts it. The default is `true`. */
   compress?: boolean;
+  /** Warns in dev when a public part is made after a request read cookies. The default is `true`. */
   warnOnCookies?: boolean;
 } = {}): Handle {
   config.store = store;

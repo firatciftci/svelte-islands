@@ -242,16 +242,20 @@ index({});
  * its result as `transport` from `src/hooks.ts`.
  *
  * @param options Settings shared by the server and the browser.
- * @param options.codecs Your own `transport` entries, kept alongside the library's.
- * @param options.inline Values up to this many characters stay in the page's data.
- * @param options.prefix The URL prefix of parts. Include your base path if you have one.
  * @returns The value to export as `transport`.
  */
 export function islands({
   codecs = {},
   inline = settings.inline,
   prefix = settings.prefix,
-}: { codecs?: Transport; inline?: number; prefix?: string } = {}): Transport {
+}: {
+  /** Your own `transport` entries, kept alongside the library's. */
+  codecs?: Transport;
+  /** Values up to this many characters stay in the page's data. */
+  inline?: number;
+  /** The URL prefix of parts. Include your base path if you have one. */
+  prefix?: string;
+} = {}): Transport {
   settings.inline = inline;
   settings.prefix = prefix.endsWith("/") ? prefix : `${prefix}/`;
   index(codecs);
