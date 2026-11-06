@@ -109,6 +109,9 @@
 
   const adopted = untrack((): (Claimed & { html: string }) | null => {
     if (server == null) {
+      if (origin.loaded != null && ssr && !plan.isDeferred) {
+        return null;
+      }
       const found = claim(origin, first);
       return found == null ? null : { ...found, html: " " };
     }
