@@ -4,6 +4,9 @@ const config: KnipConfig = {
   entry: [
     "fixtures/app/vite.config.ts",
     "fixtures/app/src/**/*",
+    "site/vite.config.ts",
+    "site/src/**/*",
+    "site/bench/*.ts",
     "tests/e2e/*.ts",
   ],
   ignoreFiles: [
@@ -11,6 +14,7 @@ const config: KnipConfig = {
     "fixtures/app/async/**",
     "fixtures/app/workers/**",
   ],
+  ignoreDependencies: [/^@fontsource-variable\//u],
   ignoreUnresolved: ["#waiting"],
   ignoreIssues: { ".github/**/*.yml": ["binaries"] },
   treatConfigHintsAsErrors: true,

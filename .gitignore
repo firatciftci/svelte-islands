@@ -27,5 +27,7 @@ vite.config.ts.timestamp-*
 /fixtures/app/.svelte-kit
 /fixtures/app/build
 /fixtures/app/build-static
+/site/.svelte-kit
+/site/build
 /test-results
 /playwright-report

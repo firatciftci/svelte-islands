@@ -1,0 +1,8 @@
+{
+  "name": "svelte-islands-site",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#lib/*": "./src/lib/*"
+  }
+}

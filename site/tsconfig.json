@@ -1,0 +1,12 @@
+{
+  "extends": "$app/tsconfig",
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "paths": {
+      "svelte-islands/server": ["../src/lib/server.ts"],
+      "svelte-islands": ["../src/lib/index.ts"]
+    }
+  },
+  "include": ["src/**/*", "bench/*.ts", "vite.config.ts"]
+}

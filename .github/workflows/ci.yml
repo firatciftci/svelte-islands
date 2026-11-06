@@ -70,6 +70,9 @@ jobs:
       - name: Check the client size
         run: pnpm run size
 
+      - name: Build the docs site
+        run: pnpm run site
+
   browser:
     name: Browser (${{ matrix.name }})
     runs-on: ubuntu-latest

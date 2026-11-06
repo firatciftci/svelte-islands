@@ -1,0 +1,60 @@
+{
+  "date": "November 5, 2026",
+  "machine": "Chromium 156 on Intel(R) Core(TM) Ultra 9 275HX",
+  "runs": 7,
+  "versions": { "svelte": "5.57.3", "kit": "3.1.1", "node": "24.22.2" },
+  "plain": {
+    "html": 101293,
+    "total": 256011,
+    "paint": 1472,
+    "tasks": 2,
+    "blocking": 1114,
+    "main": 2418,
+    "nodes": 34624,
+    "firstSort": 75,
+    "placesSort": 800,
+    "secondSort": 851,
+    "totalAfter": 256011
+  },
+  "islands": {
+    "html": 4787,
+    "total": 170452,
+    "paint": 784,
+    "tasks": 1,
+    "blocking": 45,
+    "main": 598,
+    "nodes": 2088,
+    "firstSort": 150,
+    "placesSort": 1336,
+    "secondSort": 776,
+    "totalAfter": 265176
+  },
+  "ranges": {
+    "plain": {
+      "html": [101293, 101293],
+      "total": [256011, 256011],
+      "paint": [1140, 1532],
+      "tasks": [2, 2],
+      "blocking": [727, 1247],
+      "main": [1796, 2801],
+      "nodes": [34624, 34624],
+      "firstSort": [48, 84],
+      "placesSort": [661, 929],
+      "secondSort": [720, 1065],
+      "totalAfter": [256011, 256011]
+    },
+    "islands": {
+      "html": [4787, 4787],
+      "total": [170452, 170452],
+      "paint": [712, 796],
+      "tasks": [1, 2],
+      "blocking": [0, 76],
+      "main": [481, 751],
+      "nodes": [2088, 2088],
+      "firstSort": [67, 177],
+      "placesSort": [1205, 1721],
+      "secondSort": [558, 872],
+      "totalAfter": [265176, 265176]
+    }
+  }
+}
