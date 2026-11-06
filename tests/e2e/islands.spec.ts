@@ -120,7 +120,9 @@ test.describe("hydration", () => {
       () => new Promise((resolve) => setTimeout(resolve, 300)),
     );
     await expect(press).toHaveText("pressed 0");
-    expect(urls.filter((url) => !url.endsWith("/skeletons.json"))).toStrictEqual([]);
+    expect(
+      urls.filter((url) => !url.endsWith("/skeletons.json")),
+    ).toStrictEqual([]);
   });
 });
 
@@ -441,7 +443,9 @@ test.describe("private parts", () => {
     const press = page.getByTestId("private-press");
     await press.click();
     await expect(press).toHaveText("pressed 1");
-    expect(urls.filter((url) => !url.endsWith("/skeletons.json"))).toStrictEqual([]);
+    expect(
+      urls.filter((url) => !url.endsWith("/skeletons.json")),
+    ).toStrictEqual([]);
     const html = await page.content();
     expect(html).not.toContain("data-island-file");
     const shapes = await (await request.get("/_parts/skeletons.json")).text();
@@ -491,6 +495,20 @@ test.describe("the part route", () => {
       headers: { "if-none-match": plain.headers().etag ?? "" },
     });
     expect(again.status()).toBe(304);
+  });
+
+  test("compresses the skeleton file", async ({ request }) => {
+    await request.get(seeded());
+    await request.get("/table");
+    const plain = await request.get("/_parts/skeletons.json", {
+      headers: { "accept-encoding": "identity" },
+    });
+    expect(plain.headers()["content-encoding"]).toBeUndefined();
+    const squeezed = await request.get("/_parts/skeletons.json", {
+      headers: { "accept-encoding": "br" },
+    });
+    expect(squeezed.headers()["content-encoding"]).toBe("br");
+    expect(await squeezed.json()).toStrictEqual(await plain.json());
   });
 
   test("won't fetch outside the site or back at itself", async ({

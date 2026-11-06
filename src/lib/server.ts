@@ -424,22 +424,6 @@ function inject(html: string, event: RequestEvent) {
     : `${html.slice(0, at)}${links.join("")}${html.slice(at)}`;
 }
 
-async function shapes() {
-  await recallAll();
-  const all: Record<string, string> = {};
-  for (const known of exemplars.values()) {
-    Object.assign(all, flatten(known));
-  }
-  const text = JSON.stringify(all);
-  return new Response(text, {
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-      "cache-control": "public, max-age=600, stale-while-revalidate=86400",
-      etag: `"${hashOf(text)}"`,
-    },
-  });
-}
-
 function pageOf(event: RequestEvent) {
   const source = event.url.searchParams.get("u");
   if (source?.startsWith("/") !== true) {
@@ -562,11 +546,32 @@ async function encoded(file: string, text: string, event: RequestEvent) {
     : null;
 }
 
+async function shapes(event: RequestEvent) {
+  await recallAll();
+  const all: Record<string, string> = {};
+  for (const known of exemplars.values()) {
+    Object.assign(all, flatten(known));
+  }
+  const text = JSON.stringify(all);
+  const hash = hashOf(text);
+  const compressed = await encoded(`${SHAPES}:${hash}`, text, event);
+  return new Response(compressed ?? text, {
+    ...ALREADY_ENCODED,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "public, max-age=600, stale-while-revalidate=86400",
+      vary: "accept-encoding",
+      etag: compressed == null ? `"${hash}"` : `"${hash}-br"`,
+      ...(compressed != null && { "content-encoding": "br" }),
+    },
+  });
+}
+
 async function respond(event: RequestEvent) {
   const file = event.url.pathname.slice(settings.prefix.length);
   const isRead = ["GET", "HEAD"].includes(event.request.method);
   if (isRead && file === SHAPES) {
-    return shapes();
+    return shapes(event);
   }
   if (!isRead || !FILE.test(file)) {
     return new Response(null, { status: 404 });
@@ -684,7 +689,7 @@ const handler: Handle = async ({ event, resolve }) => {
  * @param options.prepare Adjusts the internal request used to rebuild a part.
  * @param options.vary Returns anything other than an island's data that changes its text, such as the locale.
  * @param options.rebuild Limits on rerunning a page to recover a missing part, or `false` to answer 404 instead.
- * @param options.compress Serves parts with Brotli when the browser accepts it. The default is `true`.
+ * @param options.compress Serves parts and the skeleton file with Brotli when the browser accepts it. The default is `true`.
  * @param options.warnOnCookies Warns in dev when a public part is made after a request read cookies. The default is `true`.
  */
 export function handle({
