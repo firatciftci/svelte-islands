@@ -24,6 +24,20 @@ Your page then holds only a skeleton, and the rows arrive when someone scrolls c
 
 The skeleton keeps the first few rows and adds one spacer row for the rest, so the table holds about the right height while it waits. That's what `--island-item` is for — you should set it to the height of a row, so that the spacer matches.
 
+A skeleton is [learned per name](../20-core-concepts/40-skeletons.md), though, so the spacer holds as many rows as the last table rendered under that name. That's fine if your tables are about the same length. If they vary a lot (a 12-row table and a 300-row table under one name, for example), the spacer will be wrong for most of them. In that case, turn the spacer off and reserve each table's height from data your page already has:
+
+```svelte
+<div style:--island-item="0px" style:min-block-size="{data.count * 3}rem">
+  <Island part={data.rows} defer when="visible">
+    {#snippet children(rows)}
+      <ResultsTable {rows} />
+    {/snippet}
+  </Island>
+</div>
+```
+
+The `min-block-size` stays in place once the rows arrive, so use a row height a little under the real one. Otherwise, a table can end up with a gap below it. And write `0px` rather than `0`, because a bare number isn't a valid length once `calc()` multiplies it.
+
 This has the same trade-off as any [deferred island](../20-core-concepts/20-islands.md#deferred): the rows are not in the page's HTML, so anyone without JavaScript can't see them.
 
 ## Near the top
