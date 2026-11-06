@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { compile } from "svelte/compiler";
 import { createTwoslasher } from "twoslash";
 import ts from "typescript";
 
@@ -84,6 +85,17 @@ function signatureOf(text: string) {
       ? signature.replaceAll(argument, "T")
       : signature
   }`;
+}
+
+export function checkComponent(code: string) {
+  try {
+    compile(code, { generate: false, experimental: { async: true } });
+  } catch (error) {
+    throw new Error(
+      `This code sample doesn't compile: ${String(error)}\n\n${code}`,
+      { cause: error },
+    );
+  }
 }
 
 export function check(code: string, lang: string, file: string | null) {

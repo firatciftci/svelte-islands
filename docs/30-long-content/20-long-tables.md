@@ -32,7 +32,7 @@ If the table is near the top of your page, or its HTML has to be in the page, yo
 
 ```svelte
 <table>
-  <thead>...</thead>
+  <thead><!-- your header --></thead>
   {#each ["0", "1", "2"] as chunk (chunk)}
     <Island part={data.rows} view={chunk} as="tbody" when="visible">
       {#snippet children(rows)}

@@ -4,7 +4,7 @@ import {
   createHighlighter,
   type DecorationItem,
 } from "shiki";
-import { check } from "./samples";
+import { check, checkComponent } from "./samples";
 
 export type Heading = {
   id: string;
@@ -108,6 +108,9 @@ function highlight(code: string, lang: string, isDeclaration: boolean) {
   const file = header?.[1] ?? header?.[2] ?? null;
   const body = (file == null ? lines : lines.slice(1)).join("\n");
   const language = lang === "" ? "text" : lang;
+  if (language === "svelte") {
+    checkComponent(body);
+  }
   const annotated =
     (language === "ts" || language === "js") && !isDeclaration
       ? annotate(body, language, file)
