@@ -16,6 +16,7 @@ Skeleton bars take their color from the island's text, so they usually look righ
 - `--island-bone` is the color of skeleton bars
 - `--island-radius` is their corner radius (`0.25em` by default)
 - `--island-pulse` is the length of the pulse animation (`1.4s` by default)
+- `--island-delay` is how long `Await` and `Pending` wait before they show a skeleton (`120ms` by default)
 - `--island-surface` is the background of a region that has no learned skeleton yet (transparent by default)
 - `--island-inset` is the padding of that region (0 by default)
 - `--island-item` is the height of the spacer row for each table row a skeleton leaves out (`2em` by default)

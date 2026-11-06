@@ -5,23 +5,31 @@
 -->
 <script lang="ts" generics="T">
   import type { Snippet } from "svelte";
-  import { getAllContexts, untrack } from "svelte";
+  import { getAllContexts, tick, untrack } from "svelte";
   import { quietly, scope } from "./part.js";
   import Pending from "./pending.svelte";
 
   const {
     promise,
     name,
+    key,
     reserve,
     private: isPrivate = false,
     children,
     failed,
     class: className,
   }: {
-    /** The promise to wait for. */
+    /** The promise to wait for, or a value that is already there. */
     promise: T;
     /** A stable name for this content. Skeletons are learned per name. */
     name: string;
+    /**
+     * What the content is about. While a new promise has the same `key` as the
+     * last one that resolved, the old content stays on screen, marked busy,
+     * until the new value arrives. With a different `key`, or none, the
+     * skeleton shows instead.
+     */
+    key?: unknown;
     /** The height to hold before a skeleton is known, as a CSS length. */
     reserve?: string;
     /** Set to `true` if the content differs per visitor, so no skeleton is learned from it. */
@@ -34,28 +42,113 @@
     class?: string;
   } = $props();
 
+  type Outcome =
+    | { from: unknown; isDone: true; value: Awaited<T> }
+    | { from: unknown; isDone: false; error: unknown };
+
+  function isThenable(value: unknown): value is PromiseLike<Awaited<T>> {
+    return (
+      (typeof value === "object" || typeof value === "function") &&
+      value != null &&
+      "then" in value &&
+      typeof value.then === "function"
+    );
+  }
+
+  let outcome = $state.raw<Outcome | null>(null);
+  let kept: { key: unknown; value: Awaited<T> } | null = null;
+
+  function isPlain(value: unknown): value is Awaited<T> {
+    return !isThenable(value);
+  }
+
+  const settled = $derived.by((): Outcome | null => {
+    if (isPlain(promise)) {
+      return { from: promise, isDone: true, value: promise };
+    }
+    return outcome?.from === promise ? outcome : null;
+  });
+
+  const shown = $derived.by(() => {
+    if (settled?.isDone === true) {
+      kept = { key, value: settled.value };
+      return { value: settled.value, isStale: false };
+    }
+    if (settled == null && key !== undefined && kept?.key === key) {
+      return { value: kept.value, isStale: true };
+    }
+    return null;
+  });
+
+  function hashTarget() {
+    const id = decodeURIComponent(location.hash.slice(1));
+    return id === "" ? null : document.getElementById(id);
+  }
+
+  async function reveal(found: Outcome, hadTarget: boolean, at: number) {
+    outcome = found;
+    if (hadTarget || scrollY !== at) {
+      return;
+    }
+    await tick();
+    hashTarget()?.scrollIntoView();
+  }
+
+  $effect(() => {
+    const current = promise;
+    if (!isThenable(current)) {
+      return;
+    }
+    let isLive = true;
+    const hadTarget = hashTarget() != null;
+    const at = scrollY;
+    current.then(
+      (value) => {
+        if (isLive) {
+          void reveal({ from: current, isDone: true, value }, hadTarget, at);
+        }
+      },
+      (error: unknown) => {
+        if (isLive) {
+          void reveal({ from: current, isDone: false, error }, hadTarget, at);
+        }
+      },
+    );
+    return () => {
+      isLive = false;
+    };
+  });
+
   const server = scope();
   if (server != null && untrack(() => !isPrivate)) {
     const context = getAllContexts();
-    const { body, key, waited } = untrack(() => ({
+    const { body, label, waited } = untrack(() => ({
       body: children,
-      key: name,
+      label: name,
       waited: promise,
     }));
     const teach = async () => {
       const value = await waited;
-      server.skeleton(key, key, () => server.render(body, value, context, "a"));
+      server.skeleton(label, label, () =>
+        server.render(body, value, context, "a"),
+      );
     };
     void quietly(teach());
   }
 </script>
 
-{#await promise}
-  <Pending {name} {reserve} isPending={true} class={className} />
-{:then value}
-  <Pending {name} {reserve} isPending={false} class={className}>
-    {@render children(value)}
+{#if settled != null && !settled.isDone}
+  {@render failed?.(settled.error)}
+{:else if shown != null}
+  <Pending
+    {name}
+    {reserve}
+    isPending={false}
+    isStale={shown.isStale}
+    class={className}
+  >
+    {@render children(shown.value)}
   </Pending>
-{:catch error}
-  {@render failed?.(error)}
-{/await}
+{:else}
+  <Pending {name} {reserve} isPending={true} class={className} />
+{/if}

@@ -40,6 +40,7 @@ const requests = new WeakMap<
     files: Set<string>;
     isHeaded: boolean;
     isPersonal: boolean;
+    isStreamed: boolean;
     writes: Array<Promise<unknown>>;
   }
 >();
@@ -63,6 +64,7 @@ const config: {
   rebuild: Required<RebuildOptions> | null;
   compress: boolean;
   warnOnCookies: boolean;
+  shareStreamed: boolean;
 } = {
   store: null,
   memory: 64 * 1024 ** 2,
@@ -71,6 +73,7 @@ const config: {
   rebuild: REBUILD_DEFAULTS,
   compress: true,
   warnOnCookies: true,
+  shareStreamed: false,
 };
 const state: {
   held: number;
@@ -147,6 +150,7 @@ function track(locals: object) {
       files: new Set(),
       isHeaded: false,
       isPersonal: false,
+      isStreamed: false,
       writes: [],
     };
     requests.set(locals, found);
@@ -678,6 +682,13 @@ const handler: Handle = async ({ event, resolve }) => {
   const response = await resolve(event, {
     transformPageChunk: ({ html }) => inject(html, event),
   });
+  if (
+    !config.shareStreamed &&
+    requests.get(event.locals)?.isStreamed === true &&
+    !response.headers.has("cache-control")
+  ) {
+    response.headers.set("cache-control", "private, no-cache");
+  }
   await settle(event);
   return response;
 };
@@ -696,6 +707,7 @@ export function handle({
   rebuild: limits = {},
   compress = true,
   warnOnCookies = true,
+  shareStreamed = false,
 }: {
   /** Persists parts, deferred HTML, and skeletons across restarts and servers. */
   store?: Store | null;
@@ -711,6 +723,13 @@ export function handle({
   compress?: boolean;
   /** Warns in dev when a public part is made after a request read cookies. The default is `true`. */
   warnOnCookies?: boolean;
+  /**
+   * Lets shared caches keep a response in which `stream()` left a promise
+   * pending. The default is `false`: such a response gets
+   * `cache-control: private, no-cache` unless it already has a `cache-control`,
+   * so a CDN never keeps a copy whose HTML holds skeletons instead of content.
+   */
+  shareStreamed?: boolean;
 } = {}): Handle {
   config.store = store;
   config.memory = memory;
@@ -719,5 +738,70 @@ export function handle({
   config.rebuild = limits === false ? null : { ...REBUILD_DEFAULTS, ...limits };
   config.compress = compress;
   config.warnOnCookies = warnOnCookies;
+  config.shareStreamed = shareStreamed;
   return handler;
+}
+
+/**
+ * Waits a short while for slow values in a server `load`, then lets the rest
+ * stream.
+ *
+ * Each value that settles within `budget` milliseconds comes back as itself, so
+ * the page renders it into the server HTML. Each one still pending comes back as
+ * its promise, which SvelteKit streams to the browser, and `<Await>` shows a
+ * learned skeleton until it arrives. A rejected value comes back as its rejected
+ * promise, so `<Await>` shows its `failed` snippet.
+ *
+ * Pass `budget: Infinity` to wait for everything, for example for crawlers that
+ * don't run JavaScript.
+ *
+ * @param values The promises to wait for, by name.
+ * @param options How long to wait.
+ * @returns The same names, each holding its value or its pending promise.
+ */
+export async function stream<T extends Record<string, unknown>>(
+  values: T,
+  {
+    budget = 150,
+  }: {
+    /** How many milliseconds to wait before streaming what is still pending. The default is 150. */
+    budget?: number;
+  } = {},
+): Promise<{ [K in keyof T]: Awaited<T[K]> | Promise<Awaited<T[K]>> }> {
+  const event = getRequestEvent();
+  const entries = Object.entries(values);
+  const settled = new Map<string, { value: unknown }>();
+  const rejected = new Set<string>();
+  const watched = entries.map(async ([key, value]) => {
+    try {
+      settled.set(key, { value: await value });
+    } catch {
+      rejected.add(key);
+    }
+  });
+  if (budget === Infinity) {
+    await Promise.all(watched);
+  } else {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([
+      Promise.all(watched),
+      new Promise((done) => {
+        timer = setTimeout(done, Math.max(0, budget));
+      }),
+    ]);
+    clearTimeout(timer);
+  }
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of entries) {
+    const found = settled.get(key);
+    if (found != null) {
+      result[key] = found.value;
+      continue;
+    }
+    if (value instanceof Promise && !rejected.has(key)) {
+      track(event.locals).isStreamed = true;
+    }
+    result[key] = value;
+  }
+  return result as { [K in keyof T]: Awaited<T[K]> | Promise<Awaited<T[K]>> };
 }

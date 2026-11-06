@@ -54,6 +54,8 @@ A static island's HTML is in the page, so yes.
 
 A deferred island's HTML is not in the first response, so a crawler that does not run JavaScript sees only the [outline](../20-core-concepts/20-islands.md#screen-readers) (its headings). You should use `defer` only for content you don't need indexed that way.
 
+Content streamed into an [`Await`](../20-core-concepts/45-streaming.md) appears only once the page hydrates, so a crawler that does not run JavaScript sees its skeleton. You can give crawlers `stream(values, { budget: Infinity })`, so that their page waits for all of the content.
+
 ## How much JavaScript does it add?
 
 About 10.5 KiB gzipped for `Island` alone, and 11.5 KiB for every client export together. CI fails if those go over 11.5 KiB and 12.5 KiB.

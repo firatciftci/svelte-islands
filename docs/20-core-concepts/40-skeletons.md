@@ -64,6 +64,8 @@ A region that is not an island can still have to wait for something, and it woul
 
 `reserve` is a CSS block size to hold open before anything has been learned. You should set it close to the content's height, so that your page does not jump on a first visit.
 
+The skeleton waits 120 ms before it shows, so data that arrives quickly never flashes one. If you pass a `key`, a new promise with the same `key` keeps the old content on screen until it resolves, instead of showing the skeleton. [Streaming slow data](45-streaming.md) covers both, and also shows the server side with `stream()`.
+
 If the promise rejects, an optional `failed` snippet receives the error.
 
 The server also renders `children` once the promise resolves, and learns from that HTML. So later visitors get a skeleton based on a server render that waited for the data.

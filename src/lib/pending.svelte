@@ -12,6 +12,7 @@
   const {
     name,
     isPending,
+    isStale = false,
     reserve,
     children,
     class: className,
@@ -20,6 +21,8 @@
     name: string;
     /** Whether to show the skeleton. */
     isPending: boolean;
+    /** Whether the content shown is out of date while newer content loads. */
+    isStale?: boolean;
     /** The height to hold before a skeleton is known, as a CSS length. */
     reserve?: string;
     /** The finished content. */
@@ -52,11 +55,12 @@
 
 <div
   class={["island", className]}
-  aria-busy={isPending ? "true" : undefined}
+  aria-busy={isPending || isStale ? "true" : undefined}
+  data-island-stale={isStale ? "" : undefined}
   {@attach follow}
 >
   {#if isPending}
-    <div class="island-shell" aria-hidden="true">
+    <div class="island-shell island-delayed" aria-hidden="true">
       <!-- svelte-ignore hydration_html_changed -->
       <!-- eslint-disable-next-line svelte/no-at-html-tags -->
       {@html shell}

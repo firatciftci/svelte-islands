@@ -67,6 +67,8 @@ The id is inside a deferred or client-only island, and that island's HTML is not
 
 The [outline](../20-core-concepts/20-islands.md#screen-readers) keeps only headings that have ids, inside the named regions that hold them, so you should put any other id on an element outside the island.
 
+If the id is inside an `Await`, its content had not arrived when the browser looked for the id. `Await` scrolls to the hash once the content renders, unless the reader has already scrolled. On back and forward navigation, SvelteKit restores the scroll position before streamed content arrives, so you should keep the skeleton's height close to the content's height with `reserve`.
+
 ## Printing or find in page misses content
 
 Each island brings its content in when the browser is about to print, or when someone presses Ctrl+F or Cmd+F. There are two cases it can't cover:

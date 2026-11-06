@@ -25,6 +25,13 @@ tbody.island {
     alternate;
 }
 
+.island-delayed > * {
+  animation:
+    island-reveal 0s var(--island-delay, 120ms) backwards,
+    island-pulse var(--island-pulse, 1.4s) ease-in-out
+      var(--island-delay, 120ms) infinite alternate;
+}
+
 .island-rest {
   block-size: calc(var(--island-rest) * var(--island-item, 2em));
 }
@@ -93,6 +100,12 @@ tbody.island {
   }
 }
 
+@keyframes island-reveal {
+  from {
+    visibility: hidden;
+  }
+}
+
 @keyframes island-pulse {
   to {
     opacity: 0.5;
@@ -103,5 +116,9 @@ tbody.island {
   .island-skeleton,
   .island-shell > * {
     animation: none;
+  }
+
+  .island-delayed > * {
+    animation: island-reveal 0s var(--island-delay, 120ms) backwards;
   }
 }
