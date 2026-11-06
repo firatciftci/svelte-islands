@@ -38,6 +38,7 @@ const requests = new WeakMap<
   {
     parts: Set<Part>;
     files: Set<string>;
+    early: Set<string>;
     isHeaded: boolean;
     isPersonal: boolean;
     isStreamed: boolean;
@@ -148,6 +149,7 @@ function track(locals: object) {
     found = {
       parts: new Set(),
       files: new Set(),
+      early: new Set(),
       isHeaded: false,
       isPersonal: false,
       isStreamed: false,
@@ -371,10 +373,14 @@ provide(() => {
       void recall(name);
       return exemplars.get(name)?.get(name)?.html ?? null;
     },
-    stash: (html) => {
+    stash: (html, isEarly) => {
       const made = { text: html, hash: `${hashOf(html)}.html` };
       keep(made, event);
-      track(event.locals).files.add(made.hash);
+      const found = track(event.locals);
+      found.files.add(made.hash);
+      if (isEarly) {
+        found.early.add(made.hash);
+      }
       return made.hash;
     },
     outline: (identity, html, view) =>
@@ -418,6 +424,54 @@ function crawlable({ parts, files }: { parts: Set<Part>; files: Set<string> }) {
     );
 }
 
+const SWAP = `((prefix, files) => {
+  const shared = (globalThis.__svelteIslands ??= {});
+  const early = (shared.early ??= new Map());
+  const swap = (file, html) => {
+    const target = shared.isClaiming
+      ? null
+      : document.querySelector(\`[data-island-file="\${file}"][data-island-state="deferred"]\`);
+    const shell = target?.querySelector(":scope > .island-shell");
+    if (shell == null) {
+      return;
+    }
+    const template = document.createElement("template");
+    template.innerHTML = html;
+    target.querySelector(":scope > .island-outline")?.remove();
+    shell.replaceWith(template.content);
+    target.dataset.islandState = "static";
+    target.removeAttribute("aria-busy");
+    early.delete(file);
+  };
+  for (const file of files) {
+    early.set(
+      file,
+      fetch(prefix + file).then(
+        async (response) => {
+          const html = response.ok ? await response.text() : null;
+          if (html != null && document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", () => swap(file, html), { once: true });
+          } else if (html != null) {
+            swap(file, html);
+          }
+          return html;
+        },
+        () => null,
+      ),
+    );
+  }
+})`;
+
+function swapped(early: Set<string>) {
+  return early.size === 0
+    ? []
+    : [
+        `<script>${SWAP}(${JSON.stringify([settings.prefix, [...early]])
+          .slice(1, -1)
+          .replaceAll("<", String.raw`\u003c`)})</script>`,
+      ];
+}
+
 function inject(html: string, event: RequestEvent) {
   const found = requests.get(event.locals);
   if (found == null || found.isHeaded) {
@@ -425,7 +479,10 @@ function inject(html: string, event: RequestEvent) {
   }
   found.isHeaded = true;
   const at = html.indexOf("</head>");
-  const links = (building ? crawlable(found) : preloads(found)).toArray();
+  const links = [
+    ...(building ? crawlable(found) : preloads(found)),
+    ...swapped(found.early),
+  ];
   return at === -1 || links.length === 0
     ? html
     : `${html.slice(0, at)}${links.join("")}${html.slice(at)}`;

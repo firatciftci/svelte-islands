@@ -104,7 +104,7 @@ export type Scope = {
   ) => string;
   skeleton: (name: string, key: string, html: () => string) => string | null;
   shape: (name: string) => string | null;
-  stash: (html: string) => string;
+  stash: (html: string, isEarly: boolean) => string;
   outline: (identity: string, html: () => string, view?: string) => string;
   awaited: (error: unknown, name: string) => boolean;
 };

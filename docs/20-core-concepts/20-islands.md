@@ -41,7 +41,7 @@ Some content is not worth putting in the page at all, at least until someone scr
 
 When the island nears the viewport, the browser fetches the HTML from its immutable URL and swaps it in. The island then hydrates when `when` fires, like any other. (If `when` is `visible` or `eager`, the data comes down alongside the HTML.)
 
-`defer` takes a strategy too, in case near the viewport is not the moment you want: `defer="idle"` fetches the HTML when the browser is idle.
+`defer` takes a strategy too, in case near the viewport is not the moment you want: `defer="idle"` fetches the HTML when the browser is idle. `defer="eager"` fetches it while the page is still loading and swaps it in as soon as it arrives, often before your JavaScript has loaded, so that a long table near the top can stay out of the page without waiting for hydration.
 
 This has a trade-off: content that is not in the page is not there for anyone without JavaScript. So you should use `defer` for long content below the fold, and not for the content someone came to your page to read.
 

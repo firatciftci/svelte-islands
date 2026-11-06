@@ -176,7 +176,7 @@
         html: rendered,
       };
     }
-    const file = server.stash(rendered);
+    const file = server.stash(rendered, plan.fetch === "eager");
     const outlined = server.outline(file, html);
     return {
       state: "deferred",

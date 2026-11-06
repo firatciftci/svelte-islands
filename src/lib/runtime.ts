@@ -181,6 +181,24 @@ async function persist<T>(run: () => Promise<T>) {
   return run();
 }
 
+function shared() {
+  const scope: typeof globalThis & {
+    __svelteIslands?: {
+      isClaiming?: boolean;
+      early?: Map<string, Promise<string | null>>;
+    };
+  } = globalThis;
+  scope.__svelteIslands ??= {};
+  return scope.__svelteIslands;
+}
+
+async function handed(file: string) {
+  const { early } = shared();
+  const found = early?.get(file);
+  early?.delete(file);
+  return found ?? null;
+}
+
 export async function markupOf(
   file: string,
   source: string,
@@ -188,7 +206,9 @@ export async function markupOf(
 ) {
   const started = performance.now();
   try {
-    const text = await persist(async () => fetched(file, source));
+    const text =
+      (await handed(file)) ??
+      (await persist(async () => fetched(file, source)));
     if (isObserved()) {
       emit({
         type: "markup",
@@ -407,6 +427,7 @@ export function claim(part: Part, key: string): Claimed | null {
   if (typeof document === "undefined" || state.isBooted) {
     return null;
   }
+  shared().isClaiming = true;
   const candidates = document.querySelectorAll(
     `[data-island="${CSS.escape(part.hash)}"]`,
   );
