@@ -123,6 +123,11 @@ export default antfu({
   },
 }).append(
   {
+    name: "local/sw",
+    files: ["src/lib/sw.ts"],
+    rules: { "unicorn/consistent-boolean-name": "off" },
+  },
+  {
     name: "local/docs",
     files: ["docs/**", "README.md"],
     rules: { "slop/no-em-dash": "off" },
