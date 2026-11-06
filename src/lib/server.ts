@@ -18,7 +18,7 @@ export type { Store } from "./stores.js";
 const TOKEN = "x-svelte-islands-token";
 const SHAPES = "skeletons.json";
 const NAMES = "skeleton-names";
-const FILE = /^[\w-]{22}\.(?:json|html)$/u;
+const FILE = /^[\w-]{22}(?:\.json|\.html)?$/u;
 const RELEARN = 10 * 60_000;
 const OUTLINES = 4096;
 const HOLLOW = 3;
@@ -572,8 +572,9 @@ async function shapes(event: RequestEvent) {
 
 async function respond(event: RequestEvent) {
   const file = event.url.pathname.slice(settings.prefix.length);
+  const key = file.replace(/\.json$/u, "");
   const isRead = ["GET", "HEAD"].includes(event.request.method);
-  if (isRead && file === SHAPES) {
+  if (isRead && `${key}.json` === SHAPES) {
     return shapes(event);
   }
   if (!isRead || !FILE.test(file)) {
@@ -586,7 +587,6 @@ async function respond(event: RequestEvent) {
       headers: { etag, "cache-control": IMMUTABLE, vary: "accept-encoding" },
     });
   }
-  const key = file.replace(/\.json$/u, "");
   let text: string | null = null;
   try {
     text =

@@ -78,6 +78,16 @@ describe("the part server", () => {
     expect(await response.text()).toContain("xxx");
   });
 
+  it("answers tabs left open from before file names ended in .json", async () => {
+    const handler = server.handle();
+    const made = publish(large);
+    const part = await serve(eventFor(`/_parts/${made.hash}`), handler);
+    expect(part.status).toBe(200);
+    expect(await part.text()).toContain("xxx");
+    const shapes = await serve(eventFor("/_parts/skeletons"), handler);
+    expect(shapes.status).toBe(200);
+  });
+
   it("answers 304 to a matching validator, compressed or not", async () => {
     const handler = server.handle();
     const made = publish(large);
