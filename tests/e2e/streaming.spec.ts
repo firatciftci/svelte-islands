@@ -83,6 +83,7 @@ test.describe("stream()", () => {
     const at = html.indexOf("body-wrap");
     expect(at).toBeGreaterThan(-1);
     expect(html.slice(at, at + 2000)).toContain("island-bone");
+    expect(html.slice(at, at + 2000)).not.toContain("<header");
   });
 });
 
@@ -101,6 +102,23 @@ test.describe("Await", () => {
     await expect(page.getByTestId("body")).toHaveAttribute("data-view", "2");
     await expect(wrap).not.toHaveAttribute("aria-busy", "true");
     expect(errors).toStrictEqual([]);
+  });
+
+  test("a pending snippet shows at once, around the skeleton", async ({
+    page,
+    request,
+  }) => {
+    const html = await (await request.get("/streaming?topic=a")).text();
+    expect(html).toContain("Waiting for a");
+    await page.goto("/streaming?topic=a");
+    await hydrated(page);
+    await expect(page.getByTestId("body")).toContainText("of a");
+    await expect(page.getByTestId("standin")).toHaveCount(0);
+    await page.getByTestId("other").click();
+    await expect(page.getByTestId("standin")).toHaveText("Waiting for b");
+    await expect(page.locator(".body-wrap .island-shell")).toHaveCount(1);
+    await expect(page.getByTestId("body")).toContainText("line 1 of b");
+    await expect(page.getByTestId("standin")).toHaveCount(0);
   });
 
   test("a new key shows the skeleton, then the content", async ({ page }) => {

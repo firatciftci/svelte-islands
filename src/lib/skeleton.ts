@@ -280,6 +280,10 @@ function read(element: Branch, name: string) {
   return element.attributes.find(([key]) => key === name)?.[1];
 }
 
+function isSkipped(element: Branch) {
+  return read(element, "data-island-skip") != null;
+}
+
 function isOutline(element: Branch) {
   return read(element, "class")?.split(/\s+/u).includes(OUTLINE) === true;
 }
@@ -317,7 +321,7 @@ function emit(node: Twig, limit: number, out: Array<string>) {
     text(node, out);
     return;
   }
-  if (DROPPED.has(node.tag) || isOutline(node)) {
+  if (DROPPED.has(node.tag) || isOutline(node) || isSkipped(node)) {
     return;
   }
   if (MEDIA.has(node.tag) || node.tag === "img") {

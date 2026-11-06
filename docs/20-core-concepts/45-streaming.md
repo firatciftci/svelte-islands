@@ -64,6 +64,29 @@ Use a `key` that names what the content is about, such as the record's id, and n
 }
 ```
 
+## Showing part of the page right away
+
+Some of a streamed region can be known before the data arrives, such as a title from a value you already awaited. Pass a `pending` snippet to show it at once. The snippet receives the skeleton as its argument, and the skeleton keeps its 120 ms delay:
+
+```svelte
+<Await promise={data.results} name="contest.results" key={data.contest.id}>
+  {#snippet children(results)}
+    <header data-island-skip>
+      <h1>{data.contest.name}</h1>
+    </header>
+    <Results {results} />
+  {/snippet}
+  {#snippet pending(skeleton)}
+    <header>
+      <h1>{data.contest.name}</h1>
+    </header>
+    {@render skeleton()}
+  {/snippet}
+</Await>
+```
+
+Since `pending` already draws the header, the skeleton shouldn't draw a second one. Add `data-island-skip` to an element, and the library leaves that element and everything inside it out of the skeleton that the library learns.
+
 ## Caching
 
 A response that streamed has skeletons where its content should be, so a shared cache shouldn't keep it. When `stream()` hands back a promise, `handle()` sets `cache-control: private, no-cache` on the response, unless the response already has a `cache-control` header. A response whose values all settled within the budget is left alone, and you can cache it as usual.

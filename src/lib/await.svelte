@@ -16,6 +16,7 @@
     reserve,
     private: isPrivate = false,
     children,
+    pending,
     failed,
     class: className,
   }: {
@@ -36,6 +37,11 @@
     private?: boolean;
     /** Renders the resolved value. */
     children: Snippet<[Awaited<T>]>;
+    /**
+     * Shown right away while the promise is pending, in place of the skeleton.
+     * It receives the skeleton as a snippet, which keeps its delay.
+     */
+    pending?: Snippet<[Snippet]>;
     /** Shown when the promise rejects. */
     failed?: Snippet<[unknown]>;
     /** A class for the wrapper. */
@@ -150,5 +156,12 @@
     {@render children(shown.value)}
   </Pending>
 {:else}
-  <Pending {name} {reserve} isPending={true} class={className} />
+  {#snippet skeleton()}
+    <Pending {name} {reserve} isPending={true} class={className} />
+  {/snippet}
+  {#if pending == null}
+    {@render skeleton()}
+  {:else}
+    {@render pending(skeleton)}
+  {/if}
 {/if}

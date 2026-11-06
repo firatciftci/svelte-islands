@@ -34,11 +34,18 @@
 >
   {#snippet children(body)}
     <section data-testid="body" data-view={body.view}>
+      <header data-island-skip>
+        <p>Header of {body.topic}</p>
+      </header>
       {#each body.lines as line (line)}
         <p>{line}</p>
       {/each}
       <h2 id="deep">Deep</h2>
     </section>
+  {/snippet}
+  {#snippet pending(skeleton)}
+    <p data-testid="standin">Waiting for {data.topic}</p>
+    {@render skeleton()}
   {/snippet}
 </Await>
 
