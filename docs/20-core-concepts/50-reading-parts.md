@@ -14,18 +14,18 @@ An `Island` is the usual way to read a part, but sometimes you need the value in
 
   let { data } = $props();
 
-  // `null` until the rows arrive, then an array
-  const rows = $derived(peek(data.rows)?.value);
+  // `null` until the products arrive, then an array
+  const products = $derived(peek(data.products)?.value);
 </script>
 
-{#if rows}
-  <p>{rows.length} rows</p>
+{#if products}
+  <p>{products.length} products</p>
 {/if}
 ```
 
-It's reactive, so a `$derived` that reads it updates when the data arrives. It does not start a download, though — something else has to do that.
+It's reactive, so a `$derived` that reads it updates when the data arrives. It does not start a download, though; something else has to do that.
 
-(If all you need is a total or a count, consider computing it on the server and returning it from `load`. That way it is in the page from the start, and nobody has to download the rows to see it.)
+(If all you need is a total or a count, consider computing it on the server and returning it from `load`. That way it is in the page from the start, and nobody has to download the products to see it.)
 
 ## `load`
 
@@ -38,8 +38,8 @@ It's reactive, so a `$derived` that reads it updates when the data arrives. It d
   let { data } = $props();
 
   async function download() {
-    const rows = await load(data.rows);
-    // turn `rows` into a CSV and save it...
+    const products = await load(data.products);
+    // turn `products` into a CSV and save it...
   }
 </script>
 
@@ -48,22 +48,22 @@ It's reactive, so a `$derived` that reads it updates when the data arrives. It d
 
 This pairs well with `fetch: "lazy"`, for data you only want when someone asks for it.
 
-You might be tempted to read `data.rows.loaded` instead, since it's right there. That value is only set where the part was made, so it is `null` in the browser for most parts. The [`no-loaded-in-client`](../50-tooling/20-eslint.md) ESLint rule catches this.
+You might be tempted to read `data.products.loaded` instead, since it's right there. That value is only set where the part was made, so it is `null` in the browser for most parts. The [`no-loaded-in-client`](../50-tooling/20-eslint.md) ESLint rule catches this.
 
 ## Views
 
 The same part can render in more than one way. If you give each rendering a `view`, each one gets its own [skeleton](40-skeletons.md):
 
 ```svelte
-<Island part={data.rows} view="table">
-  {#snippet children(rows)}
-    <ResultsTable {rows} />
+<Island part={data.products} view="table">
+  {#snippet children(products)}
+    <ProductTable {products} />
   {/snippet}
 </Island>
 
-<Island part={data.rows} view="chart" when="visible">
-  {#snippet children(rows)}
-    <ResultsChart {rows} />
+<Island part={data.products} view="chart" when="visible">
+  {#snippet children(products)}
+    <ProductChart {products} />
   {/snippet}
 </Island>
 ```
@@ -72,12 +72,12 @@ Both islands share one part, so the data downloads once. They wake separately, t
 
 ## Reading another part inside an island
 
-An island can read parts other than its own. Your table might use `peek(data.parties)` for its colors, for example:
+An island can read parts other than its own. Your table might use `peek(data.categories)` for its labels, for example:
 
 ```svelte
-<Island part={data.rows}>
-  {#snippet children(rows)}
-    <ResultsTable {rows} parties={peek(data.parties)?.value} />
+<Island part={data.products}>
+  {#snippet children(products)}
+    <ProductTable {products} categories={peek(data.categories)?.value} />
   {/snippet}
 </Island>
 ```

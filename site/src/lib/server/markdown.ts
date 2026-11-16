@@ -22,6 +22,18 @@ const EXAMPLE = /^<!-- example: ([\w-]+) -->$/u;
 const FILE_COMMENT = /^(?:\/\/\/ file: (.+)|<!--- file: (.+) --->)$/u;
 const CALLOUT = /^\[!(NOTE|LEGACY|DETAILS)\][ \t]*(.*)$/u;
 const TIPS = /<template data-tips>[\s\S]*?<\/template>/gu;
+const DIFF = /\+\+\+|---/gu;
+const DIFFABLE = new Set([
+  "ts",
+  "js",
+  "svelte",
+  "html",
+  "css",
+  "json",
+  "jsonc",
+]);
+
+type Change = "add" | "remove" | null;
 
 const theme = createCssVariablesTheme({
   name: "chart",
@@ -79,6 +91,12 @@ function tipOf(signature: string, summary: string) {
   return `<div><code>${code}</code>${note}</div>`;
 }
 
+function shift(position: DecorationItem["start"], shown: Array<number>) {
+  return typeof position === "number"
+    ? position
+    : { ...position, line: shown[position.line] ?? position.line };
+}
+
 function annotate(body: string, language: string, file: string | null) {
   const { code, hovers } = check(body, language, file);
   const tips: Array<string> = [];
@@ -102,12 +120,44 @@ function annotate(body: string, language: string, file: string | null) {
   };
 }
 
+function changesOf(code: string, language: string) {
+  const lines: Array<{ text: string; change: Change }> = [];
+  let open: Change = null;
+  for (const line of code.split("\n")) {
+    let change: Change = open;
+    const text = DIFFABLE.has(language)
+      ? line.replace(DIFF, (marker) => {
+          const kind = marker === "+++" ? "add" : "remove";
+          if (open === kind) {
+            open = null;
+          } else if (open == null) {
+            open = kind;
+            change = kind;
+          }
+          return "";
+        })
+      : line;
+    lines.push({ text, change });
+  }
+  return lines;
+}
+
 function highlight(code: string, lang: string, isDeclaration: boolean) {
   const lines = code.split("\n");
   const header = FILE_COMMENT.exec(lines[0]?.trim() ?? "");
   const file = header?.[1] ?? header?.[2] ?? null;
-  const body = (file == null ? lines : lines.slice(1)).join("\n");
   const language = lang === "" ? "text" : lang;
+  const changes = changesOf(
+    (file == null ? lines : lines.slice(1)).join("\n"),
+    language,
+  );
+  const shown: Array<number> = [];
+  for (const [at, line] of changes.entries()) {
+    if (line.change !== "remove") {
+      shown.push(at);
+    }
+  }
+  const body = shown.map((at) => changes[at]?.text ?? "").join("\n");
   if (language === "svelte") {
     checkComponent(body);
   }
@@ -115,11 +165,31 @@ function highlight(code: string, lang: string, isDeclaration: boolean) {
     (language === "ts" || language === "js") && !isDeclaration
       ? annotate(body, language, file)
       : { code: body, decorations: [], tips: "" };
-  const html = highlighter.codeToHtml(annotated.code, {
-    lang: language,
-    theme: "chart",
-    decorations: annotated.decorations,
-  });
+  const hasRemovals = shown.length < changes.length;
+  const html = highlighter.codeToHtml(
+    hasRemovals ? changes.map(({ text }) => text).join("\n") : annotated.code,
+    {
+      lang: language,
+      theme: "chart",
+      decorations: hasRemovals
+        ? annotated.decorations.map((decoration) => ({
+            ...decoration,
+            start: shift(decoration.start, shown),
+            end: shift(decoration.end, shown),
+          }))
+        : annotated.decorations,
+      transformers: [
+        {
+          line(node, line) {
+            const change = changes[line - 1]?.change;
+            if (change != null) {
+              this.addClassToHast(node, `line-${change}`);
+            }
+          },
+        },
+      ],
+    },
+  );
   return [
     `<figure class="code" data-lang="${escape(language)}">`,
     file == null

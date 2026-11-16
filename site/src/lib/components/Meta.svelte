@@ -30,7 +30,7 @@
   <meta property="og:image:height" content="1260" />
   <meta
     property="og:image:alt"
-    content="The svelte-islands home page: a sea chart with the library's name on open water, beside an island that holds a table of wards."
+    content="The svelte-islands home page: a sea chart with the library's name on open water, beside an island that holds a table of harbors."
   />
   <meta name="twitter:card" content="summary_large_image" />
 </svelte:head>

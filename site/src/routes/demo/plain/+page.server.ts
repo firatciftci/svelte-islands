@@ -1,5 +1,5 @@
-import { districts, places, summary } from "../data";
+import { berths, ports, summary } from "../data";
 
 export function load() {
-  return { districts, places, summary };
+  return { ports, berths, summary };
 }

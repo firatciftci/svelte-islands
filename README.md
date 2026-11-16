@@ -3,14 +3,14 @@
 Islands for SvelteKit: content-addressed page data, server HTML adopted without hydration, and skeletons learned from your own markup.
 
 ```svelte
-<Island part={data.rows} when="visible">
-  {#snippet children(rows)}
-    <ResultsTable {rows} />
+<Island part={data.products} when="visible">
+  {#snippet children(products)}
+    <ProductTable {products} />
   {/snippet}
 </Island>
 ```
 
-The table renders on the server, so its HTML is in the page from the start. But the browser will not download `data.rows`, or hydrate the table, until the table comes into view.
+The table renders on the server, so its HTML is in the page from the start. But the browser will not download `data.products`, or hydrate the table, until the table comes into view.
 
 A SvelteKit page sends your `load` data twice: once as HTML, and once as serialized data so that the page can hydrate. For a page with a long table, map, or chart, the serialized copy can run to several megabytes, and the browser has to parse all of it before anything responds to a click.
 
@@ -58,7 +58,7 @@ Nothing on your pages changes until you make your first island. Wrap a heavy val
 import { part } from "svelte-islands/server";
 
 export async function load() {
-  return { rows: part("results.rows", await get_rows()) };
+  return { products: part("catalog.products", await getProducts()) };
 }
 ```
 
@@ -66,11 +66,11 @@ export async function load() {
 
 ## Documentation
 
-The [docs](https://firatciftci.github.io/svelte-islands/) have a live demo, and you can read the same pages [in this repository](docs). If you already have a page you want to move, start with [Moving a page to islands](docs/70-appendix/10-migrating.md).
+The [docs](https://firatciftci.github.io/svelte-islands/) have live demos, a [tutorial](https://firatciftci.github.io/svelte-islands/docs/getting-started/tutorial) that builds a product page step by step, and [worked examples](https://firatciftci.github.io/svelte-islands/docs/examples/comments) that go from a comment thread to running at scale. You can read the same pages [in this repository](docs). If you already have a page you want to move, start with [Moving a page to islands](docs/70-appendix/10-migrating.md).
 
 ## Status
 
-svelte-islands has not reached 1.0, so you should expect the odd breaking change until it does. It was built for [electionsarchive.com](https://electionsarchive.com), where a single page can hold tens of thousands of rows.
+svelte-islands has not reached 1.0, so you should expect the odd breaking change until it does. It was built for [electionsarchive.com](https://electionsarchive.com), where a single page can hold tens of thousands of rows, but nothing in it is specific to that site.
 
 ## Credits
 

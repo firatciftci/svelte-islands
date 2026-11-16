@@ -17,6 +17,7 @@ const SECTIONS: Record<string, string> = {
   "getting-started": "Getting started",
   "core-concepts": "Core concepts",
   "long-content": "Long content",
+  examples: "Examples",
   "build-and-deploy": "Build and deploy",
   tooling: "Tooling",
   "best-practices": "Best practices",

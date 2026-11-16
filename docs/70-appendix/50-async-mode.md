@@ -7,10 +7,10 @@ The library works with async mode turned on, whether or not your components use 
 There's one limit. An island's server HTML has to render synchronously, so an island whose children use `await` can't be part of it:
 
 ```svelte
-<Island part={data.rows}>
-  {#snippet children(rows)}
+<Island part={data.products}>
+  {#snippet children(products)}
     <!-- this island can't be in the server HTML -->
-    <ResultsTable {rows} parties={await get_parties()} />
+    <ProductTable {products} categories={await getCategories()} />
   {/snippet}
 </Island>
 ```
@@ -20,10 +20,13 @@ That island shows a skeleton and renders in the browser when it comes into view,
 To keep the island in the server HTML, load the data into its part:
 
 ```ts
-/// file: src/routes/results/+page.server.ts
+/// file: src/routes/products/+page.server.ts
 export async function load() {
-  const [rows, parties] = await Promise.all([get_rows(), get_parties()]);
+  const [products, categories] = await Promise.all([
+    getProducts(),
+    getCategories(),
+  ]);
 
-  return { results: part("results", { rows, parties }) };
+  return { catalog: part("catalog", { products, categories }) };
 }
 ```

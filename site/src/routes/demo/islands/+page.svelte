@@ -1,31 +1,31 @@
 <script lang="ts">
   import { Island } from "svelte-islands";
   import DemoPage from "#lib/components/DemoPage.svelte";
-  import TurnoutChart from "#lib/components/TurnoutChart.svelte";
-  import WardTable from "#lib/components/WardTable.svelte";
+  import HarborTable from "#lib/components/HarborTable.svelte";
+  import OnTimeChart from "#lib/components/OnTimeChart.svelte";
 
   let { data } = $props();
 </script>
 
 <DemoPage label="Islands page" summary={data.summary}>
   {#snippet chart()}
-    <Island part={data.districts} view="chart" ssr={false}>
+    <Island part={data.ports} view="chart" ssr={false}>
       {#snippet children(rows)}
-        <TurnoutChart {rows} title="Turnout by district" />
+        <OnTimeChart {rows} title="On time at the busiest harbors" />
       {/snippet}
     </Island>
   {/snippet}
-  {#snippet districts()}
-    <Island part={data.districts} view="table">
+  {#snippet harbors()}
+    <Island part={data.ports} view="table">
       {#snippet children(rows)}
-        <WardTable {rows} nameLabel="District" filterLabel="Filter districts" />
+        <HarborTable {rows} filterLabel="Filter harbors" />
       {/snippet}
     </Island>
   {/snippet}
-  {#snippet places()}
-    <Island part={data.places} defer>
+  {#snippet berths()}
+    <Island part={data.berths} defer>
       {#snippet children(rows)}
-        <WardTable {rows} nameLabel="Polling place" />
+        <HarborTable {rows} nameLabel="Berth" />
       {/snippet}
     </Island>
   {/snippet}

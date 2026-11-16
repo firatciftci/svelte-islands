@@ -34,7 +34,7 @@ import { handle as islands } from "svelte-islands/server";
 export const handle = islands();
 ```
 
-If you have other handles, put it early in your [`sequence`](https://svelte.dev/docs/kit/@sveltejs-kit-hooks#sequence) — a handle that answers before it would turn a request for a part into a page of HTML.
+If you have other handles, put it early in your [`sequence`](https://svelte.dev/docs/kit/@sveltejs-kit-hooks#sequence), because a handle that answers before it would turn a request for a part into a page of HTML.
 
 ## Import the styles
 
@@ -53,40 +53,42 @@ Skeletons need a little CSS, so import it once in your root layout:
 
 ## Your first island
 
-Pick the heaviest value on a page, and wrap it in `part` in the server `load` function...
+Pick the heaviest value on a page (a long list of products, for example), and wrap it in `part` in the server `load` function...
 
 ```ts
-/// file: src/routes/results/+page.server.ts
+/// file: src/routes/products/+page.server.ts
 import { part } from "svelte-islands/server";
-import { get_rows } from "#lib/server/results.js";
+import { getProducts } from "#lib/server/catalog.js";
 
 export async function load() {
-  return { rows: part("results.rows", await get_rows()) };
+  return { products: part("catalog.products", await getProducts()) };
 }
 ```
 
 ...then render it with `Island`, which passes the value to its snippet:
 
 ```svelte
-<!--- file: src/routes/results/+page.svelte --->
+<!--- file: src/routes/products/+page.svelte --->
 <script>
   import { Island } from "svelte-islands";
-  import ResultsTable from "./ResultsTable.svelte";
+  import ProductTable from "./ProductTable.svelte";
 
   let { data } = $props();
 </script>
 
-<Island part={data.rows}>
-  {#snippet children(rows)}
-    <ResultsTable {rows} />
+<Island part={data.products}>
+  {#snippet children(products)}
+    <ProductTable {products} />
   {/snippet}
 </Island>
 ```
 
-Now open the page with your browser's network panel showing. The table is in the HTML, but the rows aren't in the page's data any more. Move your pointer over the table and you'll see a request to `/_parts/`, followed by the table becoming interactive, because by default an island [wakes on the first interaction](../20-core-concepts/30-when-islands-wake.md).
+Now open the page with your browser's network panel showing. The table is in the HTML, but the products aren't in the page's data anymore. Move your pointer over the table and you'll see a request to `/_parts/`, followed by the table becoming interactive, because by default an island [wakes on the first interaction](../20-core-concepts/30-when-islands-wake.md).
 
-There's also a request for `/_parts/skeletons.json` soon after the page loads — that's the [skeleton file](../20-core-concepts/40-skeletons.md), which holds placeholder shapes, not your data.
+There's also a request for `/_parts/skeletons.json` soon after the page loads. That's the [skeleton file](../20-core-concepts/40-skeletons.md), which holds placeholder shapes, not your data.
 
 If you don't see a request, the value is probably small enough to [stay in the page](../20-core-concepts/10-parts.md#small-parts-stay-in-the-page).
 
-`data.rows` is a `Part` now, where it used to be an array, so `svelte-check` will flag anywhere else that read it. [Moving a page to islands](../70-appendix/10-migrating.md) walks through the ways to fix those.
+`data.products` is a `Part` now, where it used to be an array, so `svelte-check` will flag anywhere else that read it. [Moving a page to islands](../70-appendix/10-migrating.md) walks through the ways to fix those.
+
+If you'd rather learn by building something, the [tutorial](30-tutorial.md) makes a product listing page one step at a time, and the [examples](../35-examples/10-comments.md) range from a comment thread to running at scale.

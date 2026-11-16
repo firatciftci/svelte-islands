@@ -1,25 +1,25 @@
 <script lang="ts">
   import { Island, type Part } from "svelte-islands";
   import Coast from "#lib/components/Coast.svelte";
-  import WardTable from "#lib/components/WardTable.svelte";
-  import type { Ward } from "#lib/harrow.js";
+  import HarborTable from "#lib/components/HarborTable.svelte";
+  import type { Harbor } from "#lib/harrow.js";
 
   let {
     parts,
   }: {
     parts: {
-      visible: Part<Array<Ward>>;
-      idle: Part<Array<Ward>>;
-      interaction: Part<Array<Ward>>;
-      media: Part<Array<Ward>>;
-      eager: Part<Array<Ward>>;
-      never: Part<Array<Ward>>;
+      visible: Part<Array<Harbor>>;
+      idle: Part<Array<Harbor>>;
+      interaction: Part<Array<Harbor>>;
+      media: Part<Array<Harbor>>;
+      eager: Part<Array<Harbor>>;
+      never: Part<Array<Harbor>>;
     };
   } = $props();
 </script>
 
-{#snippet table(rows: Array<Ward>)}
-  <WardTable {rows} limit={2} />
+{#snippet table(rows: Array<Harbor>)}
+  <HarborTable {rows} limit={2} />
 {/snippet}
 
 <div class="strategies">

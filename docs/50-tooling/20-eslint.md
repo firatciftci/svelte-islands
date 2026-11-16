@@ -38,5 +38,5 @@ Flags a read of `.loaded` in browser code, also as an error. That value is only 
 Warns when a part's name is built from data, because skeletons are [learned per name](../20-core-concepts/10-parts.md#names) and a new name never reuses one:
 
 ```ts
-part(`results.${election.id}`, rows); // warning
+part(`products.${category.id}`, products); // warning
 ```

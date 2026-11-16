@@ -25,15 +25,15 @@ The pulse stops when someone prefers reduced motion.
 
 ## The wrapper
 
-An island's wrapper has `display: contents`, so its content sits directly in your grid or flex layout. This also means that the wrapper has no box of its own — padding, borders, and outlines on it have no effect.
+An island's wrapper has `display: contents`, so its content sits directly in your grid or flex layout. This also means that the wrapper has no box of its own; padding, borders, and outlines on it have no effect.
 
 If you need a box, put an element of your own around the island:
 
 ```svelte
 <div class="card">
-  <Island part={data.rows}>
-    {#snippet children(rows)}
-      <ResultsTable {rows} />
+  <Island part={data.products}>
+    {#snippet children(products)}
+      <ProductTable {products} />
     {/snippet}
   </Island>
 </div>
@@ -46,7 +46,7 @@ If you need a box, put an element of your own around the island:
 `class` puts a class on the wrapper, which you can use along with `data-island-state` to style what's inside. The state is `static`, `deferred`, `client`, or `live`, so you could fade a table's sort arrows until the table can respond:
 
 ```css
-.results[data-island-state="static"] .arrow {
+.products[data-island-state="static"] .arrow {
   opacity: 0.4;
 }
 ```

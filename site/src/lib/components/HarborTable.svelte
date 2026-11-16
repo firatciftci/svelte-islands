@@ -1,32 +1,32 @@
 <script lang="ts">
-  import type { Ward } from "#lib/harrow.js";
+  import type { Harbor } from "#lib/harrow.js";
 
-  type Column = "name" | "tide" | "beacon" | "harbor" | "turnout";
+  type Column = "name" | "arrivals" | "departures" | "cargo" | "onTime";
 
   let {
     rows,
     limit = rows.length,
     caption,
-    nameLabel = "Ward",
+    nameLabel = "Harbor",
     filterLabel,
   }: {
-    rows: Array<Ward>;
+    rows: Array<Harbor>;
     limit?: number;
     caption?: string;
     nameLabel?: string;
     filterLabel?: string;
   } = $props();
 
-  let by = $state<Column>("tide");
+  let by = $state<Column>("arrivals");
   let down = $state(true);
   let query = $state("");
 
   const COLUMNS: Array<{ key: Column; label: string }> = $derived([
     { key: "name", label: nameLabel },
-    { key: "tide", label: "Tide" },
-    { key: "beacon", label: "Beacon" },
-    { key: "harbor", label: "Harbor" },
-    { key: "turnout", label: "Turnout" },
+    { key: "arrivals", label: "Arrivals" },
+    { key: "departures", label: "Departures" },
+    { key: "cargo", label: "Cargo (kt)" },
+    { key: "onTime", label: "On time" },
   ]);
 
   const matching = $derived.by(() => {
@@ -57,13 +57,13 @@
 </script>
 
 {#if filterLabel != null}
-  <label class="wards-filter">
+  <label class="harbors-filter">
     {filterLabel}
     <input type="search" bind:value={query} autocomplete="off" />
   </label>
 {/if}
-<div class="wards-scroll">
-  <table class="wards">
+<div class="harbors-scroll">
+  <table class="harbors">
     {#if caption != null}
       <caption>{caption}</caption>
     {/if}
@@ -77,7 +77,7 @@
                 ? "descending"
                 : "ascending"
               : undefined}
-            class:num={column.key !== "name"}
+            class={{ num: column.key !== "name" }}
           >
             <button type="button" onclick={() => sort(column.key)}>
               {column.label}
@@ -90,15 +90,15 @@
       {#each sorted as row (row.id)}
         <tr>
           <th scope="row">{row.name}</th>
-          <td class="num">{row.tide.toLocaleString("en-US")}</td>
-          <td class="num">{row.beacon.toLocaleString("en-US")}</td>
-          <td class="num">{row.harbor.toLocaleString("en-US")}</td>
-          <td class="num">{row.turnout.toFixed(1)}%</td>
+          <td class="num">{row.arrivals.toLocaleString("en-US")}</td>
+          <td class="num">{row.departures.toLocaleString("en-US")}</td>
+          <td class="num">{row.cargo.toLocaleString("en-US")}</td>
+          <td class="num">{row.onTime.toFixed(1)}%</td>
         </tr>
       {/each}
     </tbody>
   </table>
   {#if sorted.length === 0}
-    <p class="wards-empty">No district matches “{query}”.</p>
+    <p class="harbors-empty">No harbor matches “{query}”.</p>
   {/if}
 </div>

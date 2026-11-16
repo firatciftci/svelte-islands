@@ -12,9 +12,9 @@ If the table starts below the fold, you can defer the whole thing:
 
 ```svelte
 <div style="--island-item: 2.75rem">
-  <Island part={data.rows} defer when="visible">
-    {#snippet children(rows)}
-      <ResultsTable {rows} />
+  <Island part={data.products} defer when="visible">
+    {#snippet children(products)}
+      <ProductTable {products} />
     {/snippet}
   </Island>
 </div>
@@ -22,15 +22,15 @@ If the table starts below the fold, you can defer the whole thing:
 
 Your page then holds only a skeleton, and the rows arrive when someone scrolls close to the table. Note that the island goes around the whole `<table>` here, so the `div` is not a problem.
 
-The skeleton keeps the first few rows and adds one spacer row for the rest, so the table holds about the right height while it waits. That's what `--island-item` is for — you should set it to the height of a row, so that the spacer matches.
+The skeleton keeps the first few rows and adds one spacer row for the rest, so the table holds about the right height while it waits. That's what `--island-item` is for. You should set it to the height of a row, so that the spacer matches.
 
 A skeleton is [learned per name](../20-core-concepts/40-skeletons.md), though, so the spacer holds as many rows as the last table rendered under that name. That's fine if your tables are about the same length. If they vary a lot (a 12-row table and a 300-row table under one name, for example), the spacer will be wrong for most of them. In that case, turn the spacer off and reserve each table's height from data your page already has:
 
 ```svelte
 <div style:--island-item="0px" style:min-block-size="{data.count * 3}rem">
-  <Island part={data.rows} defer when="visible">
-    {#snippet children(rows)}
-      <ResultsTable {rows} />
+  <Island part={data.products} defer when="visible">
+    {#snippet children(products)}
+      <ProductTable {products} />
     {/snippet}
   </Island>
 </div>
@@ -48,10 +48,10 @@ If the table is near the top of your page, or its HTML has to be in the page, yo
 <table>
   <thead><!-- your header --></thead>
   {#each ["0", "1", "2"] as chunk (chunk)}
-    <Island part={data.rows} view={chunk} as="tbody" when="visible">
-      {#snippet children(rows)}
-        {#each rows.slice(Number(chunk) * 100, (Number(chunk) + 1) * 100) as row (row.id)}
-          <tr><td>{row.name}</td></tr>
+    <Island part={data.products} view={chunk} as="tbody" when="visible">
+      {#snippet children(products)}
+        {#each products.slice(Number(chunk) * 100, (Number(chunk) + 1) * 100) as product (product.id)}
+          <tr><td>{product.name}</td></tr>
         {/each}
       {/snippet}
     </Island>
@@ -69,4 +69,4 @@ Since `as="tbody"` makes the island's wrapper part of the table, there's nowhere
 
 You might be tempted to use `content-visibility: auto` on your rows instead. Unfortunately it has no effect on table rows, because size containment does not apply to internal table boxes.
 
-It does work on a `div`-based grid, and you can use it alongside an island there, though it only saves rendering work — the browser still has to parse the HTML and hydrate the elements.
+It does work on a `div`-based grid, and you can use it alongside an island there, though it only saves rendering work; the browser still has to parse the HTML and hydrate the elements.

@@ -1,23 +1,19 @@
 <script lang="ts">
   import DemoPage from "#lib/components/DemoPage.svelte";
-  import TurnoutChart from "#lib/components/TurnoutChart.svelte";
-  import WardTable from "#lib/components/WardTable.svelte";
+  import HarborTable from "#lib/components/HarborTable.svelte";
+  import OnTimeChart from "#lib/components/OnTimeChart.svelte";
 
   let { data } = $props();
 </script>
 
 <DemoPage label="Plain SvelteKit page" summary={data.summary}>
   {#snippet chart()}
-    <TurnoutChart rows={data.districts} title="Turnout by district" />
+    <OnTimeChart rows={data.ports} title="On time at the busiest harbors" />
   {/snippet}
-  {#snippet districts()}
-    <WardTable
-      rows={data.districts}
-      nameLabel="District"
-      filterLabel="Filter districts"
-    />
+  {#snippet harbors()}
+    <HarborTable rows={data.ports} filterLabel="Filter harbors" />
   {/snippet}
-  {#snippet places()}
-    <WardTable rows={data.places} nameLabel="Polling place" />
+  {#snippet berths()}
+    <HarborTable rows={data.berths} nameLabel="Berth" />
   {/snippet}
 </DemoPage>

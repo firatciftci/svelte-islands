@@ -6,15 +6,15 @@ A _skeleton_ is what an island shows while it waits for its content. You don't w
 
 ```html
 <!-- what the island rendered -->
-<tr class="row">
-  <td class="name">Harrow Sound</td>
-  <td class="votes">12,408</td>
+<tr class="product">
+  <td class="name">Linen shirt</td>
+  <td class="price">$48.00</td>
 </tr>
 
 <!-- what the skeleton keeps -->
-<tr class="row">
-  <td class="name"><span class="island-bone" style="--n:12"></span></td>
-  <td class="votes"><span class="island-bone" style="--n:6"></span></td>
+<tr class="product">
+  <td class="name"><span class="island-bone" style="--n:11"></span></td>
+  <td class="price"><span class="island-bone" style="--n:6"></span></td>
 </tr>
 ```
 
@@ -40,9 +40,9 @@ Table rows are the exception: the rows a skeleton leaves out become one spacer r
 
 ```svelte
 <div style="--island-item: 2.75rem">
-  <Island part={data.rows} defer when="visible">
-    {#snippet children(rows)}
-      <ResultsTable {rows} />
+  <Island part={data.products} defer when="visible">
+    {#snippet children(products)}
+      <ProductTable {products} />
     {/snippet}
   </Island>
 </div>
@@ -53,9 +53,9 @@ Table rows are the exception: the rows a skeleton leaves out become one spacer r
 A region that is not an island can still have to wait for something, and it would be a shame to write a placeholder by hand. `Await` takes a promise (one streamed from `load`, for example) and a name, and passes the resolved value to its snippet:
 
 ```svelte
-<Await promise={data.counties} name="election.counties" reserve="24rem">
-  {#snippet children(counties)}
-    <Counties {counties} />
+<Await promise={data.reviews} name="product.reviews" reserve="24rem">
+  {#snippet children(reviews)}
+    <Reviews {reviews} />
   {/snippet}
 </Await>
 ```
@@ -75,8 +75,8 @@ The server also renders `children` once the promise resolves, and learns from th
 `Pending` does the same for a loading state you drive yourself, such as a query's `isPending`:
 
 ```svelte
-<Pending name="figures" isPending={query.isPending} reserve="2rem">
-  <Figures data={query.data} />
+<Pending name="stock" isPending={query.isPending} reserve="2rem">
+  <StockLevel stock={query.data} />
 </Pending>
 ```
 
@@ -90,7 +90,7 @@ If a `Pending` gets replaced by content it doesn't wrap (a map in another branch
 {#if view == null}
   <Pending name="map" isPending={true} reserve="32rem" />
 {:else}
-  <div {@attach learn("map")}><Map {view} /></div>
+  <div {@attach learn("map")}><StoreMap {view} /></div>
 {/if}
 ```
 
@@ -98,4 +98,4 @@ If a `Pending` gets replaced by content it doesn't wrap (a map in another branch
 
 Skeletons remove text, attribute values, images, and URLs, but they keep the class names and layout of what they were learned from.
 
-If even that structure is sensitive, mark the [part as private](../60-best-practices/10-private-data.md), or use `<Await private>`, and no skeleton will be learned from it.
+If even that structure is sensitive, mark the [part as private](../60-best-practices/10-private-data.md), or use `<Await private>`. The server learns no skeleton from it, so nothing from it reaches the shared skeleton file that every visitor downloads. The visitor's own browser still saves one in `localStorage` for their next visit, and no one else receives that copy.

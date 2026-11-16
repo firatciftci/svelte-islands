@@ -5,10 +5,10 @@ title: Islands
 An _island_ is a region of your page that loads and hydrates on its own. `Island` takes a [part](10-parts.md) and passes its value to a snippet:
 
 ```svelte
-<!--- file: src/routes/results/+page.svelte --->
-<Island part={data.rows}>
-  {#snippet children(rows)}
-    <ResultsTable {rows} />
+<!--- file: src/routes/products/+page.svelte --->
+<Island part={data.products}>
+  {#snippet children(products)}
+    <ProductTable {products} />
   {/snippet}
 </Island>
 ```
@@ -21,7 +21,7 @@ On a first page load, an island renders in one of three ways. The difference is 
 
 By default, the server renders the island's HTML into your page, and it stays there untouched until the island's [`when` strategy](30-when-islands-wake.md) fires. The browser then downloads the part and hydrates the island, adopting the HTML that is already there.
 
-We call this _static_ because, until then, it is — no code is running, and the data is not in memory.
+We call this _static_ because, until then, it is: no code is running, and the data is not in memory.
 
 This is the mode you should reach for first.
 
@@ -30,9 +30,9 @@ This is the mode you should reach for first.
 Some content is not worth putting in the page at all, at least until someone scrolls near it. If you add `defer`, the server renders the HTML but stores it under a hash of its contents instead of putting it in your page...
 
 ```svelte
-<Island part={data.rows} defer>
-  {#snippet children(rows)}
-    <ResultsTable {rows} />
+<Island part={data.products} defer>
+  {#snippet children(products)}
+    <ProductTable {products} />
   {/snippet}
 </Island>
 ```
@@ -43,18 +43,18 @@ When the island nears the viewport, the browser fetches the HTML from its immuta
 
 `defer` takes a strategy too, in case near the viewport is not the moment you want: `defer="idle"` fetches the HTML when the browser is idle. `defer="eager"` fetches it while the page is still loading and swaps it in as soon as it arrives, often before your JavaScript has loaded, so that a long table near the top can stay out of the page without waiting for hydration.
 
-This has a trade-off: content that is not in the page is not there for anyone without JavaScript. So you should use `defer` for long content below the fold, and not for the content someone came to your page to read.
+This has a trade-off: content that is not in the page is not there for anyone without JavaScript. So you should use `defer` for long content below the fold (the reviews under a product, say), and not for the content someone came to your page to read.
 
 If the HTML cannot be fetched, the island renders in the browser instead.
 
 ## Client-only
 
-With `ssr={false}`, the server sends only the skeleton, and the island renders in the browser when `when` fires — which in this mode defaults to `visible` rather than `interaction`:
+With `ssr={false}`, the server sends only the skeleton, and the island renders in the browser when `when` fires, which in this mode defaults to `visible` rather than `interaction`:
 
 ```svelte
-<Island part={data.shapes} ssr={false} margin="600px">
-  {#snippet children(shapes)}
-    <Map {shapes} />
+<Island part={data.stores} ssr={false} margin="600px">
+  {#snippet children(stores)}
+    <StoreMap {stores} />
   {/snippet}
 </Island>
 ```
@@ -91,13 +91,13 @@ Since only headings with ids survive in the outline, a link to any other id insi
 After its [retries](10-parts.md#when-a-part-goes-missing) run out, an island that was waiting for its data shows the `failed` snippet, which receives a function that tries again:
 
 ```svelte
-<Island part={data.rows}>
-  {#snippet children(rows)}
-    <ResultsTable {rows} />
+<Island part={data.products}>
+  {#snippet children(products)}
+    <ProductTable {products} />
   {/snippet}
 
   {#snippet failed(retry)}
-    <p>The results did not load. <button onclick={retry}>Try again</button></p>
+    <p>The products did not load. <button onclick={retry}>Try again</button></p>
   {/snippet}
 </Island>
 ```

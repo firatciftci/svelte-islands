@@ -5,15 +5,15 @@ title: Parts
 A _part_ is a value that travels outside the page's data. You make one in a server `load` function by giving a value a name:
 
 ```ts
-/// file: src/routes/results/+page.server.ts
+/// file: src/routes/products/+page.server.ts
 import { part } from "svelte-islands/server";
 
 export async function load() {
-  return { rows: part("results.rows", await get_rows()) };
+  return { products: part("catalog.products", await getProducts()) };
 }
 ```
 
-`data.rows` is now a `Part` rather than an array, and that's the point — what reaches the browser in your page's data is a small object holding a name, a hash, and a size.
+`data.products` is now a `Part` rather than an array, and that's the point: what reaches the browser in your page's data is a small object holding a name, a hash, and a size.
 
 To get at the value itself you use an [`Island`](20-islands.md), or [`peek` or `load`](50-reading-parts.md) in a script.
 
@@ -37,14 +37,14 @@ If you want it to wait anyway, add [`defer`](20-islands.md#deferred).
 
 ## Names
 
-The name is how the library recognizes _this kind of data_ from one page to the next. A skeleton learned for `results.rows` on one page is the one it shows on the next, so you should keep the name stable and leave out anything that varies:
+The name is how the library recognizes _this kind of data_ from one page to the next. A skeleton learned for `category.products` on one page is the one it shows on the next, so you should keep the name stable and leave out anything that varies:
 
 ```ts
-// don't do this — every election gets a new name, so none of them reuse a skeleton
-part(`results.${election.id}`, rows);
+// don't do this — every category gets a new name, so none of them reuse a skeleton
+part(`products.${category.id}`, products);
 
 // do this
-part("results.rows", rows);
+part("category.products", products);
 ```
 
 The [`stable-part-name`](../50-tooling/20-eslint.md) ESLint rule catches the first one.
@@ -54,10 +54,10 @@ The [`stable-part-name`](../50-tooling/20-eslint.md) ESLint rule catches the fir
 `part` takes an options object as its third argument. Its `fetch` option sets when the browser downloads the value:
 
 ```ts
-/// file: src/routes/results/+page.server.ts
+/// file: src/routes/products/+page.server.ts
 export async function load() {
   return {
-    chart: part("results.chart", await get_chart(), { fetch: "preload" }),
+    sales: part("products.sales", await getSales(), { fetch: "preload" }),
   };
 }
 ```
@@ -66,7 +66,7 @@ export async function load() {
 - `lazy` only downloads when the island needs it or you call [`load(part)`](50-reading-parts.md)
 - `preload` starts as soon as the page arrives, and on a first page load adds a `<link rel="preload">` to the page's head (as long as the part is ready before the server sends the head)
 
-You should use `preload` for data your page needs right away that's too large to inline — the data behind a chart at the top of the page, for example. Use `lazy` for data that's expensive to download.
+You should use `preload` for data your page needs right away that's too large to inline: the data behind a sales chart at the top of the page, for example. Use `lazy` for data that's expensive to download and that most visitors never ask for, such as a full export.
 
 With `auto`, a link that uses [`data-sveltekit-preload-data="hover"`](https://svelte.dev/docs/kit/link-options#data-sveltekit-preload-data) can start the download as soon as someone hovers over it on SvelteKit 3.1 or later. On 3.0, the download starts when they click.
 
@@ -78,7 +78,7 @@ You'll need to `await` it first, though, because `part` hashes the value as soon
 
 Plain data (objects, arrays, strings, numbers, booleans, `null`, and `undefined`) travels in a [compact packed form](../70-appendix/40-how-it-works.md#compact-transport). Dates, maps, and the like are sent in [devalue](https://github.com/sveltejs/devalue)'s format, as they would be in page data.
 
-One thing that must _not_ go in an ordinary part is anything that differs per visitor. The URL is public, and anyone who has it can read what's there, so see [private data](../60-best-practices/10-private-data.md).
+One thing that must _not_ go in an ordinary part is anything that differs per visitor (a shopping cart, say, or an order history). The URL is public, and anyone who has it can read what's there, so see [private data](../60-best-practices/10-private-data.md).
 
 ## When a part goes missing
 

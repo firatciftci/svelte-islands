@@ -2,35 +2,35 @@
 title: Benchmark
 ---
 
-To find out what islands are worth, we built one page twice. Both versions show the same invented election, with 120 districts and 3,000 polling places in two sortable tables and a chart. The [plain version](https://firatciftci.github.io/svelte-islands/demo/plain) is ordinary SvelteKit, and the [islands version](https://firatciftci.github.io/svelte-islands/demo/islands) puts the tables and the chart in islands.
+To find out what islands are worth, we built one page twice. Both versions show the same invented shipping data for Harrow Sound, with 120 harbors and 3,000 berths in two sortable tables and a chart. The [plain version](https://firatciftci.github.io/svelte-islands/demo/plain) is ordinary SvelteKit, and the [islands version](https://firatciftci.github.io/svelte-islands/demo/islands) puts the tables and the chart in islands.
 
 We chose a long page of data because that is what islands are for, so you should read these numbers as the favorable case.
 
 <!-- results -->
 
-|                                          |           Plain SvelteKit |              With islands |
-| ---------------------------------------- | ------------------------: | ------------------------: |
-| HTML                                     |                     99 KB |                      5 KB |
-| Total downloaded by the end of the load  |                    250 KB |                    166 KB |
-| Total downloaded after using both tables |                    250 KB |                    259 KB |
-| First paint                              | 1,472 ms (1,140 to 1,532) |       784 ms (712 to 796) |
-| Long tasks                               |                         2 |                         1 |
-| Blocking time                            |   1,114 ms (727 to 1,247) |           45 ms (0 to 76) |
-| Main thread time                         | 2,418 ms (1,796 to 2,801) |       598 ms (481 to 751) |
-| DOM nodes                                |                    34,624 |                     2,088 |
-| First sort of the districts              |          75 ms (48 to 84) |        150 ms (67 to 177) |
-| First sort of the polling places         |       800 ms (661 to 929) | 1,336 ms (1,205 to 1,721) |
-| Second sort of the polling places        |     851 ms (720 to 1,065) |       776 ms (558 to 872) |
+|                                          |     Plain SvelteKit |        With islands |
+| ---------------------------------------- | ------------------: | ------------------: |
+| HTML                                     |               99 KB |                5 KB |
+| Total downloaded by the end of the load  |              250 KB |              167 KB |
+| Total downloaded after using both tables |              250 KB |              259 KB |
+| First paint                              | 860 ms (840 to 896) | 492 ms (492 to 504) |
+| Long tasks                               |                   1 |                   0 |
+| Blocking time                            | 203 ms (198 to 220) |       0 ms (0 to 0) |
+| Main thread time                         | 760 ms (756 to 913) | 170 ms (164 to 183) |
+| DOM nodes                                |              34,612 |               1,959 |
+| First sort of the harbors                |    36 ms (33 to 42) |    39 ms (38 to 42) |
+| First sort of the berths                 | 237 ms (229 to 247) | 717 ms (707 to 725) |
+| Second sort of the berths                | 248 ms (237 to 294) | 245 ms (237 to 261) |
 
-Recorded on November 5, 2026 with Chromium 156 on Intel(R) Core(TM) Ultra 9 275HX, using Svelte 5.57.3 and SvelteKit 3.1.1. Each number is the median of 7 runs, and the parentheses show the lowest and highest run.
+Recorded on November 16, 2026 with Chromium 156 on Apple M5 Pro, using Svelte 5.57.3 and SvelteKit 3.1.1. Each number is the median of 7 runs, and the parentheses show the lowest and highest run.
 
 <!-- /results -->
 
 ## What the numbers show
 
-The load is where islands help. The plain page sends every row as HTML and again as data, and it can't respond to anything until it has hydrated all of them. The islands page sends the HTML for the districts, leaves the polling places out until you scroll toward them, and hydrates neither table until you reach for it.
+The load is where islands help. The plain page sends every row as HTML and again as data, and it can't respond to anything until it has hydrated all of them. The islands page sends the HTML for the harbors, leaves the berths out until you scroll toward them, and hydrates neither table until you reach for it.
 
-The first sort is where you pay for that. On the plain page the code is already running, so sorting only has to move the rows. On the islands page, the first sort of a table also hydrates it, and the first sort of the polling places has to download their data as well. Once a table has hydrated, it's as fast as the plain one, which is why the second sort is close.
+The first sort is where you pay for that. On the plain page the code is already running, so sorting only has to move the rows. On the islands page, the first sort of a table also hydrates it, and the first sort of the berths has to download their data as well. Once a table has hydrated, it's as fast as the plain one, which is why the second sort is close.
 
 ## Where islands don't help
 
@@ -49,9 +49,9 @@ A visit goes like this:
 
 - load the page, wait for the network to go quiet, and wait another 1.5 seconds
 - read the numbers for the load
-- sort the districts by Beacon
-- scroll to the polling places and wait again
-- sort the polling places by Beacon, wait, and sort them by Harbor
+- sort the harbors by Departures
+- scroll to the berths and wait again
+- sort the berths by Departures, wait, and sort them by Cargo (kt)
 - read the total downloaded
 
 A sort is timed from the press of the pointer to the first frame after the column header changes. _Blocking time_ adds up the part of each long task beyond 50 ms, up to the end of the load. _Main thread time_ is Chromium's own count of time spent on tasks, and _DOM nodes_ is its count of nodes in the page.

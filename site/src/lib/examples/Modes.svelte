@@ -1,16 +1,16 @@
 <script lang="ts">
   import { Island, type Part } from "svelte-islands";
   import Coast from "#lib/components/Coast.svelte";
-  import WardTable from "#lib/components/WardTable.svelte";
-  import type { Ward } from "#lib/harrow.js";
+  import HarborTable from "#lib/components/HarborTable.svelte";
+  import type { Harbor } from "#lib/harrow.js";
 
   let {
     parts,
   }: {
     parts: {
-      adopted: Part<Array<Ward>>;
-      deferred: Part<Array<Ward>>;
-      client: Part<Array<Ward>>;
+      adopted: Part<Array<Harbor>>;
+      deferred: Part<Array<Harbor>>;
+      client: Part<Array<Harbor>>;
     };
   } = $props();
 </script>
@@ -21,7 +21,7 @@
   </p>
   <Island part={parts.adopted}>
     {#snippet children(rows)}
-      <WardTable {rows} limit={3} />
+      <HarborTable {rows} limit={3} />
     {/snippet}
   </Island>
 </Coast>
@@ -31,7 +31,7 @@
   </p>
   <Island part={parts.deferred} defer>
     {#snippet children(rows)}
-      <WardTable {rows} limit={3} />
+      <HarborTable {rows} limit={3} />
     {/snippet}
   </Island>
 </Coast>
@@ -39,7 +39,7 @@
   <p class="coast-note"><code>client</code> has no server HTML at all.</p>
   <Island part={parts.client} ssr={false}>
     {#snippet children(rows)}
-      <WardTable {rows} limit={3} />
+      <HarborTable {rows} limit={3} />
     {/snippet}
   </Island>
 </Coast>

@@ -5,7 +5,7 @@ title: Introduction
 ## Before we begin
 
 > [!NOTE]
-> svelte-islands is new and has not reached 1.0, so you should expect the odd breaking change until it does. It was built for [electionsarchive.com](https://electionsarchive.com), where a single page can hold tens of thousands of rows.
+> svelte-islands is new and has not reached 1.0, so you should expect the odd breaking change until it does. It was built for [electionsarchive.com](https://electionsarchive.com), where a single page can hold tens of thousands of rows, but it works on any SvelteKit page that carries a lot of data.
 
 If you're new to SvelteKit, we recommend starting with [its docs](https://svelte.dev/docs/kit). Everything here assumes you've written a `load` function and a component or two.
 
@@ -14,23 +14,23 @@ If you're new to SvelteKit, we recommend starting with [its docs](https://svelte
 svelte-islands is a library for SvelteKit pages that carry a lot of data. It keeps a big table, map, or chart out of the page's serialized data, and the browser only downloads that data when the part of the page that needs it wakes up:
 
 ```svelte
-<!--- file: src/routes/results/+page.svelte --->
+<!--- file: src/routes/products/+page.svelte --->
 <script>
   import { Island } from "svelte-islands";
 
   let { data } = $props();
 </script>
 
-<Island part={data.rows} when="visible">
-  {#snippet children(rows)}
-    <ResultsTable {rows} />
+<Island part={data.products} when="visible">
+  {#snippet children(products)}
+    <ProductTable {products} />
   {/snippet}
 </Island>
 ```
 
 The table still renders on the server, so its HTML is in the page from the start.
 
-But the browser will not download `data.rows`, or hydrate the table, until the table comes into view. Before that it's just HTML — nothing runs, and there is nothing to parse.
+But the browser will not download `data.products`, or hydrate the table, until the table comes into view. Before that it's just HTML. Nothing runs, and there is nothing to parse.
 
 If you've used Astro, `when` will look familiar, since it does the job of a `client:*` directive.
 
@@ -38,13 +38,13 @@ If you've used Astro, `when` will look familiar, since it does the job of a `cli
 
 A SvelteKit page sends your `load` data twice: once as HTML, and once as serialized data so that the page can hydrate.
 
-For most pages that's fine, and you can stop reading here. For a page with a long table, the serialized copy can run to several megabytes, and the browser has to parse all of it before anything responds to a click.
+For most pages that's fine, and you can stop reading here. For a page with a long table (a catalog of a few thousand products, say, or a year of orders), the serialized copy can run to several megabytes, and the browser has to parse all of it before anything responds to a click.
 
 svelte-islands takes that copy out of the page. Each value (we call it a [_part_](../20-core-concepts/10-parts.md)) is stored under a hash of its contents at its own URL, which means browsers and CDNs can keep it forever.
 
 [Deferred islands](../20-core-concepts/20-islands.md#deferred) do the same for HTML, so a long table below the fold costs your page a small skeleton instead of hundreds of kilobytes of markup.
 
-While a part's data is on its way, the island shows a [skeleton](../20-core-concepts/40-skeletons.md). You do not write these by hand — the library learns them from what the island rendered last time.
+While a part's data is on its way, the island shows a [skeleton](../20-core-concepts/40-skeletons.md). You do not write these by hand. The library learns them from what the island rendered last time.
 
 ## What it won't do
 

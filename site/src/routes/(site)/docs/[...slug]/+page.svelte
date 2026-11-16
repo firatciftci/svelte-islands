@@ -4,6 +4,9 @@
   import { tick } from "svelte";
   import { Island, load } from "svelte-islands";
   import Meta from "#lib/components/Meta.svelte";
+  import Comments from "#lib/examples/Comments.svelte";
+  import Dashboard from "#lib/examples/Dashboard.svelte";
+  import LongTable from "#lib/examples/LongTable.svelte";
   import Modes from "#lib/examples/Modes.svelte";
   import Strategies from "#lib/examples/Strategies.svelte";
   import Rail from "#lib/components/Rail.svelte";
@@ -71,7 +74,7 @@
         <summary>On this page</summary>
         <ol>
           {#each data.headings as heading (heading.id)}
-            <li class:sub={heading.level === 3}>
+            <li class={{ sub: heading.level === 3 }}>
               <a href={`#${heading.id}`}>{heading.text}</a>
             </li>
           {/each}
@@ -91,6 +94,12 @@
             <Modes parts={data.modes} />
           {:else if segment.name === "strategies" && data.strategies != null}
             <Strategies parts={data.strategies} />
+          {:else if segment.name === "comments" && data.comments != null}
+            <Comments parts={data.comments} />
+          {:else if segment.name === "dashboard" && data.dashboard != null}
+            <Dashboard parts={data.dashboard} />
+          {:else if segment.name === "table" && data.table != null}
+            <LongTable parts={data.table} />
           {/if}
         {/each}
       </div>

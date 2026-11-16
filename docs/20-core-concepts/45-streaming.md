@@ -2,22 +2,23 @@
 title: Streaming slow data
 ---
 
-SvelteKit shows a page only once its `load` function returns. If `load` waits on a slow query, a reader who clicks a link sees the old page sit there, with no sign that anything is happening. A server `load` can return a promise instead, which SvelteKit streams to the browser. Use `stream()` to pick which values are worth waiting for, and [`Await`](40-skeletons.md#await) shows the rest with a learned skeleton until they arrive.
+SvelteKit shows a page only once its `load` function returns. If `load` waits on a slow query (the reviews under a product, say), a reader who clicks a link sees the old page sit there, with no sign that anything is happening. A server `load` can return a promise instead, which SvelteKit streams to the browser. Use `stream()` to pick which values are worth waiting for, and [`Await`](40-skeletons.md#await) shows the rest with a learned skeleton until they arrive.
 
 ## `stream()`
 
 `stream()` takes an object of values and promises, and waits a short time for them:
 
 ```ts
+/// file: src/routes/products/[slug]/+page.server.ts
 import { stream } from "svelte-islands/server";
 
 export async function load({ params }) {
-  const contest = await getHeader(params.slug);
+  const product = await getProduct(params.slug);
   return {
-    contest,
+    product,
     ...(await stream({
-      results: getResults(params.slug),
-      map: getMap(params.slug),
+      reviews: getReviews(params.slug),
+      related: getRelated(params.slug),
     })),
   };
 }
@@ -35,16 +36,16 @@ Pass each streamed value to an `Await`. A value that has already settled renders
 
 ```svelte
 <Await
-  promise={data.results}
-  name="contest.results"
-  key={data.contest.id}
+  promise={data.reviews}
+  name="product.reviews"
+  key={data.product.id}
   reserve="40rem"
 >
-  {#snippet children(results)}
-    <Results {results} />
+  {#snippet children(reviews)}
+    <Reviews {reviews} />
   {/snippet}
   {#snippet failed()}
-    <p>The results didn't load.</p>
+    <p>The reviews didn't load.</p>
   {/snippet}
 </Await>
 ```
@@ -55,7 +56,7 @@ Pass each streamed value to an `Await`. A value that has already settled renders
 - If the new promise has the same `key` as the last one that resolved, the old content stays on screen until the new value arrives, with `aria-busy="true"` and a `data-island-stale` attribute you can style. With a different `key`, or none, the skeleton shows.
 - If the URL's hash names an element inside the streamed content, `Await` scrolls to it once the content renders, unless the reader has scrolled in the meantime.
 
-Use a `key` that names what the content is about, such as the record's id, and not something that changes with every filter or tab. Then switching tabs keeps the content in place, and opening another record shows a skeleton:
+Use a `key` that names what the content is about, such as the product's id, and not something that changes with every filter or tab. Then sorting the reviews keeps them in place while the new order loads, and opening another product shows a skeleton:
 
 ```css
 [data-island-stale] {
@@ -69,16 +70,16 @@ Use a `key` that names what the content is about, such as the record's id, and n
 Some of a streamed region can be known before the data arrives, such as a title from a value you already awaited. Pass a `pending` snippet to show it at once. The snippet receives the skeleton as its argument, and the skeleton keeps its 120 ms delay:
 
 ```svelte
-<Await promise={data.results} name="contest.results" key={data.contest.id}>
-  {#snippet children(results)}
+<Await promise={data.reviews} name="product.reviews" key={data.product.id}>
+  {#snippet children(reviews)}
     <header data-island-skip>
-      <h1>{data.contest.name}</h1>
+      <h2>Reviews of {data.product.name}</h2>
     </header>
-    <Results {results} />
+    <Reviews {reviews} />
   {/snippet}
   {#snippet pending(skeleton)}
     <header>
-      <h1>{data.contest.name}</h1>
+      <h2>Reviews of {data.product.name}</h2>
     </header>
     {@render skeleton()}
   {/snippet}
@@ -97,15 +98,16 @@ To turn this off, pass `handle({ shareStreamed: true })`.
 
 Svelte renders the server's HTML in order, so streamed content arrives in scripts at the end of the response and appears only once the page hydrates. A crawler that doesn't run JavaScript, or a reader who has turned it off, sees the skeleton.
 
-If search engines need to see the content, give known crawlers the whole page:
+If search engines need to see the content (and for product reviews they usually do), give known crawlers the whole page:
 
 ```ts
+/// file: src/routes/products/[slug]/+page.server.ts
 import { stream } from "svelte-islands/server";
 
 export async function load({ params, request }) {
   const crawler = isCrawler(request.headers.get("user-agent"));
   return stream(
-    { results: getResults(params.slug) },
+    { reviews: getReviews(params.slug) },
     { budget: crawler ? Infinity : 150 },
   );
 }

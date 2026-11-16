@@ -21,17 +21,19 @@ export async function load({ cookies }) {
 
 The library never stores a private part or gives it a URL. It stays in your page's data, and SvelteKit sends it to the browser the same way it sends the rest of your `load` data.
 
-An island that reads a private part renders as a static island: its HTML is in the page, it is not deferred to a public URL, and the library does not learn a skeleton from it.
+An island that reads a private part renders as a static island: its HTML is in the page, and it is not deferred to a public URL. The server does not learn a skeleton from it, so nothing about its shape reaches the shared skeleton file that every visitor gets.
 
 A private part nested inside a public part throws an error, because the outer part would publish it.
 
 ## `Await`
 
-For content that comes from an `<Await>` (and not a part), set `<Await private>`, so that no skeleton is learned from it.
+For content that comes from an `<Await>` (not a part), set `<Await private>` so the server does not learn a skeleton from it. The visitor's browser still saves that skeleton for later navigations; see Skeletons below.
 
 ## Skeletons
 
 Skeletons remove text, attribute values, images, and URLs, but they keep the class names and layout of what they were learned from. You should mark a part or `<Await>` as private if even that structure is sensitive.
+
+Private content still teaches the visitor's _own_ browser, which saves the skeleton in `localStorage` so the same visitor sees it on a later client-side navigation. No other visitor receives it. On a shared computer, the next person to use the browser could find that shape in storage, along with anything else your site keeps there.
 
 ## Catching mistakes
 

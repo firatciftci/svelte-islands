@@ -4,15 +4,15 @@
   let {
     label,
     summary,
-    districts,
+    harbors,
     chart,
-    places,
+    berths,
   }: {
     label: string;
-    summary: { votes: number; districts: number; places: number };
-    districts: Snippet;
+    summary: { movements: number; harbors: number; berths: number };
+    harbors: Snippet;
     chart: Snippet;
-    places: Snippet;
+    berths: Snippet;
   } = $props();
 
   $effect(() => {
@@ -72,19 +72,19 @@
 </svelte:head>
 
 <main class="demo" id="content">
-  <h1>Harrow Sound general election</h1>
+  <h1>Harrow Sound harbor traffic</h1>
   <p>
-    {summary.votes.toLocaleString("en-US")} votes across {summary.districts} districts
-    and {summary.places.toLocaleString("en-US")} polling places.
+    {summary.movements.toLocaleString("en-US")} ship movements across {summary.harbors}
+    harbors and {summary.berths.toLocaleString("en-US")} berths.
   </p>
   <p class="demo-note">Every name and number here is invented.</p>
   {@render chart()}
-  <section data-demo="districts">
-    <h2>Districts</h2>
-    {@render districts()}
+  <section data-demo="harbors">
+    <h2>Harbors</h2>
+    {@render harbors()}
   </section>
-  <section data-demo="places">
-    <h2>Polling places</h2>
-    {@render places()}
+  <section data-demo="berths">
+    <h2>Berths</h2>
+    {@render berths()}
   </section>
 </main>

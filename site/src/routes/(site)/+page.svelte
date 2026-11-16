@@ -5,8 +5,8 @@
   import Meta from "#lib/components/Meta.svelte";
   import Race from "#lib/components/Race.svelte";
   import Soundings from "#lib/components/Soundings.svelte";
-  import TurnoutChart from "#lib/components/TurnoutChart.svelte";
-  import WardTable from "#lib/components/WardTable.svelte";
+  import HarborTable from "#lib/components/HarborTable.svelte";
+  import OnTimeChart from "#lib/components/OnTimeChart.svelte";
 
   let { data } = $props();
 
@@ -101,7 +101,7 @@
       <Coast seed={7} onreach={reached}>
         <Island part={data.harrow} when="interaction">
           {#snippet children(rows)}
-            <WardTable {rows} limit={8} caption="Harrow Sound, by ward" />
+            <HarborTable {rows} limit={8} caption="Harrow Sound, by harbor" />
           {/snippet}
         </Island>
       </Coast>
@@ -162,7 +162,7 @@
       <Coast seed={19}>
         <Island part={data.deferred} defer>
           {#snippet children(rows)}
-            <WardTable {rows} limit={6} />
+            <HarborTable {rows} limit={6} />
           {/snippet}
         </Island>
       </Coast>
@@ -179,7 +179,7 @@
       <Coast seed={29}>
         <Island part={data.never} when="never">
           {#snippet children(rows)}
-            <WardTable {rows} limit={4} />
+            <HarborTable {rows} limit={4} />
           {/snippet}
         </Island>
       </Coast>
@@ -195,7 +195,7 @@
       <Coast seed={31}>
         <Island part={data.client} ssr={false}>
           {#snippet children(rows)}
-            <TurnoutChart {rows} title="Turnout in the ten closest wards" />
+            <OnTimeChart {rows} title="On time at the ten busiest harbors" />
           {/snippet}
         </Island>
       </Coast>
@@ -206,9 +206,10 @@
   <section class="sheet" id="race">
     <h2>The same page, twice</h2>
     <p>
-      Both pages show the same invented election, with 120 districts and 3,000
-      polling places. One uses plain SvelteKit, and the other uses islands. They
-      load one after the other because they share your browser's main thread.
+      Both pages show the same invented shipping data for Harrow Sound, with 120
+      harbors and 3,000 berths. One is plain SvelteKit. The other puts its
+      tables and chart in islands. The two pages load one after the other
+      because they share your browser's main thread.
     </p>
     <Race recorded={data.recorded} />
   </section>
@@ -230,6 +231,13 @@
     <a href={docs("getting-started/introduction")}>
       <strong>Get started</strong>
       <span>Install it and make your first island.</span>
+    </a>
+    <a href={docs("examples/comments")}>
+      <strong>Examples</strong>
+      <span
+        >Worked pages, from simple to advanced: a comment thread up to an app on
+        several servers.</span
+      >
     </a>
     <a href={docs("appendix/how-it-works")}>
       <strong>How it works</strong>

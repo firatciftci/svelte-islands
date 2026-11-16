@@ -1,5 +1,5 @@
 import { part } from "svelte-islands/server";
-import { scatter, wards } from "#lib/harrow.js";
+import { harbors, scatter } from "#lib/harrow.js";
 import { pages } from "#lib/server/docs.js";
 import { render } from "#lib/server/markdown.js";
 import recorded from "../../../../docs/benchmark.json";
@@ -52,10 +52,10 @@ function bands() {
 
 export function load() {
   return {
-    harrow: part("home.harrow", wards(200, 7)),
-    deferred: part("home.deferred", wards(200, 19)),
-    never: part("home.never", wards(200, 29)),
-    client: part("home.client", wards(200, 31)),
+    harrow: part("home.harrow", harbors(200, 7)),
+    deferred: part("home.deferred", harbors(200, 19)),
+    never: part("home.never", harbors(200, 29)),
+    client: part("home.client", harbors(200, 31)),
     soundings: bands(),
     recorded,
     setup: setup.segments.flatMap((segment) =>

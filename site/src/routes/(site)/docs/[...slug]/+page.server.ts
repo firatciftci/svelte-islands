@@ -1,7 +1,13 @@
 import { error } from "@sveltejs/kit";
 import { part } from "svelte-islands/server";
 import { neighbors, pageAt, pages } from "#lib/server/docs.js";
-import { modesParts, strategyParts } from "#lib/server/examples.js";
+import {
+  commentsParts,
+  dashboardParts,
+  modesParts,
+  strategyParts,
+  tableParts,
+} from "#lib/server/examples.js";
 
 export function entries() {
   return pages.map(({ slug }) => ({ slug }));
@@ -30,6 +36,9 @@ export function load({ params }) {
     ),
     modes: uses("modes") ? modesParts() : null,
     strategies: uses("strategies") ? strategyParts() : null,
+    comments: uses("comments") ? commentsParts() : null,
+    dashboard: uses("dashboard") ? dashboardParts() : null,
+    table: uses("table") ? tableParts() : null,
     ...neighbors(found.slug),
   };
 }

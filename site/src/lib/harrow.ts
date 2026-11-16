@@ -1,10 +1,10 @@
-export type Ward = {
+export type Harbor = {
   id: number;
   name: string;
-  tide: number;
-  beacon: number;
-  harbor: number;
-  turnout: number;
+  arrivals: number;
+  departures: number;
+  cargo: number;
+  onTime: number;
 };
 
 const FIRST = [
@@ -52,19 +52,19 @@ function random(seed: number) {
   };
 }
 
-export function wards(count: number, seed: number) {
+export function harbors(count: number, seed: number) {
   const next = random(seed);
-  const rows: Array<Ward> = [];
+  const rows: Array<Harbor> = [];
   for (let id = 1; id <= count; id += 1) {
     const first = FIRST[Math.floor(next() * FIRST.length)] ?? "Harrow";
     const second = SECOND[Math.floor(next() * SECOND.length)] ?? "Sound";
     rows.push({
       id,
       name: `${first} ${second} ${id}`,
-      tide: Math.floor(800 + next() * 9000),
-      beacon: Math.floor(800 + next() * 9000),
-      harbor: Math.floor(200 + next() * 4000),
-      turnout: Math.round((40 + next() * 45) * 10) / 10,
+      arrivals: Math.floor(800 + next() * 9000),
+      departures: Math.floor(800 + next() * 9000),
+      cargo: Math.floor(200 + next() * 4000),
+      onTime: Math.round((55 + next() * 44) * 10) / 10,
     });
   }
   return rows;
@@ -86,4 +86,64 @@ export function scatter(count: number, seed: number) {
     }
   }
   return places;
+}
+
+export type Comment = {
+  id: number;
+  author: string;
+  hours: number;
+  text: string;
+  likes: number;
+};
+
+const AUTHORS = [
+  "Ines Corran",
+  "Tomas Quill",
+  "Maren Sable",
+  "Owen Thole",
+  "Ada Fenner",
+  "Rhys Ottery",
+  "Lena Brindle",
+  "Joss Yarrow",
+  "Nell Skerry",
+  "Arlo Wick",
+];
+
+const REMARKS = [
+  "The new tables finally match what the gauge at the north pier reads. Thank you.",
+  "Is the spring low on the 14th really that low? Our mooring dries out below 0.4 meters.",
+  "Printed these and taped them inside the wheelhouse. Old habits.",
+  "Would love a version with the times in UTC for those of us who cross the bay.",
+  "The chart of the Narrows is much easier to read now that the soundings are larger.",
+  "Can someone confirm whether the ferry timetable follows these or the old ones?",
+  "Tidal range at Kettle Reach looks off by about ten minutes compared with last year.",
+  "We run the harbor launch and these are the first tables I have trusted in a while.",
+  "Good to see the neap tides marked. That used to be guesswork.",
+  "Any plans to publish the wave heights alongside the heights of tide?",
+  "My grandfather kept these by hand in a ledger. He would have liked this.",
+  "The sunrise column is a nice touch for those of us fishing at dawn.",
+];
+
+function remark(next: () => number) {
+  const first = Math.floor(next() * REMARKS.length);
+  const second =
+    (first + 1 + Math.floor(next() * (REMARKS.length - 1))) % REMARKS.length;
+  return `${REMARKS[first] ?? ""} ${REMARKS[second] ?? ""}`;
+}
+
+export function comments(count: number, seed: number) {
+  const next = random(seed);
+  const made: Array<Comment> = [];
+  let hours = 1;
+  for (let id = 1; id <= count; id += 1) {
+    hours += Math.floor(next() * 9);
+    made.push({
+      id,
+      author: AUTHORS[Math.floor(next() * AUTHORS.length)] ?? "Ines Corran",
+      hours,
+      text: remark(next),
+      likes: Math.floor(next() * 40),
+    });
+  }
+  return made;
 }

@@ -110,7 +110,7 @@ function serve() {
 
 async function timedSort(page: Page, section: string, column: string) {
   const button = page
-    .locator(`[data-demo="${section}"] .wards th`)
+    .locator(`[data-demo="${section}"] .harbors th`)
     .getByRole("button", { name: column, exact: true });
   await button.waitFor();
   await button.scrollIntoViewIfNeeded();
@@ -209,14 +209,14 @@ async function visit(browser: Browser, url: string): Promise<Visit> {
   const metric = (name: string) =>
     metrics.find((entry) => entry.name === name)?.value ?? 0;
 
-  const firstSort = await timedSort(page, "districts", "Beacon");
-  await page.locator('[data-demo="places"]').scrollIntoViewIfNeeded();
+  const firstSort = await timedSort(page, "harbors", "Departures");
+  await page.locator('[data-demo="berths"]').scrollIntoViewIfNeeded();
   await page.waitForLoadState("networkidle");
   await page.waitForTimeout(SETTLE);
-  const placesSort = await timedSort(page, "places", "Beacon");
+  const placesSort = await timedSort(page, "berths", "Departures");
   await page.waitForLoadState("networkidle");
   await page.waitForTimeout(SETTLE);
-  const secondSort = await timedSort(page, "places", "Harbor");
+  const secondSort = await timedSort(page, "berths", "Cargo (kt)");
   const { total: totalAfter } = await downloaded(page);
 
   await context.close();
@@ -311,9 +311,9 @@ function tableOf(
     time("Blocking time", "blocking"),
     time("Main thread time", "main"),
     count("DOM nodes", "nodes"),
-    time("First sort of the districts", "firstSort"),
-    time("First sort of the polling places", "placesSort"),
-    time("Second sort of the polling places", "secondSort"),
+    time("First sort of the harbors", "firstSort"),
+    time("First sort of the berths", "placesSort"),
+    time("Second sort of the berths", "secondSort"),
     "",
     note,
     "",

@@ -1,15 +1,15 @@
-import { wards } from "#lib/harrow.js";
+import { harbors } from "#lib/harrow.js";
 
-export const districts = wards(120, 101);
-export const places = wards(3000, 202);
+export const ports = harbors(120, 101);
+export const berths = harbors(3000, 202);
 
-let votes = 0;
-for (const row of districts) {
-  votes += row.tide + row.beacon + row.harbor;
+let movements = 0;
+for (const row of ports) {
+  movements += row.arrivals + row.departures;
 }
 
 export const summary = {
-  votes,
-  districts: districts.length,
-  places: places.length,
+  movements,
+  harbors: ports.length,
+  berths: berths.length,
 };

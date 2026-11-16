@@ -51,10 +51,15 @@
       return;
     }
     const button = target?.closest<HTMLElement>("[data-copy]");
-    const text = button?.closest("figure")?.querySelector("pre")?.textContent;
-    if (button == null || text == null) {
+    const pre = button?.closest("figure")?.querySelector("pre");
+    if (button == null || pre == null) {
       return;
     }
+    const lines: Array<string> = [];
+    for (const line of pre.querySelectorAll(".line:not(.line-remove)")) {
+      lines.push(line.textContent);
+    }
+    const text = lines.length > 0 ? lines.join("\n") : pre.textContent;
     await navigator.clipboard.writeText(text);
     button.dataset.copied = "";
     setTimeout(() => {

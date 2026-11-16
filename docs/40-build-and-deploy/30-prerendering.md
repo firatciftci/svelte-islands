@@ -5,13 +5,13 @@ title: Prerendering
 Prerendered pages need no extra setup. When SvelteKit prerenders a page, the library writes the page's parts, its deferred HTML, and the skeleton file into the build under `_parts/`:
 
 ```ts
-/// file: src/routes/results/+page.server.ts
+/// file: src/routes/products/+page.server.ts
 import { part } from "svelte-islands/server";
 
 export const prerender = true;
 
 export async function load() {
-  return { rows: part("results.rows", await get_rows()) };
+  return { products: part("catalog.products", await getProducts()) };
 }
 ```
 
@@ -34,7 +34,7 @@ A static host has no server to [rebuild](10-node-servers.md#rebuilds) a missing 
 
 A visitor who still has an old page open can only load its parts if the host still has the old files.
 
-If that matters to you, you should keep the previous build's `_parts/` files in place for a while. Their names are hashes of their contents, so old and new files never collide.
+If that matters to you, keep the previous build's `_parts/` files in place for a while. Their names are hashes of their contents, so old and new files never collide.
 
 ## The skeleton file
 
