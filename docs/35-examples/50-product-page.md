@@ -1,5 +1,6 @@
 ---
 title: A product page with slow data
+description: A worked example of a product page that shows the product right away, then streams in slow reviews and related products.
 ---
 
 A product page usually has one fast query and a few slow ones. The product itself comes from your own database in a few milliseconds, but reviews and "related products" often come from other services, and a reader who clicks through from a listing shouldn't stare at the old page while those finish.

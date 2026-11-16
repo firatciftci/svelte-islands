@@ -1,5 +1,6 @@
 ---
 title: Moving a page to islands
+description: Move an existing SvelteKit page to islands one value at a time: measure it, find the heavy values, wrap them in parts, and keep it from growing back.
 ---
 
 You can move an existing page one value at a time. Your app keeps working after each step, so you can stop whenever you like and ship what you have.

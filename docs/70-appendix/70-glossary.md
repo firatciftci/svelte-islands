@@ -1,5 +1,6 @@
 ---
 title: Glossary
+description: Short definitions of the terms used across the svelte-islands docs: part, island, wake, skeleton, outline, rebuild, store, and the three island modes.
 ---
 
 ## Part

@@ -1,5 +1,6 @@
 ---
 title: Service workers
+description: Serve parts from a service worker with svelte-islands/sw, so a page keeps working offline after someone has visited it.
 ---
 
 `svelte-islands/sw` lets a page work offline once someone has visited it. Call `serveParts` first in your `fetch` listener — it returns `true` when it handled the request:

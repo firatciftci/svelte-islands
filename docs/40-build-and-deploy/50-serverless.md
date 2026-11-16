@@ -1,5 +1,6 @@
 ---
 title: Serverless functions
+description: Run svelte-islands in serverless Node functions on Vercel, Netlify, or AWS Lambda. Instances don't share memory, so you need a shared store.
 ---
 
 Node functions on platforms such as Vercel, Netlify, and AWS Lambda run the same code as `adapter-node`, though CI does not test them directly.

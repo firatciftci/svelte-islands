@@ -811,6 +811,23 @@ function sourceFile(target: string) {
   return name.endsWith(".js") ? `${name.slice(0, -3)}.ts` : name;
 }
 
+const DESCRIPTIONS: Record<string, string> = {
+  "reference/svelte-islands":
+    "API reference for svelte-islands: Island, Await, Pending, unroll, load, peek, observe, and the transport that carries parts to the browser.",
+  "reference/server":
+    "API reference for svelte-islands/server: part to make a part in load, handle to serve parts, and stream() for slow data.",
+  "reference/stores":
+    "API reference for svelte-islands/stores: file, Redis, R2, and S3 stores for parts, a compression wrapper, and the Store type for writing your own.",
+  "reference/sw":
+    "API reference for svelte-islands/sw: serveParts, which serves parts from a service worker so pages keep working offline.",
+  "reference/devtools":
+    "API reference for svelte-islands/devtools: the Devtools overlay, which shows every island on a page with its state, data size, and timings.",
+  "reference/eslint":
+    "API reference for svelte-islands/eslint: the ESLint plugin, its four rules, and the default level of each rule.",
+  "reference/cli":
+    "Reference for the svelte-islands command: check fetches pages from a running server and fails when one goes over its size budget.",
+};
+
 export async function referencePages(
   render: (markdown: string) => Promise<Rendered>,
 ): Promise<
@@ -834,12 +851,13 @@ export async function referencePages(
     const title =
       key === "." ? manifest.name : `${manifest.name}/${key.slice(2)}`;
     const markdown = entryMarkdown(title, file);
+    const slug = `reference/${key === "." ? manifest.name : key.slice(2)}`;
     made.push({
-      slug: `reference/${key === "." ? manifest.name : key.slice(2)}`,
+      slug,
       file: file === "index.ts" ? null : `src/lib/${file}`,
       section: "Reference",
       title,
-      description: `The API of ${title}.`,
+      description: DESCRIPTIONS[slug] ?? `The API of ${title}.`,
       markdown,
       ...(await render(markdown)),
     });
@@ -850,7 +868,7 @@ export async function referencePages(
     file: "src/lib/budget.ts",
     section: "Reference",
     title: "CLI",
-    description: "The svelte-islands command.",
+    description: DESCRIPTIONS["reference/cli"] ?? "The svelte-islands command.",
     markdown,
     ...(await render(markdown)),
   });

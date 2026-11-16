@@ -1,5 +1,6 @@
 ---
 title: Setup
+description: Install svelte-islands and make three small edits to a SvelteKit 3 app: a transport, a server handle, and a stylesheet. Then make your first island.
 ---
 
 svelte-islands needs SvelteKit 3 and Svelte 5.57 or later. Install it with your package manager of choice:

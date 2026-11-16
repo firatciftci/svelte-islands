@@ -1,5 +1,6 @@
 ---
 title: Reading parts
+description: Read a part's value in a script instead of an Island. Use peek for data already in memory and load for data that still has to download.
 ---
 
 An `Island` is the usual way to read a part, but sometimes you need the value in a script. There are two ways to get it.

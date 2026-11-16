@@ -1,5 +1,6 @@
 ---
 title: Compared with ogygia and Mochi
+description: How svelte-islands differs from ogygia and Mochi, why it fits most SvelteKit apps, and when one of the others is the better choice.
 ---
 
 Two other projects bring islands to Svelte 5, and each makes a different bet about how much of SvelteKit to keep. [ogygia](https://www.ogygiajs.dev/) switches SvelteKit's client off for a route and adds interactive components back one at a time. [Mochi](https://mochi.fast/) leaves SvelteKit for a framework of its own on Bun. svelte-islands keeps your whole SvelteKit app and lets regions of a page wait for their data and their hydration.

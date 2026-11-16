@@ -1,5 +1,6 @@
 ---
 title: A dashboard
+description: A worked example of a store dashboard with a chart, a long table, a sidebar, and a map, each in an island that wakes at its own moment.
 ---
 
 A dashboard puts several heavy things on one page (a chart at the top, a long table, a sidebar, a map), and each of them is needed at a different moment. Islands let you decide that moment one region at a time.

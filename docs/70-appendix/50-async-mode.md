@@ -1,5 +1,6 @@
 ---
 title: Svelte's async mode
+description: svelte-islands works with Svelte's async mode turned on. The one limit: an island's server HTML has to render without await.
 ---
 
 The library works with async mode turned on, whether or not your components use `await`, and CI runs the browser tests that way.

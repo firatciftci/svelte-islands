@@ -1,5 +1,6 @@
 ---
 title: When islands wake
+description: Choose when an island downloads its data and hydrates: on interaction, when it scrolls into view, when a media query matches, or never.
 ---
 
 An island _wakes_ when the browser downloads its data and hydrates it. You choose the moment with `when`:

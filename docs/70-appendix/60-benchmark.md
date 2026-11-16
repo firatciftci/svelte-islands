@@ -1,5 +1,6 @@
 ---
 title: Benchmark
+description: We built one data-heavy page twice, with plain SvelteKit and with islands. This covers HTML size, blocking time, measurement, and where islands don't help.
 ---
 
 To find out what islands are worth, we built one page twice. Both versions show the same invented shipping data for Harrow Sound, with 120 harbors and 3,000 berths in two sortable tables and a chart. The [plain version](https://firatciftci.github.io/svelte-islands/demo/plain) is ordinary SvelteKit, and the [islands version](https://firatciftci.github.io/svelte-islands/demo/islands) puts the tables and the chart in islands.

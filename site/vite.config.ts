@@ -20,7 +20,9 @@ export default defineConfig({
     sveltekit({
       adapter: adapterStatic(),
       paths: { base, relative: false },
-      prerender: { entries: ["*", "/404", "/llms.txt", "/llms-full.txt"] },
+      prerender: {
+        entries: ["*", "/404", "/llms.txt", "/llms-full.txt", "/sitemap.xml"],
+      },
       serviceWorker: { register: false },
     }),
   ],

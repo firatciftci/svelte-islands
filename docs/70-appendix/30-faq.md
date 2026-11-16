@@ -1,5 +1,6 @@
 ---
 title: Frequently asked questions
+description: Answers to common questions about svelte-islands: when not to use it, whether it needs a server, versions, search engines, and how much JavaScript it adds.
 ---
 
 ## When shouldn't I use this?

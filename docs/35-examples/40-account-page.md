@@ -1,5 +1,6 @@
 ---
 title: An account page
+description: A worked example of an account page that keeps each visitor's private data out of public URLs, while data shared by everyone stays cacheable.
 ---
 
 An account page mixes two kinds of data: some of it belongs to the one person looking at it, and some of it is the same for everyone. The two need different treatment, because a [part](../20-core-concepts/10-parts.md) is served from a public URL that any cache along the way can keep.

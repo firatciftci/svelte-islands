@@ -7,6 +7,7 @@ const config: KnipConfig = {
     "site/vite.config.ts",
     "site/src/**/*",
     "site/bench/*.ts",
+    "site/cards.ts",
     "tests/e2e/*.ts",
   ],
   ignoreFiles: [

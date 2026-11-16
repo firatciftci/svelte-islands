@@ -1,5 +1,6 @@
 ---
 title: How it works
+description: What svelte-islands does on the server and in the browser: content-addressed parts, rebuilds, learned skeletons, and scheduled hydration.
 ---
 
 You don't need any of this to use the library, but it helps if you're debugging something (or you're just curious).

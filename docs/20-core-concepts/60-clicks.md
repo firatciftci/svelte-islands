@@ -1,5 +1,6 @@
 ---
 title: Clicks before hydration
+description: A click on an island that hasn't hydrated isn't lost. The island holds it, hydrates, and replays it. Learn how to keep clicks that land even earlier.
 ---
 
 If someone clicks a button inside an island before it has hydrated, the island holds the click, hydrates, and replays it as a full press. You don't need to do anything for this to work, and controls that open on pointer events respond too.

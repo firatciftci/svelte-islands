@@ -1,5 +1,6 @@
 ---
 title: Credits
+description: The projects svelte-islands borrows ideas from, Mochi and Astro. Covers which features came from each and where the library differs.
 ---
 
 Several features here come from other projects:

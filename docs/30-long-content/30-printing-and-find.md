@@ -1,5 +1,6 @@
 ---
 title: Printing and find in page
+description: Islands that haven't loaded still print, and find in page still finds their text. Covers how that works and how to do the same for your own lazy content.
 ---
 
 Content that has not loaded still prints, and people can still find it. There's nothing you need to do for this to work.

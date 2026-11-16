@@ -1,5 +1,6 @@
 ---
 title: Long lists
+description: Render a list of 10,000 items a piece at a time with unroll, without breaking find in page or printing. Compares this approach with virtualization.
 ---
 
 An island delays the cost of a long list, but it does not reduce it. Once it wakes, 10,000 items still have to render. `unroll` renders them a piece at a time instead:

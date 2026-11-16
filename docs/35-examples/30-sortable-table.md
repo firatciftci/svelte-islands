@@ -1,5 +1,6 @@
 ---
 title: A sortable table with thousands of rows
+description: A worked example of an order history with 10,000 rows that people can sort, select, and export, built with islands, load, and unroll.
 ---
 
 An order history for an online store can run to 10,000 rows, and the people who use it want to sort it, select a few orders, and export them. That is about the hardest thing to put on a page with islands, because the table needs its HTML in the page, its rows are too many to hydrate at once, and sorting touches every row.

@@ -1,5 +1,6 @@
 ---
 title: Tutorial
+description: Build a page that lists 5,000 products as plain SvelteKit, then move it to islands one step at a time and measure the difference.
 ---
 
 Let's build a page that lists 5,000 products, first as an ordinary SvelteKit page and then with islands, one change at a time. You'll need an app with the library [set up](20-setup.md), and about twenty minutes.

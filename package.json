@@ -71,7 +71,7 @@
     "dev": "svelte-package --watch",
     "prepare": "svelte-kit sync || echo ''",
     "build": "svelte-kit sync && svelte-package && publint",
-    "site": "svelte-kit sync && cd site && svelte-kit sync && vite build",
+    "site": "svelte-kit sync && cd site && svelte-kit sync && vite build && node --experimental-strip-types cards.ts",
     "bench": "pnpm run site && node --experimental-strip-types site/bench/run.ts && oxfmt docs/70-appendix/60-benchmark.md docs/benchmark.json",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && cd fixtures/app && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && tsc --noEmit -p src/service-worker/tsconfig.json && cd ../../site && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test": "svelte-kit sync && vitest run",

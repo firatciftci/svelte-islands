@@ -1,5 +1,6 @@
 ---
 title: ESLint rules
+description: Four ESLint rules for svelte-islands mistakes that type checking can't catch, such as per-visitor data in a public part.
 ---
 
 The library comes with four rules for mistakes that type checking can't catch. You'll need ESLint 9 or later:

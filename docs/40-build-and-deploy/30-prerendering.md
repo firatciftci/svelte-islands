@@ -1,5 +1,6 @@
 ---
 title: Prerendering
+description: Prerendered SvelteKit pages work with svelte-islands with no extra setup. Covers what goes into the build and how old pages keep working after a deploy.
 ---
 
 Prerendered pages need no extra setup. When SvelteKit prerenders a page, the library writes the page's parts, its deferred HTML, and the skeleton file into the build under `_parts/`:

@@ -1,5 +1,6 @@
 ---
 title: Node servers
+description: Run svelte-islands on any Node adapter, with the handle options that matter once a server can lose a part or you run more than one.
 ---
 
 Any Node adapter works, and with a single long-running process you don't need to configure anything beyond [setup](../10-getting-started/20-setup.md).

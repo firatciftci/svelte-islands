@@ -1,5 +1,6 @@
 ---
 title: Styling
+description: Change the color of skeleton bars with custom properties, style the wrapper an island adds, and style an island's content by its state in CSS.
 ---
 
 Skeleton bars take their color from the island's text, so they usually look right without any help. To change them, set these custom properties:

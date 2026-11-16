@@ -1,5 +1,6 @@
 ---
 title: Streaming slow data
+description: Show a SvelteKit page before its slow queries finish. stream() waits briefly for promises, and Await shows a skeleton until the rest arrives.
 ---
 
 SvelteKit shows a page only once its `load` function returns. If `load` waits on a slow query (the reviews under a product, say), a reader who clicks a link sees the old page sit there, with no sign that anything is happening. A server `load` can return a promise instead, which SvelteKit streams to the browser. Use `stream()` to pick which values are worth waiting for, and [`Await`](40-skeletons.md#await) shows the rest with a learned skeleton until they arrive.

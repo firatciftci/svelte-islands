@@ -1,5 +1,6 @@
 ---
 title: Running at scale
+description: A worked example of moving a shop onto several Node processes behind a CDN, with a shared store, rebuilds after a deploy, a base path, and more.
 ---
 
 With one long-running Node process, svelte-islands needs nothing beyond [setup](../10-getting-started/20-setup.md). Production is rarely that simple. Here a shop, served under `/shop`, moves onto several Node processes behind a CDN, and picks up the pieces that keep it fast and observable there: a shared store, limits sized for a deploy, locale handling, offline support, real-user timings, and a budget check in CI.

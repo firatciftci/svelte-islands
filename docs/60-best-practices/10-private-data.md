@@ -1,5 +1,6 @@
 ---
 title: Private data
+description: Parts are served from public, cacheable URLs. Keep per-visitor data out of them with private parts, and see how the library catches mistakes.
 ---
 
 Parts are fast because anyone can cache them. A part larger than 4,096 characters is stored under a hash of its contents and served from a public URL with `cache-control: public, immutable`, which means anyone with the URL can read it, and any CDN or proxy along the way can keep a copy.

@@ -1,5 +1,6 @@
 ---
 title: Budget check
+description: svelte-islands check fetches your pages from a running server and fails if one is over its size budget, so CI catches a page that's getting heavy.
 ---
 
 A page gets heavy one small change at a time, and nobody notices until it's slow. `svelte-islands check` fetches your pages from a running server and fails if any of them is over its budget, so you can catch this in CI or before a deploy:

@@ -1,5 +1,6 @@
 ---
 title: Long tables
+description: Put a table with thousands of rows in islands, whether it sits below the fold or near the top of the page, without the HTML parser moving rows out.
 ---
 
 A table with thousands of elements takes a long time to hydrate in one go, and tables have a further problem: an island's wrapper is a `div`, which can't sit between a `table` and its rows. If you try, the HTML parser moves it out of the table.

@@ -1,5 +1,6 @@
 ---
 title: Skeletons
+description: svelte-islands learns each island's placeholder from what it rendered, so you rarely write one. Covers how skeletons are learned and how to shape them.
 ---
 
 A _skeleton_ is what an island shows while it waits for its content. You don't write them, because the library learns each one from what the island rendered:

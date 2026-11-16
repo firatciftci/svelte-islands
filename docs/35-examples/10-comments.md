@@ -1,5 +1,6 @@
 ---
 title: Comments under a post
+description: A worked example of a first island: a blog post's comment thread, whose code and data load only for readers who reply or press Like.
 ---
 
 A blog post's comments are a good first island. People mostly read them, a long thread can carry more data than the post itself, and only the few readers who reply or press Like need any of it to run.

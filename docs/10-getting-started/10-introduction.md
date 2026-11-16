@@ -1,5 +1,6 @@
 ---
 title: Introduction
+description: What svelte-islands is, the problem it solves on SvelteKit pages with heavy data, and what it doesn't do for you.
 ---
 
 ## Before we begin

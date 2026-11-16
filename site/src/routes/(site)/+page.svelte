@@ -47,10 +47,11 @@
 </script>
 
 <Meta
-  title="svelte-islands"
-  description="Islands for SvelteKit: content-addressed page data, server HTML adopted without hydration, and skeletons learned from your own markup."
-  path=""
-  type="website"
+  title="svelte-islands: islands for SvelteKit"
+  description="Islands for SvelteKit. Your page's HTML arrives right away, while its data, and the work of hydrating it, wait until someone reaches for them."
+  path="/"
+  card="home"
+  cardAlt="The svelte-islands name and tagline beside an island on a sea chart, holding a table of invented harbors"
 />
 
 <main id="content" class="neat">

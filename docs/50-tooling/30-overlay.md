@@ -1,5 +1,6 @@
 ---
 title: Overlay
+description: Render Devtools in development to see every island on your page with its state, data size, and timings, and to spot failed downloads.
 ---
 
 Render `Devtools` in development to see every island on your page, with its state, data size, and timings:

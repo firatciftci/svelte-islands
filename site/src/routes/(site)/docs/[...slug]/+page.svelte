@@ -56,9 +56,12 @@
 </script>
 
 <Meta
-  title={`${data.title} • svelte-islands Docs`}
+  title={data.title}
   description={data.description}
   path={`/docs/${data.slug}`}
+  card={data.slug}
+  cardAlt={`${data.title}, a page in the ${data.section} section of the svelte-islands docs`}
+  section={data.section}
 />
 
 <svelte:head>

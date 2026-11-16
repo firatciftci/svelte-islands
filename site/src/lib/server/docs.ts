@@ -101,7 +101,7 @@ async function loadPages() {
       file: `docs/${path}`,
       section: SECTIONS[section] ?? section,
       title: fields.title ?? slug,
-      description: firstSentence(body),
+      description: fields.description ?? firstSentence(body),
       markdown: body,
       segments: rendered.segments,
       headings: rendered.headings,

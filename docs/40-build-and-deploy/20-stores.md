@@ -1,5 +1,6 @@
 ---
 title: Stores
+description: Keep parts, deferred HTML, and skeletons where every server can read them. Use ready-made stores for files, Redis, R2, or S3, or write your own.
 ---
 
 A _store_ keeps parts, deferred HTML, and skeletons where every server can read them, so that a server that restarted (or never made a part) does not have to [rerun a page](10-node-servers.md#rebuilds) to get it back:

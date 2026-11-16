@@ -1,5 +1,6 @@
 ---
 title: Islands
+description: An island is a region of a SvelteKit page that loads and hydrates on its own. Covers the static, deferred, and client-only modes and how to choose one.
 ---
 
 An _island_ is a region of your page that loads and hydrates on its own. `Island` takes a [part](10-parts.md) and passes its value to a snippet:

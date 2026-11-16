@@ -1,5 +1,6 @@
 ---
 title: Measuring real users
+description: Send island timings from real visitors to your analytics with observe: when each part loads, how many bytes it took, and how long hydration ran.
 ---
 
 `observe` calls your function with data on what each island does in the browser, so that you can send real timings to your analytics. Call it once in your root layout, in the browser only:

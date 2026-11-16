@@ -1,5 +1,6 @@
 ---
 title: Troubleshooting
+description: Fixes for common svelte-islands problems: islands that stay static, part requests that return 404 or 503, layout jumps, and hydration mismatches.
 ---
 
 If you can, render the [overlay](../50-tooling/30-overlay.md) first. It lists every island on the page with its state, data size, and timings, and it flags failed downloads and skeletons that were off by more than 16 pixels.

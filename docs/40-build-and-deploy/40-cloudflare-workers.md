@@ -1,5 +1,6 @@
 ---
 title: Cloudflare Workers
+description: Run svelte-islands on Cloudflare Workers with adapter-cloudflare: the nodejs_compat flag, an R2 bucket for parts, and what to check if it fails.
 ---
 
 The library runs on Workers with [`adapter-cloudflare`](https://svelte.dev/docs/kit/adapter-cloudflare). Add the `nodejs_compat` flag, which the library needs for `node:crypto`, and bind a bucket...

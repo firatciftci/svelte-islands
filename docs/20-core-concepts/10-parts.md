@@ -1,5 +1,6 @@
 ---
 title: Parts
+description: A part is a value from load that travels outside your page's data, at its own cacheable URL. Learn how to make one and when the browser downloads it.
 ---
 
 A _part_ is a value that travels outside the page's data. You make one in a server `load` function by giving a value a name:
