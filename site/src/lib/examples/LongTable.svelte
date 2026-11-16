@@ -88,7 +88,7 @@
   </tr>
 {/snippet}
 
-<Coast seed={9}>
+<Coast>
   <p class="coast-note">
     Three hundred berths in three tbody islands. Each island wakes on its own.
     Sorting downloads the data once and redraws the rows a few at a time.

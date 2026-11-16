@@ -6,22 +6,15 @@ import {
 } from "shiki";
 import { check, checkComponent } from "./samples";
 
-export type Heading = {
-  id: string;
-  text: string;
-  level: 2 | 3;
-  at: number;
-  words: number;
-};
+export type Heading = { id: string; text: string; level: 2 | 3 };
 
 export type Segment =
   | { kind: "html"; html: string }
-  | { kind: "example"; name: string; at: number };
+  | { kind: "example"; name: string };
 
 const EXAMPLE = /^<!-- example: ([\w-]+) -->$/u;
 const FILE_COMMENT = /^(?:\/\/\/ file: (.+)|<!--- file: (.+) --->)$/u;
 const CALLOUT = /^\[!(NOTE|LEGACY|DETAILS)\][ \t]*(.*)$/u;
-const TIPS = /<template data-tips>[\s\S]*?<\/template>/gu;
 const DIFF = /\+\+\+|---/gu;
 const DIFFABLE = new Set([
   "ts",
@@ -222,7 +215,7 @@ export async function render(
         used.set(slug, seen + 1);
         const id = seen === 0 ? slug : `${slug}-${seen}`;
         if (depth === 2 || depth === 3) {
-          headings.push({ id, text, level: depth, at: 0, words: 0 });
+          headings.push({ id, text, level: depth });
         }
         return `<h${depth} id="${id}">${inner}<a class="anchor" href="#${id}" aria-label="Link to this section"></a></h${depth}>`;
       },
@@ -310,7 +303,7 @@ export async function render(
   const segments: Array<Segment> = [];
   for (const block of blocks) {
     if (block.kind === "example") {
-      segments.push({ kind: "example", name: block.name, at: 0 });
+      segments.push({ kind: "example", name: block.name });
     } else if (block.text.trim() !== "") {
       segments.push({
         kind: "html",
@@ -319,57 +312,5 @@ export async function render(
     }
   }
 
-  placeOnChart(segments, headings);
   return { segments, headings };
-}
-
-const CODE_LINE = 22;
-const TEXT_LINE = 1.7;
-const EXAMPLE_LENGTH = 700;
-
-function lengthOf(html: string) {
-  const lines = html.match(/<span class="line">/gu)?.length ?? 0;
-  const text = html
-    .replace(/<pre[\s\S]*?<\/pre>/gu, "")
-    .replace(/<[^>]+>/gu, " ")
-    .replace(/\s+/gu, " ");
-  return lines * CODE_LINE + text.length * TEXT_LINE;
-}
-
-function placeOnChart(segments: Array<Segment>, headings: Array<Heading>) {
-  let total = 0;
-  const marks = new Map<string, number>();
-  const wordsAt: Array<{ id: string; at: number }> = [];
-  for (const segment of segments) {
-    if (segment.kind === "example") {
-      segment.at = total;
-      total += EXAMPLE_LENGTH;
-      continue;
-    }
-    const pieces = segment.html.replace(TIPS, "").split(/(?=<h[23] id=")/u);
-    for (const piece of pieces) {
-      const id = /^<h[23] id="([^"]+)"/u.exec(piece)?.[1];
-      if (id != null) {
-        marks.set(id, total);
-        wordsAt.push({
-          id,
-          at: piece
-            .replace(/<[^>]+>/gu, " ")
-            .split(/\s+/u)
-            .filter((word) => /\w/u.test(word)).length,
-        });
-      }
-      total += lengthOf(piece);
-    }
-  }
-  const safe = Math.max(total, 1);
-  for (const heading of headings) {
-    heading.at = (marks.get(heading.id) ?? 0) / safe;
-    heading.words = wordsAt.find(({ id }) => id === heading.id)?.at ?? 0;
-  }
-  for (const segment of segments) {
-    if (segment.kind === "example") {
-      segment.at /= safe;
-    }
-  }
 }

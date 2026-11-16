@@ -15,7 +15,7 @@
   } = $props();
 </script>
 
-<Coast seed={3}>
+<Coast>
   <p class="coast-note">
     <code>static</code> has its HTML in the page, and its data waits.
   </p>
@@ -25,7 +25,7 @@
     {/snippet}
   </Island>
 </Coast>
-<Coast seed={8}>
+<Coast>
   <p class="coast-note">
     <code>deferred</code> gets its HTML as you scroll toward it.
   </p>
@@ -35,7 +35,7 @@
     {/snippet}
   </Island>
 </Coast>
-<Coast seed={14}>
+<Coast>
   <p class="coast-note"><code>client</code> has no server HTML at all.</p>
   <Island part={parts.client} ssr={false}>
     {#snippet children(rows)}

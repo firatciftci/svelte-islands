@@ -8,7 +8,7 @@
     $props();
 </script>
 
-<Coast seed={5}>
+<Coast>
   <p class="coast-note">
     The comments are in the page as HTML, but their data and code wait for your
     pointer. Try liking one before it wakes.

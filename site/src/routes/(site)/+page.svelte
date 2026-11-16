@@ -98,7 +98,7 @@
       </div>
     </div>
     <div class="hero-island" bind:this={hero}>
-      <Coast seed={7} onreach={reached}>
+      <Coast onreach={reached}>
         <Island part={data.harrow} when="interaction">
           {#snippet children(rows)}
             <HarborTable {rows} limit={8} caption="Harrow Sound, by harbor" />
@@ -159,7 +159,7 @@
           library learned from the table itself.
         </p>
       </div>
-      <Coast seed={19}>
+      <Coast>
         <Island part={data.deferred} defer>
           {#snippet children(rows)}
             <HarborTable {rows} limit={6} />
@@ -176,7 +176,7 @@
           time as data.
         </p>
       </div>
-      <Coast seed={29}>
+      <Coast>
         <Island part={data.never} when="never">
           {#snippet children(rows)}
             <HarborTable {rows} limit={4} />
@@ -192,7 +192,7 @@
           view, and a skeleton holds its place so that nothing moves.
         </p>
       </div>
-      <Coast seed={31}>
+      <Coast>
         <Island part={data.client} ssr={false}>
           {#snippet children(rows)}
             <OnTimeChart {rows} title="On time at the ten busiest harbors" />

@@ -36,4 +36,9 @@
       </li>
     {/each}
   </ol>
+  <p class="ontime-scale" aria-hidden="true">
+    <span class="ontime-ticks"
+      ><span>0%</span><span>50%</span><span>100%</span></span
+    >
+  </p>
 </figure>

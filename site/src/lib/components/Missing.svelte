@@ -9,7 +9,7 @@
 </svelte:head>
 
 <main class="missing" id="content">
-  <Coast seed={11} lost>
+  <Coast lost>
     <h1>This page isn't on the chart</h1>
     <p>
       The link may be out of date. You can search the docs or start from the

@@ -8,7 +8,7 @@
   let { parts }: { parts: { harbors: Part<Array<Harbor>> } } = $props();
 </script>
 
-<Coast seed={12}>
+<Coast>
   <p class="coast-note">
     The chart and the table share one part, so whichever wakes first downloads
     it for both.
@@ -19,7 +19,7 @@
     {/snippet}
   </Island>
 </Coast>
-<Coast seed={16}>
+<Coast>
   <p class="coast-note">
     The table stays static until you reach for it, even after the chart is live.
   </p>
