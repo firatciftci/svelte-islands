@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { on } from "svelte/events";
+
   type Heading = { id: string; text: string; level: 2 | 3 };
   type Demo = {
     state: "waiting" | "static" | "partial" | "live";
@@ -83,35 +85,35 @@
 
   $effect(() => {
     const ids = headings.map(({ id }) => id);
-    current = ids[0] ?? null;
-    const seen = new IntersectionObserver(
-      (entries) => {
-        for (const {
-          target,
-          isIntersecting,
-          boundingClientRect,
-          rootBounds,
-        } of entries) {
-          if (isIntersecting) {
-            current = target.id;
-          } else if (
-            target.id === current &&
-            rootBounds != null &&
-            boundingClientRect.top > rootBounds.bottom
-          ) {
-            current = ids[ids.indexOf(target.id) - 1] ?? ids[0] ?? null;
-          }
-        }
-      },
-      { rootMargin: "-10% 0px -75% 0px" },
-    );
-    for (const id of ids) {
-      const element = document.getElementById(id);
-      if (element != null) {
-        seen.observe(element);
+    let frame = 0;
+    function update() {
+      frame = 0;
+      const root = document.documentElement;
+      if (scrollY > 0 && scrollY + innerHeight >= root.scrollHeight - 2) {
+        current = ids.at(-1) ?? null;
+        return;
       }
+      const line = innerHeight * 0.25;
+      let found = ids[0] ?? null;
+      for (const id of ids) {
+        const top = document.getElementById(id)?.getBoundingClientRect().top;
+        if (top != null && top <= line) {
+          found = id;
+        }
+      }
+      current = found;
     }
-    return () => seen.disconnect();
+    function schedule() {
+      frame ||= requestAnimationFrame(update);
+    }
+    update();
+    const offScroll = on(window, "scroll", schedule, { passive: true });
+    const offResize = on(window, "resize", schedule);
+    return () => {
+      cancelAnimationFrame(frame);
+      offScroll();
+      offResize();
+    };
   });
 
   $effect(() => {
@@ -157,7 +159,9 @@
   </ol>
   {#if leftOut > 0}
     <p class="rail-foot">
-      {leftOut.toFixed(1)} KB of this page's text isn't sent a second time as data.
+      This page's text loads once, as HTML. It sits in islands that never
+      hydrate, so your browser skips the {leftOut.toFixed(1)} KB copy that SvelteKit
+      would usually send for hydration.
     </p>
   {/if}
 </aside>

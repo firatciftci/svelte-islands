@@ -6,7 +6,7 @@ title: Frequently asked questions
 
 When your page is small. A part of 4,096 characters or less stays in the page anyway, so there is nothing to take out.
 
-The other case is a page where most of what's on it has to be live as soon as it loads. Islands make work happen later, and if that work has to happen right away you'd only be moving it around.
+The other case is a page where most of what's on it has to be live as soon as it loads. Islands make work happen later, and if that work has to happen right away, you'd only be moving it around.
 
 ## Does it need a server?
 
@@ -28,13 +28,11 @@ CI runs the browser tests against Svelte 5.57.0 with Kit 3.0.0, against the newe
 
 It also has no effect on table rows. You can use both, though.
 
-## How does this compare with Mochi?
+## How does this compare with Mochi and ogygia?
 
-[Mochi](https://github.com/khromov/mochi) by Stanislav Khromov is its own SSR framework for Svelte 5 on Bun, with islands built in. Several features here follow it (see [credits](80-credits.md)).
+[Mochi](https://github.com/khromov/mochi) by Stanislav Khromov is its own SSR framework for Svelte 5 on Bun, with islands built in, and several features here follow it (see [credits](80-credits.md)). [ogygia](https://www.ogygiajs.dev/) adds islands to SvelteKit routes that switch SvelteKit's client off.
 
-If you're on SvelteKit, you stay on SvelteKit here.
-
-Deferred HTML also works differently. It lives at a URL named by a hash of its contents, so no props travel in the URL and the response can be cached forever, and a deferred island can still hydrate later.
+Here you keep all of SvelteKit, and an island stays part of your component, so it can use the page's state, functions, and context. [Compared with ogygia and Mochi](../10-getting-started/40-compared.md) goes through the differences, and the cases where you'd pick one of the others.
 
 ## How does this compare with Astro?
 
