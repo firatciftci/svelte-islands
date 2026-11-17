@@ -546,7 +546,7 @@ class Walker {
           const expression = part.expression as Node;
           if (
             !Array.isArray(value) &&
-            part.start === attribute.start &&
+            code[attribute.start] === "{" &&
             expression.type === "Identifier"
           ) {
             this.reference(
@@ -1089,7 +1089,8 @@ function scopeObject(
 
 function headerEnd(snippet: AST.SnippetBlock, code: string) {
   const last = snippet.parameters.at(-1) as unknown as Node | undefined;
-  const from = last?.end ?? code.indexOf("(", snippet.expression.end);
+  const from =
+    last?.end ?? code.indexOf("(", (snippet.expression as unknown as Node).end);
   return code.indexOf("}", code.indexOf(")", from)) + 1;
 }
 

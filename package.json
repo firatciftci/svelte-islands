@@ -79,6 +79,7 @@
     "bench": "pnpm run site && node --experimental-strip-types site/bench/run.ts && oxfmt docs/70-appendix/60-benchmark.md docs/benchmark.json",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && cd fixtures/app && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && tsc --noEmit -p src/service-worker/tsconfig.json && cd ../../site && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test": "svelte-kit sync && vitest run",
+    "fuzz": "svelte-kit sync && FUZZ_RUNS=${FUZZ_RUNS:-5000} vitest run tests/unit/properties.test.ts tests/unit/extract.fuzz.test.ts",
     "size": "node --experimental-strip-types scripts/size.ts",
     "test:e2e": "pnpm run fixture && playwright test",
     "test:workers": "svelte-kit sync && cd fixtures/app && svelte-kit sync && FIXTURE_ADAPTER=cloudflare vite build && cd ../.. && playwright test -c playwright.workers.config.ts",
