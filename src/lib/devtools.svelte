@@ -1,25 +1,32 @@
 <!--
   @component
-  A development overlay that lists the page's islands with their state, data size,
-  load and hydration times, and any problems it finds. It renders nothing in
-  production, and you can keep it out of the bundle with `{#if dev}`.
+  A development overlay that lists the page's islands with what each one costs,
+  lists the page's data by size with the values that should become parts, and
+  flags any problems it finds. It renders nothing in production, and you can
+  keep it out of the bundle with `{#if dev}`.
 -->
 <script lang="ts">
   import { dev } from "$app/env";
+  import { page } from "$app/state";
+  import { stringify } from "devalue";
   import { onMount } from "svelte";
   import { SvelteMap } from "svelte/reactivity";
   import type { Observation } from "./observe.js";
   import { observe } from "./observe.js";
+  import { Part } from "./part.js";
   import { boxes } from "./runtime.js";
 
   const {
     shift = 16,
     large = 256,
+    advise = 4,
   }: {
     /** Flags a skeleton that was off by more than this many pixels. */
     shift?: number;
     /** Flags a part larger than this many KiB. */
     large?: number;
+    /** Suggests a part for page data larger than this many KiB. */
+    advise?: number;
   } = $props();
 
   const LOG = 50;
@@ -29,6 +36,9 @@
     {
       load?: number;
       hydrate?: number;
+      code?: number | null;
+      html?: number;
+      delay?: number | null;
       from?: number;
       to?: number;
       failed?: string;
@@ -50,6 +60,10 @@
   let root: HTMLElement | null = null;
 
   const kib = (bytes: number) => `${(bytes / 1024).toFixed(1)} KiB`;
+  const sized = (bytes: number | null | undefined) =>
+    bytes == null ? "" : kib(bytes);
+  const timed = (duration: number | null | undefined) =>
+    duration == null ? "" : ms(duration);
   const ms = (duration: number) => `${Math.round(duration)} ms`;
 
   const rows = $derived(
@@ -88,6 +102,50 @@
     return kib(sum);
   });
 
+  function sizeOf(value: unknown) {
+    try {
+      return stringify(value, {
+        part: (item: unknown) => item instanceof Part && [item.hash],
+      }).length;
+    } catch {
+      return null;
+    }
+  }
+
+  function isPlain(value: unknown): value is Record<string, unknown> {
+    return (
+      typeof value === "object" &&
+      value != null &&
+      Object.getPrototypeOf(value) === Object.prototype
+    );
+  }
+
+  const entries = $derived.by(() => {
+    const found: Array<{ path: string; bytes: number | null; isPart: boolean }> =
+      [];
+    for (const [key, value] of Object.entries(page.data)) {
+      const bytes = sizeOf(value);
+      found.push({ path: key, bytes, isPart: value instanceof Part });
+      if (isPlain(value) && bytes != null && bytes > advise * 1024) {
+        for (const [inner, nested] of Object.entries(value)) {
+          found.push({
+            path: `${key}.${inner}`,
+            bytes: sizeOf(nested),
+            isPart: nested instanceof Part,
+          });
+        }
+      }
+    }
+    return found.toSorted((a, b) => (b.bytes ?? 0) - (a.bytes ?? 0));
+  });
+
+  const advice = $derived(
+    entries.filter(
+      (entry) =>
+        !entry.isPart && entry.bytes != null && entry.bytes > advise * 1024,
+    ).length,
+  );
+
   function describe(event: Observation) {
     switch (event.type) {
       case "load":
@@ -112,7 +170,13 @@
     if (event.type === "load") {
       seen.set(event.hash, { ...stats, load: event.duration });
     } else if (event.type === "hydrate") {
-      seen.set(event.hash, { ...stats, hydrate: event.duration });
+      seen.set(event.hash, {
+        ...stats,
+        hydrate: event.duration,
+        code: event.code,
+        html: event.html,
+        delay: event.delay,
+      });
     } else if (event.type === "reveal") {
       seen.set(event.hash, { ...stats, from: event.from, to: event.to });
     } else if (event.type === "fail") {
@@ -221,8 +285,16 @@
                 <th scope="col">Island</th>
                 <th scope="col">State</th>
                 <th scope="col" class="number">Data</th>
+                <th scope="col" class="number">Code</th>
+                <th scope="col" class="number">HTML</th>
                 <th scope="col" class="number">Load</th>
                 <th scope="col" class="number">Hydrate</th>
+                <th
+                  scope="col"
+                  class="number"
+                  title="From the first press, focus, or touch to the island going live"
+                  >Wait</th
+                >
                 <th scope="col" class="number">Height change</th>
               </tr>
             </thead>
@@ -252,15 +324,45 @@
                   </td>
                   <td>{row.state}</td>
                   <td class="number">{kib(row.bytes)}</td>
-                  <td class="number">
-                    {row.load == null ? "" : ms(row.load)}
-                  </td>
-                  <td class="number">
-                    {row.hydrate == null ? "" : ms(row.hydrate)}
-                  </td>
+                  <td class="number">{sized(row.code)}</td>
+                  <td class="number">{sized(row.html)}</td>
+                  <td class="number">{timed(row.load)}</td>
+                  <td class="number">{timed(row.hydrate)}</td>
+                  <td class="number">{timed(row.delay)}</td>
                   <td class="number">
                     {row.change == null ? "" : `${Math.round(row.change)} px`}
                   </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        {/if}
+        <h3>Page data</h3>
+        {#if entries.length === 0}
+          <p class="note">This page has no data.</p>
+        {:else}
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Value</th>
+                <th scope="col" class="number">Size</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each entries as entry (entry.path)}
+                <tr>
+                  <td>
+                    <code>{entry.path}</code>
+                    {#if entry.isPart}
+                      <span class="note">part</span>
+                    {:else if entry.bytes != null && entry.bytes > advise * 1024}
+                      <p class="issue">
+                        It's large, and it travels in every page load. Make it
+                        a part with part(), so it loads with its island.
+                      </p>
+                    {/if}
+                  </td>
+                  <td class="number">{sized(entry.bytes)}</td>
                 </tr>
               {/each}
             </tbody>
@@ -286,8 +388,8 @@
         }}
       >
         Islands {islands.length}
-        {#if flagged > 0}
-          <span class="flag">{flagged} to check</span>
+        {#if flagged + advice > 0}
+          <span class="flag">{flagged + advice} to check</span>
         {/if}
       </button>
     {/if}

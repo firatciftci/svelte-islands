@@ -371,6 +371,11 @@ test.describe("observe", () => {
       (event) => event.type === "reveal" && event.name === "deferred.rows",
     );
     expect(reveal?.to).toBeGreaterThan(1000);
+    const cost = (await observed(page)).find(
+      (event) => event.type === "hydrate" && event.name === "deferred.rows",
+    );
+    expect(cost?.data).toBeGreaterThan(1000);
+    expect(cost?.html).toBeGreaterThan(1000);
   });
 });
 

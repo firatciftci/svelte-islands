@@ -785,11 +785,17 @@ function entryMarkdown(entry: string, file: string) {
   return joinBlocks(blocks);
 }
 
-function usageText() {
-  const source = parse("budget.ts");
+function usageText(file: string) {
+  const source = parse(file);
   const usage = topConst(source, "USAGE");
-  if (usage == null || !ts.isTemplateExpression(usage)) {
-    throw new Error("reference: USAGE in budget.ts is not a template");
+  if (usage == null) {
+    throw new Error(`reference: no USAGE in ${file}`);
+  }
+  if (ts.isNoSubstitutionTemplateLiteral(usage)) {
+    return usage.text.trim();
+  }
+  if (!ts.isTemplateExpression(usage)) {
+    throw new Error(`reference: USAGE in ${file} is not a template`);
   }
   let text = usage.head.text;
   for (const span of usage.templateSpans) {
@@ -800,9 +806,15 @@ function usageText() {
 
 function cliMarkdown() {
   return joinBlocks([
+    "## svelte-islands init",
+    "This is what the command prints for `--help`:",
+    code([usageText("init.ts")], "text"),
+    "## svelte-islands inspect",
+    "This is what the command prints for `--help`:",
+    code([usageText("inspect.ts")], "text"),
     "## svelte-islands check",
     "[Budget check](../50-tooling/10-budget-check.md) explains how to use this in a deploy. This is what the command prints for `--help`:",
-    code([usageText()], "text"),
+    code([usageText("budget.ts")], "text"),
   ]);
 }
 
@@ -813,19 +825,21 @@ function sourceFile(target: string) {
 
 const DESCRIPTIONS: Record<string, string> = {
   "reference/svelte-islands":
-    "API reference for svelte-islands: Island, Await, Pending, unroll, load, peek, observe, and the transport that carries parts to the browser.",
+    "API reference for svelte-islands: Island, Await, Pending, unroll, load, peek, observe, context, and the transport that carries parts to the browser.",
   "reference/server":
-    "API reference for svelte-islands/server: part to make a part in load, handle to serve parts, and stream() for slow data.",
+    "API reference for svelte-islands/server: part and fresh make parts in load, handle serves them, and stream() handles slow data.",
+  "reference/vite":
+    "API reference for svelte-islands/vite: the Vite plugin that gives each island its own chunk and boots islands on pages with csr = false.",
   "reference/stores":
     "API reference for svelte-islands/stores: file, Redis, R2, and S3 stores for parts, a compression wrapper, and the Store type for writing your own.",
   "reference/sw":
     "API reference for svelte-islands/sw: serveParts, which serves parts from a service worker so pages keep working offline.",
   "reference/devtools":
-    "API reference for svelte-islands/devtools: the Devtools overlay, which shows every island on a page with its state, data size, and timings.",
+    "API reference for svelte-islands/devtools: the Devtools overlay, which shows what each island on a page costs and which page data should become a part.",
   "reference/eslint":
     "API reference for svelte-islands/eslint: the ESLint plugin, its four rules, and the default level of each rule.",
   "reference/cli":
-    "Reference for the svelte-islands command: check fetches pages from a running server and fails when one goes over its size budget.",
+    "Reference for the svelte-islands command: init sets up an app, inspect lists a page's islands, and check fails when a page goes over its size budget.",
 };
 
 export async function referencePages(
@@ -844,7 +858,7 @@ export async function referencePages(
 > {
   const made = [];
   for (const [key, target] of Object.entries(manifest.exports)) {
-    if (typeof target === "string") {
+    if (typeof target === "string" || key === "./shell") {
       continue;
     }
     const file = sourceFile(target.default);
@@ -865,7 +879,7 @@ export async function referencePages(
   const markdown = cliMarkdown();
   made.push({
     slug: "reference/cli",
-    file: "src/lib/budget.ts",
+    file: "src/lib/cli.ts",
     section: "Reference",
     title: "CLI",
     description: DESCRIPTIONS["reference/cli"] ?? "The svelte-islands command.",

@@ -8,5 +8,6 @@ export const load = ({ url }) => {
     deferredRows: part("deferred.rows", rowsFor("deferred", seed)),
     clientRows: part("client.rows", rowsFor("client", seed)),
     neverRows: part("never.rows", rowsFor("never", seed)),
+    summary: rowsFor("summary", seed, 100),
   };
 };

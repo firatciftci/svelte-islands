@@ -37,7 +37,9 @@ test("the overlay lists a page's islands with their state and size", async ({
 
   await page.getByTestId("static-press").click();
   await expect(staticRow).toContainText("live");
-  await expect(staticRow.getByRole("cell").nth(4)).toContainText("ms");
+  await expect(staticRow.getByRole("cell").nth(4)).toContainText("KiB");
+  await expect(staticRow.getByRole("cell").nth(6)).toContainText("ms");
+  await expect(staticRow.getByRole("cell").nth(7)).toContainText("ms");
   await expect(panel.getByRole("listitem").first()).toContainText("hydrate");
 
   await panel.getByRole("button", { name: "Close" }).click();
@@ -72,4 +74,17 @@ test("the overlay flags a skeleton that didn't match its content", async ({
   await expect(page.getByRole("button", { name: /to check/u })).toHaveCount(0);
   await panel.getByRole("button", { name: "Close" }).click();
   await expect(page.getByRole("button", { name: /1 to check/u })).toBeVisible();
+});
+
+test("the overlay lists the page's data and suggests parts for large values", async ({
+  page,
+}) => {
+  await open(page, `/modes?seed=${crypto.randomUUID()}`);
+  await page.getByRole("button", { name: /^Islands 4/u }).click();
+  const panel = page.getByRole("region", { name: "Islands on this page" });
+  const summary = panel.getByRole("row", { name: /^summary/u });
+  await expect(summary).toContainText("Make it a part with part()");
+  const rows = panel.getByRole("row", { name: /^staticRows/u });
+  await expect(rows).toContainText("part");
+  await expect(rows).not.toContainText("Make it a part");
 });

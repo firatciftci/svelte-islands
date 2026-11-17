@@ -168,6 +168,7 @@ async function ready(wake: Wake) {
 }
 
 function reportHydrate(
+  target: HTMLElement,
   wake: Wake,
   fired: Strategy,
   started: number,
@@ -185,6 +186,8 @@ function reportHydrate(
     duration: now - started,
     delay: touched == null ? null : now - touched,
     code: wake.code.bytes(),
+    data: wake.part.bytes,
+    html: target.innerHTML.length,
     isPrefetched: isPrefetched(wake.part),
   });
 }
@@ -224,7 +227,7 @@ export function awaken(target: HTMLElement, wake: Wake, control: Control) {
       flushSync();
       restore();
     }
-    reportHydrate(wake, fired, started, touched);
+    reportHydrate(target, wake, fired, started, touched);
     if (held?.isHolding() === true) {
       flushSync();
     }
@@ -444,7 +447,7 @@ export function render(target: HTMLElement, wake: Wake, control: Control) {
             target.dataset.islandState = "live";
             target.removeAttribute("aria-busy");
             meter.revealed(target);
-            reportHydrate(wake, fired, started, null);
+            reportHydrate(target, wake, fired, started, null);
           }, wake.hydrate());
         },
         (error: unknown) => {
