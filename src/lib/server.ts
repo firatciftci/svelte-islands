@@ -558,7 +558,7 @@ function rulesFor(mode: "prefetch" | "prerender") {
             {
               not: {
                 selector_matches:
-                  "[download], [rel~='external'], [data-sveltekit-preload-data='off'], [data-sveltekit-preload-data='off'] a",
+                  "[download], [rel~='external'], [data-sveltekit-preload-data='false'], [data-sveltekit-preload-data='false'] a",
               },
             },
           ],
@@ -611,16 +611,23 @@ function valuesOf(island: Shell, checked: Map<unknown, boolean>) {
   return values;
 }
 
+const KIT_CONTEXTS = new Set(["__request__", "__svelte__"]);
+
+function nameOf(key: unknown) {
+  if (typeof key === "string") {
+    return key;
+  }
+  return typeof key === "symbol" ? Symbol.keyFor(key) : undefined;
+}
+
 function contextsOf(island: Shell, checked: Map<unknown, boolean>) {
   const kept: Sent["context"] = [];
   const dropped: Array<string> = [];
   for (const [key, value] of island.context) {
-    const name =
-      typeof key === "string"
-        ? key
-        : typeof key === "symbol"
-          ? Symbol.keyFor(key)
-          : undefined;
+    if (typeof key === "string" && KIT_CONTEXTS.has(key)) {
+      continue;
+    }
+    const name = nameOf(key);
     if (name == null || !sendable(value, checked)) {
       dropped.push(typeof key === "string" ? `"${key}"` : String(key));
       continue;
@@ -1062,7 +1069,7 @@ export function handle({
   /**
    * Adds Speculation Rules to pages with `csr = false`, so the browser
    * prefetches or prerenders a same-origin page when a link is hovered. Links
-   * with `data-sveltekit-preload-data="off"` are left alone. The default is `false`.
+   * with `data-sveltekit-preload-data="false"`, or inside an element with it, are left alone. The default is `false`.
    */
   speculation?: Speculation;
   /** Adds cross-document View Transitions to every page. The default is `false`. */

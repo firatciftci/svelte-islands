@@ -33,10 +33,7 @@ export type Code = {
   bytes: () => number | null;
 };
 
-export type Markup = {
-  fetch: () => Promise<string>;
-  now: () => string | null;
-};
+export type Markup = { fetch: () => Promise<string>; now: () => string | null };
 
 export type Wake = {
   part: Part;
@@ -64,11 +61,7 @@ export function codeOf(body: Body | undefined, chunk: Chunk | undefined): Code {
         "svelte-islands: an island needs a children snippet, or code from the Vite plugin.",
       );
     }
-    return {
-      now: () => body,
-      load: async () => body,
-      bytes: () => null,
-    };
+    return { now: () => body, load: async () => body, bytes: () => null };
   }
   let loaded: { body: Body; url: string | null } | null = null;
   let pending: Promise<Body> | null = null;
@@ -135,7 +128,9 @@ function prefetchNear(target: HTMLElement, wake: Wake) {
   if (
     !wake.prefetch ||
     isNeverOnly(strategies) ||
-    strategies.some((strategy) => strategy === "eager" || strategy === "visible")
+    strategies.some(
+      (strategy) => strategy === "eager" || strategy === "visible",
+    )
   ) {
     return nothing;
   }
@@ -187,7 +182,7 @@ function reportHydrate(
     delay: touched == null ? null : now - touched,
     code: wake.code.bytes(),
     data: wake.part.bytes,
-    html: target.innerHTML.length,
+    html: target.getHTML().length,
     isPrefetched: isPrefetched(wake.part),
   });
 }
@@ -342,7 +337,9 @@ export function reveal(
     wake.reveal,
     () => {
       if (
-        wake.hydrate().some((strategy) => strategy === "eager" || strategy === "visible")
+        wake
+          .hydrate()
+          .some((strategy) => strategy === "eager" || strategy === "visible")
       ) {
         void quietly(load(wake.part));
         void quietly(wake.code.load());

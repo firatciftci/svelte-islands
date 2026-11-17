@@ -80,16 +80,20 @@ test.describe("fresh islands", () => {
     await expect(page.getByTestId("visitor-press")).toHaveText("pressed 1");
   });
 
-  test("a fresh island's part is never published", async ({ page, request }) => {
+  test("a fresh island's part is never published", async ({
+    page,
+    request,
+  }) => {
     await visit(page, "Grace");
     const answered = page.waitForResponse((response) =>
       response.url().includes("/_parts/fresh"),
     );
     await page.goto("/fresh/live");
     const text = await (await answered).text();
-    const hashes = [...text.matchAll(/\\?"([\w-]{22})\\?"/gu)].map(
-      ([, hash = ""]) => hash,
-    );
+    const hashes = text
+      .matchAll(/\\?"([\w-]{22})\\?"/gu)
+      .map(([, hash = ""]) => hash)
+      .toArray();
     expect(hashes.length).toBeGreaterThan(0);
     for (const hash of hashes) {
       expect((await request.get(`/_parts/${hash}.json`)).status()).toBe(404);

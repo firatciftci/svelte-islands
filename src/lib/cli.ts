@@ -16,14 +16,25 @@ Run svelte-islands <command> --help for a command's options.
 
 const [command, ...rest] = process.argv.slice(2);
 
-if (command === "init") {
-  process.exitCode = await init(rest);
-} else if (command === "inspect") {
-  process.exitCode = await inspect(rest);
-} else if (command === "check") {
-  process.exitCode = await check(process.argv.slice(2));
-} else {
-  const isHelp = command === "-h" || command === "--help";
-  (isHelp ? process.stdout : process.stderr).write(USAGE);
-  process.exitCode = isHelp ? 0 : 2;
+switch (command) {
+  case "init": {
+    process.exitCode = await init(rest);
+
+    break;
+  }
+  case "inspect": {
+    process.exitCode = await inspect(rest);
+
+    break;
+  }
+  case "check": {
+    process.exitCode = await check(process.argv.slice(2));
+
+    break;
+  }
+  default: {
+    const isHelp = command === "-h" || command === "--help";
+    (isHelp ? process.stdout : process.stderr).write(USAGE);
+    process.exitCode = isHelp ? 0 : 2;
+  }
 }

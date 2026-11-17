@@ -1,13 +1,7 @@
 import type { Part, Shell, Strategy } from "./part.js";
 import type { Body, Control, Wake } from "./wake.js";
 import { deserialize } from "./part.js";
-import {
-  freshOf,
-  holdSwaps,
-  markupNow,
-  markupOf,
-  partsOf,
-} from "./runtime.js";
+import { freshOf, holdSwaps, markupNow, markupOf, partsOf } from "./runtime.js";
 import { awaken, codeOf, freshen, render, reveal } from "./wake.js";
 
 type Sent = Omit<Shell, "scope" | "context"> & {
@@ -34,7 +28,7 @@ function reload(part: Part) {
 
 function scopeOf(values: Record<string, unknown> | null) {
   if (values == null) {
-    return undefined;
+    return;
   }
   const scope = $state(values);
   return scope;
@@ -47,7 +41,8 @@ function activate(
 ) {
   const control: Control = { rouse: () => {} };
   const strategies: Array<Strategy> =
-    island.hydrate ?? (island.state === "client" ? ["visible"] : ["interaction"]);
+    island.hydrate ??
+    (island.state === "client" ? ["visible"] : ["interaction"]);
   const wake: Wake = {
     part: island.part,
     key: island.key,
@@ -101,12 +96,10 @@ export function start(load: (id: string) => Promise<Module>) {
     return;
   }
   holdSwaps();
-  const queued = new Map<string, Array<Sent>>();
-  for (const island of deserialize(text) as Array<Sent>) {
-    const list = queued.get(island.part.hash) ?? [];
-    list.push(island);
-    queued.set(island.part.hash, list);
-  }
+  const queued = Map.groupBy(
+    deserialize(text) as Array<Sent>,
+    (island) => island.part.hash,
+  );
   for (const target of document.querySelectorAll<HTMLElement>(
     "[data-island-module]",
   )) {

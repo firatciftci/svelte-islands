@@ -1,4 +1,4 @@
-import type { DevEnvironment, Environment, Plugin } from "vite";
+import type { DevEnvironment, Environment, Plugin, Rollup } from "vite";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
@@ -10,7 +10,12 @@ const BOOT_ID = "\0svelte-islands:boot";
 const ALIAS = "virtual:svelte-islands/island/";
 const ALIAS_ID = "\0svelte-islands:island:";
 const SENTINEL = "__svelte_islands_boot__";
-const HOOKS = ["src/hooks.ts", "src/hooks.js", "src/hooks/index.ts", "src/hooks/index.js"];
+const HOOKS = [
+  "src/hooks.ts",
+  "src/hooks.js",
+  "src/hooks/index.ts",
+  "src/hooks/index.js",
+];
 
 function isRunnable(environment: Environment): environment is DevEnvironment {
   return "transformRequest" in environment;
@@ -18,6 +23,27 @@ function isRunnable(environment: Environment): environment is DevEnvironment {
 
 function bootFiles(files: ReadonlyArray<string>) {
   return JSON.stringify(JSON.stringify(files));
+}
+
+function withBoot(code: string, files: ReadonlyArray<string>) {
+  const replacement = bootFiles(files);
+  return code.replaceAll(`"${SENTINEL}"`, () => replacement);
+}
+
+function staticImports(bundle: Rollup.OutputBundle, entry: string) {
+  const files = [entry];
+  for (let index = 0; index < files.length; index += 1) {
+    const chunk = bundle[files[index] ?? ""];
+    if (chunk?.type !== "chunk") {
+      continue;
+    }
+    for (const imported of chunk.imports) {
+      if (!files.includes(imported)) {
+        files.push(imported);
+      }
+    }
+  }
+  return files;
 }
 
 /**
@@ -52,6 +78,25 @@ export function islands(): Array<Plugin> {
     return modules.has(file) ? file : null;
   }
 
+  async function compilePage(
+    island: string,
+    environment: Environment,
+    load: (page: string) => Promise<unknown>,
+  ) {
+    const page = pages.get(island);
+    if (page == null || bodies.has(island)) {
+      return;
+    }
+    if (!isRunnable(environment)) {
+      await load(page);
+      return;
+    }
+    const relative = path.relative(root, page);
+    await environment.transformRequest(
+      relative.startsWith("..") ? `/@fs${page}` : `/${relative}`,
+    );
+  }
+
   function bootSource() {
     const hooks = HOOKS.map((file) => path.join(root, file)).find((file) =>
       existsSync(file),
@@ -66,8 +111,10 @@ export function islands(): Array<Plugin> {
       );
       return lines.join("\n");
     }
-    const entries = [...pages.keys()].map(
-      (id) => `${JSON.stringify(id)}: () => import(${JSON.stringify(`${ALIAS}${id}`)})`,
+    const entries = Array.from(
+      pages.keys(),
+      (id) =>
+        `${JSON.stringify(id)}: () => import(${JSON.stringify(`${ALIAS}${id}`)})`,
     );
     lines.push(
       `const registry = { ${entries.join(", ")} };`,
@@ -85,7 +132,9 @@ export function islands(): Array<Plugin> {
         root = config.root;
         isServe = config.command === "serve";
         const plugins = config.plugins as Array<Plugin>;
-        const own = plugins.findIndex((plugin) => plugin.name === "svelte-islands");
+        const own = plugins.findIndex(
+          (plugin) => plugin.name === "svelte-islands",
+        );
         const [plugin] = own === -1 ? [] : plugins.splice(own, 1);
         if (plugin == null) {
           return;
@@ -103,7 +152,7 @@ export function islands(): Array<Plugin> {
         const [output] = [config.build.rolldownOptions.output ?? {}].flat();
         if (output?.codeSplitting === false) {
           this.warn(
-            "islands on pages with csr = false stay as server HTML, because the build doesn't split code. Use the default output.bundleStrategy, \"split\".",
+            "the build doesn't split code, so each island's code stays in the main bundle, and islands on pages with csr = false stay as server HTML. Use the default output.bundleStrategy, \"split\".",
           );
           return;
         }
@@ -119,24 +168,15 @@ export function islands(): Array<Plugin> {
         return own(id);
       },
       async load(id) {
-        const [bare = id] = id.split("?");
+        const [bare = id] = id.split("?", 1);
         if (bare === BOOT_ID) {
           return bootSource();
         }
         if (bare.startsWith(ALIAS_ID)) {
           const island = bare.slice(ALIAS_ID.length);
-          const page = pages.get(island);
-          if (page != null && !bodies.has(island)) {
-            const { environment } = this;
-            if (isRunnable(environment)) {
-              const relative = path.relative(root, page);
-              await environment.transformRequest(
-                relative.startsWith("..") ? `/@fs${page}` : `/${relative}`,
-              );
-            } else {
-              await this.load({ id: page });
-            }
-          }
+          await compilePage(island, this.environment, async (page) =>
+            this.load({ id: page }),
+          );
           const file = bodies.get(island);
           return file == null
             ? `throw new Error("svelte-islands: no code for the island ${island}");`
@@ -146,7 +186,9 @@ export function islands(): Array<Plugin> {
         return file == null ? null : (modules.get(file) ?? null);
       },
       transform: {
-        filter: { id: { include: /\.svelte$/u, exclude: [/node_modules/u, ISLAND] } },
+        filter: {
+          id: { include: /\.svelte$/u, exclude: [/node_modules/u, ISLAND] },
+        },
         handler(code, id) {
           const target =
             this.environment.config.consumer === "client" ? "client" : "server";
@@ -184,21 +226,9 @@ export function islands(): Array<Plugin> {
         if (boot == null || name !== "client") {
           return;
         }
-        const entry = this.getFileName(boot);
-        const files = [entry];
-        for (const file of files) {
-          const chunk = bundle[file];
-          if (chunk?.type === "chunk") {
-            for (const imported of chunk.imports) {
-              if (!files.includes(imported)) {
-                files.push(imported);
-              }
-            }
-          }
-        }
+        const files = staticImports(bundle, this.getFileName(boot));
         for (const file of patched) {
-          const code = readFileSync(file, "utf8");
-          writeFileSync(file, code.replaceAll(`"${SENTINEL}"`, bootFiles(files)));
+          writeFileSync(file, withBoot(readFileSync(file, "utf8"), files));
         }
       },
     },
@@ -211,10 +241,7 @@ export function islands(): Array<Plugin> {
           if (this.environment.config.consumer === "client") {
             return null;
           }
-          return code.replaceAll(
-            `"${SENTINEL}"`,
-            bootFiles([`@id/__x00__${BOOT_ID.slice(1)}`]),
-          );
+          return withBoot(code, [`@id/__x00__${BOOT_ID.slice(1)}`]);
         },
       },
     },

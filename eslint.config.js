@@ -121,6 +121,7 @@ export default antfu({
     "no-unused-vars": "off",
     "pnpm/yaml-enforce-settings": "off",
     "prefer-const": "off",
+    "unicorn/prefer-then-catch": "off",
   },
 }).append(
   {
@@ -148,12 +149,32 @@ export default antfu({
       "unicorn/consistent-function-scoping": "off",
       "unicorn/no-await-expression-member": "off",
       "unicorn/prefer-structured-clone": "off",
+      "unicorn/no-incorrect-template-string-interpolation": "off",
+      "unicorn/no-top-level-assignment-in-function": "off",
     },
   },
   {
+    name: "local/lifecycle",
+    files: ["src/lib/wake.ts"],
+    rules: { "unicorn/prefer-await": "off" },
+  },
+  {
+    name: "local/vite-plugin",
+    files: ["src/lib/vite.ts"],
+    rules: { "unicorn/no-this-outside-of-class": "off" },
+  },
+  {
+    name: "local/compiler",
+    files: ["src/lib/extract.ts"],
+    rules: { "sonarjs/cognitive-complexity": "off" },
+  },
+  {
     name: "local/decoder",
-    files: ["src/lib/pack.ts"],
-    rules: { "unicorn/no-new-array": "off" },
+    files: ["src/lib/pack.ts", "src/lib/unpack.ts"],
+    rules: {
+      "unicorn/no-new-array": "off",
+      "unicorn/no-array-from-fill": "off",
+    },
   },
   {
     name: "local/plain-text-parser",

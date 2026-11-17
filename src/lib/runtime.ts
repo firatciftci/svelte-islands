@@ -212,7 +212,19 @@ async function fetchFresh() {
   return deserialize(await response.text()) as Array<Fresh>;
 }
 
-export async function freshOf(key: string) {
+async function settle(promise: Promise<unknown>, done: () => void) {
+  try {
+    await promise;
+  } catch {
+    return;
+  } finally {
+    done();
+  }
+}
+
+export async function freshOf<T = unknown>(
+  key: string,
+): Promise<Fresh<T> | null> {
   let batch = freshened.batch;
   if (batch == null) {
     const made: Batch = { found: fetchFresh(), taken: new Map() };
@@ -221,14 +233,18 @@ export async function freshOf(key: string) {
         freshened.batch = null;
       }
     };
-    made.found.then(clear, clear);
+    void settle(made.found, clear);
     freshened.batch = made;
     batch = made;
   }
   const index = batch.taken.get(key) ?? 0;
   batch.taken.set(key, index + 1);
   const found = await batch.found;
-  return found.filter((island) => island.key === key)[index] ?? null;
+  return (
+    (found.filter((island) => island.key === key)[index] as
+      | Fresh<T>
+      | undefined) ?? null
+  );
 }
 
 export function holdSwaps() {
@@ -600,11 +616,27 @@ export function idle(run: () => void) {
   };
 }
 
-let shaping: Promise<(element: Element) => string | null> | null = null;
+const shaping: {
+  promise: Promise<(element: Element) => string | null> | null;
+} = { promise: null };
+
+async function loadShaper() {
+  const { shape } = await import("./skeleton.js");
+  return shape;
+}
 
 export async function shaper() {
-  shaping ??= import("./skeleton.js").then((module) => module.shape);
-  return shaping;
+  shaping.promise ??= loadShaper();
+  return shaping.promise;
+}
+
+async function learnFrom(key: string, element: Element) {
+  const shape = await shaper();
+  const shaped = shape(element);
+  if (shaped != null && shaped !== "" && !skeletons.has(key)) {
+    skeletons.set(key, shaped);
+    save(key, shaped);
+  }
 }
 
 export function capture(key: string, element: Element) {
@@ -625,15 +657,7 @@ export function capture(key: string, element: Element) {
       };
       return;
     }
-    void quietly(
-      shaper().then((shape) => {
-        const shaped = shape(element);
-        if (shaped != null && shaped !== "" && !skeletons.has(key)) {
-          skeletons.set(key, shaped);
-          save(key, shaped);
-        }
-      }),
-    );
+    void quietly(learnFrom(key, element));
   };
   cancel = idle(attempt);
   return () => {
@@ -837,7 +861,7 @@ export function watch(
   start: (fired: Strategy) => void,
   options: Options = {},
 ) {
-  let isDone = false;
+  const state = { isDone: false };
   const stops: Array<() => void> = [];
   const stopAll = () => {
     for (const stop of stops.splice(0)) {
@@ -845,10 +869,10 @@ export function watch(
     }
   };
   const once = (fired: Strategy) => {
-    if (isDone) {
+    if (state.isDone) {
       return;
     }
-    isDone = true;
+    state.isDone = true;
     stopAll();
     start(fired);
   };
@@ -862,7 +886,7 @@ export function watch(
         options,
       ),
     );
-    if (isDone) {
+    if (state.isDone) {
       stopAll();
       break;
     }
@@ -872,7 +896,7 @@ export function watch(
       once("interaction");
     },
     stop: () => {
-      isDone = true;
+      state.isDone = true;
       stopAll();
     },
   };
@@ -1032,11 +1056,11 @@ function isField(element: Element): element is Field {
   );
 }
 
-function isChecked(field: Field): field is HTMLInputElement {
-  return (
-    field instanceof HTMLInputElement &&
+function checkable(field: Field) {
+  return field instanceof HTMLInputElement &&
     (field.type === "checkbox" || field.type === "radio")
-  );
+    ? field
+    : null;
 }
 
 function isDirty(field: Field) {
@@ -1045,9 +1069,10 @@ function isDirty(field: Field) {
       (option) => option.selected !== option.defaultSelected,
     );
   }
-  return isChecked(field)
-    ? field.checked !== field.defaultChecked
-    : field.value !== field.defaultValue;
+  const box = checkable(field);
+  return box == null
+    ? field.value !== field.defaultValue
+    : box.checked !== box.defaultChecked;
 }
 
 function snapshot(field: Field) {
@@ -1059,10 +1084,11 @@ function snapshot(field: Field) {
       }
     };
   }
-  if (isChecked(field)) {
-    const { checked } = field;
+  const box = checkable(field);
+  if (box != null) {
+    const { checked } = box;
     return () => {
-      field.checked = checked;
+      box.checked = checked;
     };
   }
   const { value } = field;

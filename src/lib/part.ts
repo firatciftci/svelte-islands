@@ -123,10 +123,10 @@ export type Shell = {
   context: Map<unknown, unknown>;
 };
 
-export type Fresh = {
+export type Fresh<T = unknown> = {
   key: string;
   html: string;
-  part: Part;
+  part: Part<T>;
   needs: string | null;
 };
 
@@ -152,7 +152,7 @@ const state: {
   reducers: Record<string, (value: unknown) => unknown>;
   sealed: Record<string, (value: unknown) => unknown>;
   revivers: Record<string, (value: unknown) => unknown>;
-  claims: Array<(value: unknown) => unknown>;
+  claims: Array<(value: unknown) => boolean>;
   packer: Packer | null;
 } = {
   read: () => null,
@@ -166,7 +166,7 @@ const state: {
 
 type Packer = (
   value: unknown,
-  claims: ReadonlyArray<(value: unknown) => unknown>,
+  claims: ReadonlyArray<(value: unknown) => boolean>,
 ) => string | null;
 
 export function usePacker(packer: Packer) {
@@ -258,7 +258,11 @@ const nested = {
 };
 
 function index(codecs: Transport) {
-  state.claims = Object.values(codecs).map(({ encode: reduce }) => reduce);
+  state.claims = Object.values(codecs).map(
+    ({ encode: reduce }) =>
+      (value: unknown) =>
+        Boolean(reduce(value)),
+  );
   const merged: Transport = { ...codecs, ...compact, part: nested };
   const all = Object.entries(merged);
   state.sealed = Object.fromEntries(

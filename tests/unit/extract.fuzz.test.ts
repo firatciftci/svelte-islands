@@ -28,6 +28,30 @@ const SCRIPT = `<script>
 
 const PAGE_NAMES = ["count", "label", "list", "word", "data"];
 
+const SELECTORS = [
+  "h1",
+  "div",
+  "span",
+  "b",
+  "i",
+  "em",
+  "input",
+  ".on",
+  ".child",
+  ".missing",
+  "[title]",
+  "[count]",
+  "div b",
+  "h1 + div",
+  "div:has(em)",
+  ":global(.on)",
+  ":global(div) span",
+  ":root",
+  "div :global { span { color: blue; } }",
+  "@media (width > 1px) { h1 { color: blue; } }",
+  "div { & > span { color: blue; } }",
+];
+
 const ISLAND = `<script>
   import { registry } from "./registry.js";
   let { part, children, module, scope } = $props();
@@ -44,7 +68,7 @@ const CHILD = `<script>
 
 let root = "";
 let made = 0;
-const tally = { islands: 0, split: 0 };
+const tally = { islands: 0, split: 0, styled: 0, styledSplit: 0 };
 
 beforeAll(async () => {
   root = await mkdtemp(path.join(tmpdir(), "islands-fuzz-"));
@@ -64,11 +88,16 @@ function pick<T>(draw: Draw, items: ReadonlyArray<T>): T {
   return items[draw.int(0, items.length - 1)] as T;
 }
 
-function expression(draw: Draw, names: ReadonlyArray<string>, depth: number): string {
+function expression(
+  draw: Draw,
+  names: ReadonlyArray<string>,
+  depth: number,
+): string {
   const leaf = () =>
-    draw.bool() && names.length > 0
-      ? pick(draw, names)
-      : pick(draw, ["1", '"s"', "word.length"]);
+    pick(
+      draw,
+      draw.bool() && names.length > 0 ? names : ["1", '"s"', "word.length"],
+    );
   if (depth <= 0) {
     return leaf();
   }
@@ -170,17 +199,28 @@ const pages = fc.gen().map((generator) => {
     next: () => (counter += 1),
   };
   const sections = Array.from({ length: draw.int(1, 3) }, () =>
-    [island(draw), `<div>${nodes(draw, PAGE_NAMES, 1, false)}</div>`].join("\n"),
+    [island(draw), `<div>${nodes(draw, PAGE_NAMES, 1, false)}</div>`].join(
+      "\n",
+    ),
   );
+  const rules = Array.from({ length: draw.bool() ? 0 : draw.int(1, 3) }, () => {
+    const selector = pick(draw, SELECTORS);
+    return selector.includes("{") ? selector : `${selector} { color: red; }`;
+  });
   return `${SCRIPT}
 {#snippet tag(value)}<em>{value} {label}</em>{/snippet}
 <h1>{${expression(draw, PAGE_NAMES, 1)}}</h1>
 ${sections.join("\n")}
+${rules.length === 0 ? "" : `<style>${rules.join(" ")}</style>`}
 `;
 });
 
 function serverModule(source: string, filename: string) {
-  return compile(source, { filename, generate: "server" })
+  return compile(source, {
+    filename,
+    generate: "server",
+    cssHash: () => "svelte-fuzz",
+  })
     .js.code.replaceAll(`"svelte-islands"`, `"./Island.compiled.js"`)
     .replaceAll(/"(\.\/[\w.-]+?)\.svelte"/gu, `"$1.compiled.js"`);
 }
@@ -202,35 +242,60 @@ async function renderVariant(
       throw new Error("expected islands");
     }
     const unexpected = extracted.warnings.filter(
-      (warning) => !warning.includes("means something else"),
+      (warning) =>
+        !warning.includes("means something else") &&
+        !warning.includes("scoped styles"),
     );
     expect(unexpected).toStrictEqual([]);
     source = extracted.code;
     if (variant === "client") {
-      tally.islands += (page.match(/<Island /gu) ?? []).length;
-      tally.split += extracted.modules.length;
+      const count = (page.match(/<Island /gu) ?? []).length;
+      if (page.includes("<style>")) {
+        tally.styled += count;
+        tally.styledSplit += extracted.modules.length;
+      } else {
+        tally.islands += count;
+        tally.split += extracted.modules.length;
+      }
     }
     for (const [index, island] of extracted.modules.entries()) {
-      if (variant === "client") {
-        const name = `island${index}.compiled.js`;
-        await writeFile(path.join(dir, name), serverModule(island.source, island.file));
-        imports.push(`import { body as b${index} } from "./${name}";`);
-        registry.push(`${JSON.stringify(island.id)}: b${index}`);
+      if (variant !== "client") {
+        continue;
       }
+
+      const name = `island${index}.compiled.js`;
+      await writeFile(
+        path.join(dir, name),
+        serverModule(island.source, island.file),
+      );
+      imports.push(`import { body as b${index} } from "./${name}";`);
+      registry.push(`${JSON.stringify(island.id)}: b${index}`);
     }
   }
   await writeFile(
     path.join(dir, "registry.js"),
     `${imports.join("\n")}\nexport const registry = { ${registry.join(", ")} };\n`,
   );
-  await writeFile(path.join(dir, "helpers.js"), "export function twice(value) { return value * 2; }\n");
-  await writeFile(path.join(dir, "Mock.compiled.js"), serverModule(ISLAND, "Mock.svelte"));
+  await writeFile(
+    path.join(dir, "helpers.js"),
+    "export function twice(value) { return value * 2; }\n",
+  );
+  await writeFile(
+    path.join(dir, "Mock.compiled.js"),
+    serverModule(ISLAND, "Mock.svelte"),
+  );
   await writeFile(
     path.join(dir, "Island.compiled.js"),
     `export { default as Island } from "./Mock.compiled.js";\n`,
   );
-  await writeFile(path.join(dir, "Child.compiled.js"), serverModule(CHILD, "Child.svelte"));
-  await writeFile(path.join(dir, "Page.compiled.js"), serverModule(source, file));
+  await writeFile(
+    path.join(dir, "Child.compiled.js"),
+    serverModule(CHILD, "Child.svelte"),
+  );
+  await writeFile(
+    path.join(dir, "Page.compiled.js"),
+    serverModule(source, file),
+  );
   const module = (await import(
     pathToFileURL(path.join(dir, "Page.compiled.js")).href
   )) as { default: Component<{ data: { rows: Array<number> } }> };
@@ -238,19 +303,16 @@ async function renderVariant(
 }
 
 describe("the Vite plugin's transform", () => {
-  it(
-    "renders the same HTML with and without the plugin",
-    async () => {
-      await fc.assert(
-        fc.asyncProperty(pages, async (page) => {
-          const original = await renderVariant("original", page);
-          expect(await renderVariant("server", page)).toBe(original);
-          expect(await renderVariant("client", page)).toBe(original);
-        }),
-        { numRuns: RUNS },
-      );
-      expect(tally.split / tally.islands).toBeGreaterThan(0.8);
-    },
-    600_000,
-  );
+  it("renders the same HTML with and without the plugin", async () => {
+    await fc.assert(
+      fc.asyncProperty(pages, async (page) => {
+        const original = await renderVariant("original", page);
+        expect(await renderVariant("server", page)).toBe(original);
+        expect(await renderVariant("client", page)).toBe(original);
+      }),
+      { numRuns: RUNS },
+    );
+    expect(tally.split / tally.islands).toBeGreaterThan(0.8);
+    expect(tally.styledSplit / tally.styled).toBeGreaterThan(0.3);
+  }, 600_000);
 });

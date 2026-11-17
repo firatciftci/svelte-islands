@@ -9,6 +9,7 @@ const config: KnipConfig = {
     "site/bench/*.ts",
     "site/cards.ts",
     "tests/e2e/*.ts",
+    "tests/stubs/*.ts",
   ],
   ignoreFiles: [
     "changelogithub.config.ts",

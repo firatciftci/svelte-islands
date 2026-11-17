@@ -30,7 +30,7 @@ type Row = Record<string, Value>;
 
 type Walk = {
   seen: Set<object>;
-  claims: ReadonlyArray<(value: unknown) => unknown>;
+  claims: ReadonlyArray<(value: unknown) => boolean>;
 };
 
 function isRow(value: Value): value is Row {
@@ -84,7 +84,7 @@ function isPackableWithin(value: unknown, walk: Walk): value is Value {
   if (walk.seen.has(value)) {
     return isFlat(value);
   }
-  if (walk.claims.some((isClaimed) => Boolean(isClaimed(value)))) {
+  if (walk.claims.some((isClaimed) => isClaimed(value))) {
     return false;
   }
   walk.seen.add(value);
@@ -93,7 +93,7 @@ function isPackableWithin(value: unknown, walk: Walk): value is Value {
 
 export function isPackable(
   value: unknown,
-  claims: ReadonlyArray<(value: unknown) => unknown> = [],
+  claims: ReadonlyArray<(value: unknown) => boolean> = [],
 ): value is Value {
   return isPackableWithin(value, { seen: new Set(), claims });
 }

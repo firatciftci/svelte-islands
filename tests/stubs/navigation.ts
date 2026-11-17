@@ -1,1 +1,1 @@
-export async function invalidateAll() {}
+export async function refreshAll() {}

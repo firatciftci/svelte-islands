@@ -384,6 +384,73 @@ describe("extract", () => {
     expect(extracted?.warnings.join("\n")).toContain(reason);
   });
 
+  it.each([
+    ["a class it uses", `<p class="a">`, ".a { color: red; }"],
+    ["its tag", `<p>`, "section p { color: red; }"],
+    ["a selector inside :has()", `<p>`, ".x:has(p) { color: red; }"],
+    [
+      "a class it may get at runtime",
+      `<p class={rows.length > 1 ? "a" : "b"}>`,
+      ".a { color: red; }",
+    ],
+    ["a spread", `<p {...data}>`, ".a { color: red; }"],
+    ["an attribute it has", `<p data-on="1">`, "[data-on] { color: red; }"],
+    [
+      "a class directive",
+      `<p class:a={rows.length > 1}>`,
+      ".a { color: red; }",
+    ],
+    [
+      "a nested rule",
+      `<p class="b">`,
+      "@media (width > 1px) { .a { .b { color: red; } } }",
+    ],
+    ["a dynamic element", `<svelte:element this="p">`, "p { color: red; }"],
+  ])(
+    "leaves an island in the page when its markup matches %s",
+    (_, open, style) => {
+      const tag = open.startsWith("<svelte:element") ? "svelte:element" : "p";
+      const extracted = extract(
+        page(
+          `  const { data } = $props();`,
+          `<Island part={data.rows}>{#snippet children(rows)}${open}{rows}</${tag}>{/snippet}</Island>`,
+          `<style>${style}</style>`,
+        ),
+        FILE,
+        "src/routes/+page.svelte",
+        "client",
+      );
+      expect(extracted?.modules).toStrictEqual([]);
+      expect(extracted?.warnings.join("\n")).toContain("scoped styles");
+    },
+  );
+
+  it.each([
+    ["another class", `<p class="b">{rows}</p>`, ".a { color: red; }"],
+    ["another tag", `<p>{rows}</p>`, "section span { color: red; }"],
+    ["the root", `<p>{rows}</p>`, ":root { --gap: 1rem; }"],
+    [
+      "a global block",
+      `<p class="a">{rows}</p>`,
+      ".page :global { .a { color: red; } }",
+    ],
+    [
+      "a global inside a compound selector",
+      `<p class="b">{rows}</p>`,
+      ":global(.b) span { color: red; }",
+    ],
+    ["a component", `<Rows {rows} />`, ".a { color: red; } p { color: blue; }"],
+  ])("splits islands whose markup meets only %s", (_, markup, style) => {
+    only(
+      page(
+        `  import Rows from "$lib/Rows.svelte";
+  const { data } = $props();`,
+        `<Island part={data.rows}>{#snippet children(rows)}${markup}{/snippet}</Island>`,
+        `<style>${style}</style>`,
+      ),
+    );
+  });
+
   it("splits islands whose markup only meets global styles", () => {
     only(
       page(

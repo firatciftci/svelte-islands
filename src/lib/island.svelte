@@ -74,7 +74,7 @@
     view?: string;
     /** Where the HTML comes from: `"server"` (the default), `"deferred"`, `"client"`, or `"fresh"`. */
     render?: Render;
-    /** When deferred or fresh HTML is fetched. The default is `"visible"`. */
+    /** When deferred HTML is fetched. The default is `"visible"`. Fresh HTML is fetched as soon as the island mounts. */
     reveal?: Strategy;
     /**
      * When to hydrate: one strategy, or several where the first to fire wins.
@@ -300,10 +300,13 @@
   }
 
   function later(run: () => void) {
-    return schedule(() => {
-      run();
-      flushSync();
-    }, untrack(() => strategies));
+    return schedule(
+      () => {
+        run();
+        flushSync();
+      },
+      untrack(() => strategies),
+    );
   }
 
   function wakeOf(): Wake {
@@ -410,9 +413,8 @@
     let job: ReturnType<typeof schedule> | null = null;
     const value =
       isFresh && !isReleased
-        ? freshOf(first).then(
-            async (found) =>
-              load((found?.part as Part<T> | undefined) ?? target),
+        ? freshOf<T>(first).then(
+            async (found) => load(found?.part ?? target),
             async () => load(target),
           )
         : load(target);

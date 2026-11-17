@@ -1,8 +1,8 @@
+import type { Rollup } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import path from "node:path";
 import process from "node:process";
 import { gzipSync } from "node:zlib";
-import type { Rollup } from "vite";
 import { build } from "vite";
 
 const INDEX = path.resolve("src/lib/index.ts");
@@ -13,6 +13,21 @@ const LIMITS = {
   },
   "every client export": { source: `export * from "${INDEX}";`, limit: 12.5 },
 };
+
+function chunksOf(result: Awaited<ReturnType<typeof build>>) {
+  const chunks = new Map<string, Rollup.OutputChunk>();
+  for (const output of [result].flat()) {
+    if (!("output" in output)) {
+      continue;
+    }
+    for (const file of output.output) {
+      if (file.type === "chunk") {
+        chunks.set(file.fileName, file);
+      }
+    }
+  }
+  return chunks;
+}
 
 async function bundled(source: string) {
   const virtual = "\0size-entry";
@@ -38,17 +53,7 @@ async function bundled(source: string) {
       },
     },
   });
-  const outputs = Array.isArray(result) ? result : [result];
-  const chunks = new Map<string, Rollup.OutputChunk>();
-  for (const output of outputs) {
-    if ("output" in output) {
-      for (const file of output.output) {
-        if (file.type === "chunk") {
-          chunks.set(file.fileName, file);
-        }
-      }
-    }
-  }
+  const chunks = chunksOf(result);
   const initial = new Set<string>();
   const visit = (name: string) => {
     const chunk = chunks.get(name);

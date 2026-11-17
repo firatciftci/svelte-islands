@@ -62,9 +62,9 @@
   const kib = (bytes: number) => `${(bytes / 1024).toFixed(1)} KiB`;
   const sized = (bytes: number | null | undefined) =>
     bytes == null ? "" : kib(bytes);
+  const ms = (duration: number) => `${Math.round(duration)} ms`;
   const timed = (duration: number | null | undefined) =>
     duration == null ? "" : ms(duration);
-  const ms = (duration: number) => `${Math.round(duration)} ms`;
 
   const rows = $derived(
     islands.map((island) => {
@@ -121,8 +121,11 @@
   }
 
   const entries = $derived.by(() => {
-    const found: Array<{ path: string; bytes: number | null; isPart: boolean }> =
-      [];
+    const found: Array<{
+      path: string;
+      bytes: number | null;
+      isPart: boolean;
+    }> = [];
     for (const [key, value] of Object.entries(page.data)) {
       const bytes = sizeOf(value);
       found.push({ path: key, bytes, isPart: value instanceof Part });
@@ -357,8 +360,8 @@
                       <span class="note">part</span>
                     {:else if entry.bytes != null && entry.bytes > advise * 1024}
                       <p class="issue">
-                        It's large, and it travels in every page load. Make it
-                        a part with part(), so it loads with its island.
+                        It's large, and it travels in every page load. Make it a
+                        part with part(), so it loads with its island.
                       </p>
                     {/if}
                   </td>

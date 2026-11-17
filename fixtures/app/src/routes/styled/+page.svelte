@@ -20,7 +20,8 @@
         presses += 1;
       }}
     >
-      {rows.length} {presses}
+      {rows.length}
+      {presses}
     </button>
   {/snippet}
 </Island>

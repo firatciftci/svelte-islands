@@ -1,6 +1,12 @@
 import type { Page, Route } from "@playwright/test";
 import { expect, test } from "@playwright/test";
-import { hydrated, observed, partRequests, reach, watchErrors } from "./helpers.ts";
+import {
+  hydrated,
+  observed,
+  partRequests,
+  reach,
+  watchErrors,
+} from "./helpers.ts";
 
 const B = "http://127.0.0.1:5302";
 const STATIC = "http://127.0.0.1:5303";

@@ -48,7 +48,8 @@
         count += 1;
       }}
     >
-      {words.length} {count}
+      {words.length}
+      {count}
     </button>
   {/snippet}
 </Island>

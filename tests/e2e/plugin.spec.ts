@@ -35,12 +35,8 @@ test.describe("captured page values", () => {
   }) => {
     await page.goto(seeded("/scope"));
     await hydrated(page);
-    await expect(page.getByTestId("group-north")).toHaveText(
-      "north 0 scope 0",
-    );
-    await expect(page.getByTestId("group-south")).toHaveText(
-      "south 1 scope 0",
-    );
+    await expect(page.getByTestId("group-north")).toHaveText("north 0 scope 0");
+    await expect(page.getByTestId("group-south")).toHaveText("south 1 scope 0");
   });
 
   test("each island's code waits for the island when nothing prefetches it", async ({

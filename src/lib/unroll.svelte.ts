@@ -5,6 +5,13 @@ import { shaper, whenWanted } from "./runtime.js";
 
 const BUDGET = 8;
 
+async function shapeTail(node: HTMLElement, model: Element) {
+  const shape = await shaper();
+  if (node.childElementCount === 0) {
+    node.innerHTML = shape(model) ?? "";
+  }
+}
+
 /**
  * Renders a long list in growing batches as the reader scrolls toward its end,
  * staying within a few milliseconds per frame. Find in page and printing bring
@@ -33,13 +40,7 @@ export const unroll = (
         const model = node.previousElementSibling;
         if (model != null && node.childElementCount === 0) {
           node.className ||= model.className;
-          void quietly(
-            shaper().then((shape) => {
-              if (node.childElementCount === 0) {
-                node.innerHTML = shape(model) ?? "";
-              }
-            }),
-          );
+          void quietly(shapeTail(node, model));
         }
         node.classList.add("island-skeleton");
         node.setAttribute("aria-hidden", "true");

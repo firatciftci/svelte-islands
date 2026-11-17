@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
@@ -41,7 +41,7 @@ function closing(text: string, open: number) {
 }
 
 function afterImports(text: string, line: string) {
-  const imports = [...text.matchAll(/^import\b[^;]*;?[^\S\n]*$/gmu)];
+  const imports = text.matchAll(/^import\b[^;]*(?:;[^\S\n]*)?$/gmu).toArray();
   const last = imports.at(-1);
   if (last == null) {
     return `${line}\n${text}`;
@@ -58,7 +58,10 @@ export function transport(text: string | null) {
     return null;
   }
   if (/export\s+const\s+transport\b/u.test(text)) {
-    const renamed = text.replace(/export\s+const\s+transport\b/u, "const codecs");
+    const renamed = text.replace(
+      /export\s+const\s+transport\b/u,
+      "const codecs",
+    );
     return `${afterImports(renamed, `import { islands } from "svelte-islands";`)}\nexport const transport = islands({ codecs });\n`;
   }
   return `${afterImports(text, `import { islands } from "svelte-islands";`)}\nexport const transport = islands();\n`;
@@ -72,29 +75,44 @@ export function handle(text: string | null) {
   if (text.includes("svelte-islands")) {
     return null;
   }
-  const declared = /export\s+(const\s+handle\b|(async\s+)?function\s+handle\b)/u;
+  const declared =
+    /export\s+(const\s+handle\b|(async\s+)?function\s+handle\b)/u;
   const found = declared.exec(text);
   if (found == null) {
     return `${afterImports(text, line)}\nexport const handle = islands();\n`;
   }
-  const renamed = text.replace(
-    declared,
-    found[1]?.startsWith("const") === true ? "const app" : `${found[2] ?? ""}function app`,
-  );
-  const sequenced = /import\s*\{[^}]*\bsequence\b[^}]*\}\s*from\s*["']@sveltejs\/kit\/hooks["']/u.test(text)
-    ? renamed
-    : afterImports(renamed, `import { sequence } from "@sveltejs/kit/hooks";`);
+  const replacement =
+    found[1]?.startsWith("const") === true
+      ? "const app"
+      : `${found[2] ?? ""}function app`;
+  const renamed = text.replace(declared, () => replacement);
+  const sequenced =
+    /import\s*\{[^}]*\bsequence\b[^}]*\}\s*from\s*["']@sveltejs\/kit\/hooks["']/u.test(
+      text,
+    )
+      ? renamed
+      : afterImports(
+          renamed,
+          `import { sequence } from "@sveltejs/kit/hooks";`,
+        );
   return `${afterImports(sequenced, line)}\nexport const handle = sequence(islands(), app);\n`;
 }
 
 export function vite(text: string | null) {
-  if (text == null || text.includes("svelte-islands/vite")) {
+  if (text == null) {
+    throw new Error(
+      "there's no Vite config, so add islands() from svelte-islands/vite next to sveltekit() in yours",
+    );
+  }
+  if (text.includes("svelte-islands/vite")) {
     return null;
   }
   const call = text.indexOf("sveltekit(");
   const end = call === -1 ? -1 : closing(text, call + "sveltekit".length);
   if (end === -1) {
-    throw new Error("can't find sveltekit() in the Vite config, so add islands() from svelte-islands/vite next to it yourself");
+    throw new Error(
+      "can't find sveltekit() in the Vite config, so add islands() from svelte-islands/vite next to it yourself",
+    );
   }
   const added = `${text.slice(0, end + 1)}, islands()${text.slice(end + 1)}`;
   return afterImports(added, `import { islands } from "svelte-islands/vite";`);
@@ -108,7 +126,7 @@ export function layout(text: string | null) {
   if (text.includes("svelte-islands/styles.css")) {
     return null;
   }
-  const script = /<script(?![^>]*\bmodule\b)[^>]*>/u.exec(text);
+  const script = /<script(?![^>]+\bmodule\b)[^>]*>/u.exec(text);
   if (script == null) {
     return `<script>\n  ${line}\n</script>\n\n${text}`;
   }
@@ -121,17 +139,33 @@ function pick(root: string, names: ReadonlyArray<string>) {
   return found ?? names[0] ?? "";
 }
 
-export function stepsFor(root: string): Array<Step> {
+function stepsFor(root: string): Array<Step> {
   const extension = existsSync(path.join(root, "tsconfig.json")) ? "ts" : "js";
   return [
-    { file: pick(root, [`src/hooks.${extension}`, "src/hooks.ts", "src/hooks.js"]), change: transport },
     {
-      file: pick(root, [`src/hooks.server.${extension}`, "src/hooks.server.ts", "src/hooks.server.js"]),
+      file: pick(root, [
+        `src/hooks.${extension}`,
+        "src/hooks.ts",
+        "src/hooks.js",
+      ]),
+      change: transport,
+    },
+    {
+      file: pick(root, [
+        `src/hooks.server.${extension}`,
+        "src/hooks.server.ts",
+        "src/hooks.server.js",
+      ]),
       change: handle,
     },
     { file: "src/routes/+layout.svelte", change: layout },
     {
-      file: pick(root, ["vite.config.ts", "vite.config.js", "vite.config.mts", "vite.config.mjs"]),
+      file: pick(root, [
+        "vite.config.ts",
+        "vite.config.js",
+        "vite.config.mts",
+        "vite.config.mjs",
+      ]),
       change: vite,
     },
   ];
@@ -145,7 +179,10 @@ async function contents(file: string) {
   }
 }
 
-export async function run(args: Array<string>, { out, err }: Output = TERMINAL) {
+export async function run(
+  args: Array<string>,
+  { out, err }: Output = TERMINAL,
+) {
   if (args.includes("-h") || args.includes("--help")) {
     out(USAGE);
     return 0;
@@ -166,11 +203,14 @@ export async function run(args: Array<string>, { out, err }: Output = TERMINAL) 
         out(`unchanged: ${step.file}`);
         continue;
       }
+      await mkdir(path.dirname(file), { recursive: true });
       await writeFile(file, after);
       out(`${before == null ? "created" : "updated"}: ${step.file}`);
     } catch (error) {
       isClean = false;
-      err(`skipped: ${step.file}: ${error instanceof Error ? error.message : String(error)}`);
+      err(
+        `skipped: ${step.file}: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
   return isClean ? 0 : 1;

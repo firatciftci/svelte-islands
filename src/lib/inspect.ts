@@ -71,7 +71,10 @@ const TERMINAL: Output = {
 };
 
 function decoded(text: string) {
-  return text.replaceAll(/&(?:quot|#34|#39|lt|gt|amp);/gu, (entity) => ENTITIES[entity] ?? entity);
+  return text.replaceAll(
+    /&(?:quot|#34|#39|lt|gt|amp);/gu,
+    (entity) => ENTITIES[entity] ?? entity,
+  );
 }
 
 function attributesOf(tag: string) {
@@ -139,6 +142,39 @@ async function partSize(url: string, fetcher: Fetcher) {
   }
 }
 
+type Island = Inspected["islands"][number];
+type Size = Island["part"];
+
+function islandOf(
+  attributes: Map<string, string>,
+  queued: Map<string, Array<Sent>>,
+): Omit<Island, "part"> {
+  const hash = attributes.get("data-island") ?? "";
+  const module = attributes.get("data-island-module") ?? null;
+  const record = module == null ? undefined : queued.get(hash)?.shift();
+  return {
+    hash,
+    name: record?.part.name ?? attributes.get("data-island-name") ?? null,
+    state: attributes.get("data-island-state") ?? null,
+    module,
+    file: attributes.get("data-island-file") ?? null,
+    needs: needsOf(attributes.get("data-island-needs")),
+    hydrate:
+      record == null
+        ? null
+        : (record.hydrate ?? [
+            record.state === "client" ? "visible" : "interaction",
+          ]),
+    scope: record?.scope == null ? null : Object.keys(record.scope),
+    context:
+      record == null
+        ? null
+        : record.context.map(([isSymbol, name]) =>
+            isSymbol ? `Symbol.for("${name}")` : name,
+          ),
+  };
+}
+
 export async function inspect(
   url: string,
   prefix: string,
@@ -159,42 +195,34 @@ export async function inspect(
     list.push(island);
     queued.set(island.part.hash, list);
   }
-  const sizes = new Map<string, Promise<Inspected["islands"][number]["part"]>>();
+  const sizes = new Map<string, Promise<Size>>();
   const origin = new URL(url).origin;
-  const islands: Array<Omit<Inspected["islands"][number], "part"> & {
-    part: Promise<Inspected["islands"][number]["part"]>;
-  }> = [];
-  for (const [, tag = ""] of html.matchAll(ISLAND)) {
-    const attributes = attributesOf(tag);
-    const hash = attributes.get("data-island") ?? "";
-    const module = attributes.get("data-island-module") ?? null;
-    const record =
-      module == null ? undefined : queued.get(hash)?.shift();
+  const sizeOf = async (hash: string) => {
     let size = sizes.get(hash);
     if (size == null) {
       size = partSize(new URL(`${prefix}${hash}.json`, origin).href, fetcher);
       sizes.set(hash, size);
     }
-    islands.push({
-      hash,
-      name: record?.part.name ?? attributes.get("data-island-name") ?? null,
-      state: attributes.get("data-island-state") ?? null,
-      module,
-      file: attributes.get("data-island-file") ?? null,
-      needs: needsOf(attributes.get("data-island-needs")),
-      part: size,
-      hydrate: record == null ? null : (record.hydrate ?? [record.state === "client" ? "visible" : "interaction"]),
-      scope: record?.scope == null ? null : Object.keys(record.scope),
-      context: record == null ? null : record.context.map(([isSymbol, name]) => (isSymbol ? `Symbol.for("${name}")` : name)),
-    });
-  }
+    return size;
+  };
+  const islands = html
+    .matchAll(ISLAND)
+    .map(([, tag = ""]) => islandOf(attributesOf(tag), queued))
+    .toArray();
   return {
     url,
     html: measure(body),
-    client: NATIVE.test(html) ? "sveltekit" : sent.length > 0 ? "islands" : "none",
+    client: NATIVE.test(html)
+      ? "sveltekit"
+      : sent.length > 0
+        ? "islands"
+        : "none",
     speculation: speculationOf(html),
     islands: await Promise.all(
-      islands.map(async (island) => ({ ...island, part: await island.part })),
+      islands.map(async (island) => ({
+        ...island,
+        part: await sizeOf(island.hash),
+      })),
     ),
   };
 }
@@ -218,6 +246,34 @@ const CLIENTS: Record<Inspected["client"], string> = {
   none: "no JavaScript runs islands (csr = false)",
 };
 
+function cellsOf(island: Island, client: Inspected["client"]) {
+  const cells = [
+    island.name ?? island.hash,
+    island.state == null
+      ? "rendered with the page"
+      : (STATES[island.state] ?? island.state),
+    island.part == null
+      ? "part in the page"
+      : `part ${kib(island.part.raw)} (${kib(island.part.gzip)} gzipped)`,
+    island.module == null ? "code in the page" : "code in its own chunk",
+  ];
+  if (client === "islands" && island.hydrate == null) {
+    cells.push("not sent by the boot, so it stays as server HTML");
+  }
+  if (island.needs > 0) {
+    cells.push(
+      `reads ${island.needs} more ${island.needs === 1 ? "part" : "parts"}`,
+    );
+  }
+  if (island.hydrate != null) {
+    cells.push(`hydrates on ${island.hydrate.join(" or ")}`);
+  }
+  if (island.scope != null && island.scope.length > 0) {
+    cells.push(`gets ${island.scope.join(", ")}`);
+  }
+  return cells;
+}
+
 export function describe(found: Inspected) {
   const lines = [
     found.url,
@@ -226,22 +282,7 @@ export function describe(found: Inspected) {
     `  ${found.islands.length === 1 ? "1 island" : `${found.islands.length} islands`}`,
   ];
   for (const island of found.islands) {
-    const cells = [
-      island.name ?? island.hash,
-      island.state == null ? "rendered with the page" : (STATES[island.state] ?? island.state),
-      island.part == null ? "part in the page" : `part ${kib(island.part.raw)} (${kib(island.part.gzip)} gzipped)`,
-      island.module == null ? "code in the page" : "code in its own chunk",
-    ];
-    if (island.needs > 0) {
-      cells.push(`reads ${island.needs} more ${island.needs === 1 ? "part" : "parts"}`);
-    }
-    if (island.hydrate != null) {
-      cells.push(`hydrates on ${island.hydrate.join(" or ")}`);
-    }
-    if (island.scope != null && island.scope.length > 0) {
-      cells.push(`gets ${island.scope.join(", ")}`);
-    }
-    lines.push(`    ${cells.join(", ")}`);
+    lines.push(`    ${cellsOf(island, found.client).join(", ")}`);
   }
   return lines.join("\n");
 }
@@ -273,7 +314,9 @@ export async function run(
   try {
     found = await inspect(url, values.prefix ?? "/_parts/", fetcher);
   } catch (error) {
-    err(`Can't read ${url}: ${error instanceof Error ? error.message : String(error)}`);
+    err(
+      `Can't read ${url}: ${error instanceof Error ? error.message : String(error)}`,
+    );
     return 1;
   }
   out(values.json === true ? JSON.stringify(found, null, 2) : describe(found));

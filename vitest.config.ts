@@ -12,10 +12,10 @@ export default defineConfig({
     {
       name: "boot",
       transform(code) {
-        return code.replaceAll(
-          '"__svelte_islands_boot__"',
-          JSON.stringify(JSON.stringify(["_app/islands.js", "_app/shared.js"])),
+        const files = JSON.stringify(
+          JSON.stringify(["_app/islands.js", "_app/shared.js"]),
         );
+        return code.replaceAll('"__svelte_islands_boot__"', () => files);
       },
     },
   ],

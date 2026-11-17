@@ -7,11 +7,9 @@ export async function visitorParts(cookies: Cookies) {
     visitor: await fresh("fresh.visitor", () => ({ name: nameOf() }), {
       name: "guest",
     }),
-    basket: await fresh(
-      "fresh.basket",
-      () => ({ items: itemsOf(nameOf()) }),
-      { items: itemsOf("guest") },
-    ),
+    basket: await fresh("fresh.basket", () => ({ items: itemsOf(nameOf()) }), {
+      items: itemsOf("guest"),
+    }),
   };
 }
 

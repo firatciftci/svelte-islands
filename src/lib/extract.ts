@@ -92,7 +92,27 @@ const RUNES = new Set([
   "$host",
 ]);
 
-const ELEMENTS = new Set(["RegularElement", "SvelteElement"]);
+function asNode(value: object): Node {
+  return value as Node;
+}
+
+function nodesOf(values: ReadonlyArray<object>): Array<Node> {
+  return values.map((value) => asNode(value));
+}
+
+function isSnippetBlock(node: Node): node is Node & AST.SnippetBlock {
+  return node.type === "SnippetBlock";
+}
+
+function isComponent(node: Node): node is Node & AST.Component {
+  return node.type === "Component";
+}
+
+function isElement(
+  node: Node,
+): node is Node & (AST.RegularElement | AST.SvelteElement) {
+  return node.type === "RegularElement" || node.type === "SvelteElement";
+}
 
 function isNode(value: unknown): value is Node {
   return (
@@ -163,12 +183,47 @@ function namesOf(pattern: Node | null | undefined, into: Array<string> = []) {
   return into;
 }
 
+const BLOCKS = new Set([
+  "IfBlock",
+  "EachBlock",
+  "AwaitBlock",
+  "KeyBlock",
+  "SnippetBlock",
+]);
+
+const ELEMENT_LIKE = new Set([
+  "RegularElement",
+  "Component",
+  "SvelteElement",
+  "SvelteComponent",
+  "SvelteBoundary",
+  "SvelteFragment",
+  "SvelteHead",
+  "SvelteBody",
+  "SvelteWindow",
+  "SvelteDocument",
+  "TitleElement",
+  "SlotElement",
+]);
+
+const KEYED = new Set(["Property", "MethodDefinition", "PropertyDefinition"]);
+
+const NAMED_DIRECTIVES = new Set([
+  "UseDirective",
+  "TransitionDirective",
+  "AnimateDirective",
+]);
+
+const LEGACY_PROPS = new Set(["$$props", "$$restProps", "$$slots"]);
+
+const FUNCTIONS = new Set([
+  "FunctionDeclaration",
+  "FunctionExpression",
+  "ArrowFunctionExpression",
+]);
+
 function isFunction(node: Node) {
-  return (
-    node.type === "FunctionDeclaration" ||
-    node.type === "FunctionExpression" ||
-    node.type === "ArrowFunctionExpression"
-  );
+  return FUNCTIONS.has(node.type);
 }
 
 function hoistVars(node: Node, into: Array<string>) {
@@ -204,7 +259,7 @@ class Walker {
     owner: Node | null = null,
     isWrite = false,
   ) {
-    if (name === "$$props" || name === "$$restProps" || name === "$$slots") {
+    if (LEGACY_PROPS.has(name)) {
       this.problems.push(`it reads ${name}`);
       return;
     }
@@ -212,11 +267,7 @@ class Walker {
     if (declaration == null && name.startsWith("$") && !RUNES.has(name)) {
       const store = scope.lookup(name.slice(1));
       if (store != null && store.kind !== "template") {
-        declaration = {
-          name,
-          scope: store.scope,
-          kind: "store",
-        };
+        declaration = { name, scope: store.scope, kind: "store" };
       }
     }
     this.references.push({
@@ -586,7 +637,10 @@ class Walker {
       }
       case "ClassDirective": {
         const expression = attribute.expression as Node;
-        if (code[attribute.end - 1] !== "}" && expression.type === "Identifier") {
+        if (
+          code[attribute.end - 1] !== "}" &&
+          expression.type === "Identifier"
+        ) {
           this.reference(
             expression.name as string,
             expression,
@@ -611,7 +665,8 @@ class Walker {
           );
           return;
         }
-        for (const part of (Array.isArray(value) ? value : [value]) as Array<Node>) {
+        const parts = (Array.isArray(value) ? value : [value]) as Array<Node>;
+        for (const part of parts) {
           if (part.type === "ExpressionTag") {
             this.expression(part.expression as Node, scope);
           }
@@ -625,7 +680,7 @@ class Walker {
       case "UseDirective":
       case "TransitionDirective":
       case "AnimateDirective": {
-        const [base = ""] = (attribute.name as string).split(".");
+        const [base = ""] = (attribute.name as string).split(".", 1);
         const start = code.indexOf(":", attribute.start) + 1;
         this.reference(
           base,
@@ -639,7 +694,6 @@ class Walker {
       }
       case "LetDirective": {
         this.problems.push("it uses let:");
-        return;
       }
     }
   }
@@ -654,22 +708,22 @@ class Walker {
         });
       } else if (node.type === "ConstTag" || node.type === "DeclarationTag") {
         for (const declarator of node.declaration.declarations) {
-          this.declarePattern(declarator.id as unknown as Node, scope);
+          this.declarePattern(asNode(declarator.id), scope);
         }
       }
     }
     for (const node of fragment.nodes) {
-      this.node(node as unknown as Node, scope, code);
+      this.node(asNode(node), scope, code);
     }
   }
 
   snippet(node: AST.SnippetBlock, parent: Scope, code: string) {
     const inner = this.scope(parent);
     for (const parameter of node.parameters) {
-      this.declarePattern(parameter as unknown as Node, inner);
+      this.declarePattern(asNode(parameter), inner);
     }
     for (const parameter of node.parameters) {
-      this.defaults(parameter as unknown as Node, inner);
+      this.defaults(asNode(parameter), inner);
     }
     this.fragment(node.body, inner, code);
   }
@@ -698,12 +752,7 @@ class Walker {
       }
       case "DebugTag": {
         for (const identifier of node.identifiers as Array<Node>) {
-          this.reference(
-            identifier.name as string,
-            identifier,
-            scope,
-            "debug",
-          );
+          this.reference(identifier.name as string, identifier, scope, "debug");
         }
         return;
       }
@@ -750,7 +799,9 @@ class Walker {
         return;
       }
       case "SnippetBlock": {
-        this.snippet(node as unknown as AST.SnippetBlock, scope, code);
+        if (isSnippetBlock(node)) {
+          this.snippet(node, scope, code);
+        }
         return;
       }
       case "SvelteSelf": {
@@ -768,24 +819,30 @@ class Walker {
   }
 
   element(node: Node, scope: Scope, code: string) {
-    if (node.type === "Component") {
-      const name = node.name as string;
-      const [base = name] = name.split(".");
-      this.reference(
-        base,
-        { start: node.start + 1, end: node.start + 1 + base.length },
-        scope,
-        "component",
-        node,
-      );
+    switch (node.type) {
+      case "Component": {
+        const name = node.name as string;
+        const [base = name] = name.split(".", 1);
+        this.reference(
+          base,
+          { start: node.start + 1, end: node.start + 1 + base.length },
+          scope,
+          "component",
+          node,
+        );
+        break;
+      }
+      case "SvelteElement": {
+        this.expression(node.tag as Node, scope);
+        break;
+      }
+      case "SvelteComponent": {
+        this.expression(node.expression as Node, scope);
+        break;
+      }
     }
-    if (node.type === "SvelteElement") {
-      this.expression(node.tag as Node, scope);
-    }
-    if (node.type === "SvelteComponent") {
-      this.expression(node.expression as Node, scope);
-    }
-    for (const attribute of (node.attributes ?? []) as Array<Node>) {
+    const attributes = (node.attributes ?? []) as Array<Node>;
+    for (const attribute of attributes) {
       this.attribute(attribute, scope, code);
     }
     if (node.fragment != null) {
@@ -803,7 +860,7 @@ function scriptScope(scripts: Array<Script>) {
     if (script == null) {
       continue;
     }
-    for (const statement of script.content.body as unknown as Array<Node>) {
+    for (const statement of nodesOf(script.content.body)) {
       const declared =
         statement.type === "ExportNamedDeclaration" &&
         isNode(statement.declaration)
@@ -873,57 +930,231 @@ function scriptScope(scripts: Array<Script>) {
   return { scope, islands };
 }
 
-function isGlobalOnly(css: AST.CSS.StyleSheet | null) {
-  if (css == null) {
-    return true;
-  }
-  const isGlobalRule = (node: AST.CSS.Rule | AST.CSS.Atrule): boolean => {
-    if (node.type === "Atrule") {
-      return (
-        node.name.endsWith("keyframes") ||
-        (node.block?.children ?? []).every(
-        (child) =>
-          child.type === "Declaration" ||
-            isGlobalRule(child as AST.CSS.Rule | AST.CSS.Atrule),
-        )
-      );
-    }
-    return node.prelude.children.every((complex) => {
-      const first = complex.children[0]?.selectors[0];
-      return first?.type === "PseudoClassSelector" && first.name === "global";
-    });
-  };
-  return css.children.every((child) => isGlobalRule(child));
+type Compound = ReadonlyArray<AST.CSS.SimpleSelector>;
+
+type Traits = {
+  tag: string | null;
+  classes: Set<string> | null;
+  ids: Set<string> | null;
+  attributes: Set<string> | null;
+};
+
+function isGlobal(selector: AST.CSS.SimpleSelector) {
+  return selector.type === "PseudoClassSelector" && selector.name === "global";
 }
 
-function hasElements(node: unknown): boolean {
+function isBareGlobal(selector: AST.CSS.SimpleSelector) {
+  return (
+    isGlobal(selector) &&
+    selector.type === "PseudoClassSelector" &&
+    selector.args == null
+  );
+}
+
+function scopedCompounds(css: AST.CSS.StyleSheet | null) {
+  const found: Array<Compound> = [];
+  const fromList = (list: AST.CSS.SelectorList) => {
+    for (const complex of list.children) {
+      for (const relative of complex.children) {
+        if (relative.selectors.some((selector) => isBareGlobal(selector))) {
+          break;
+        }
+        const isOwn = relative.selectors.some(
+          (selector) =>
+            !isGlobal(selector) && selector.type !== "NestingSelector",
+        );
+        if (isOwn) {
+          found.push(relative.selectors);
+        }
+        for (const selector of relative.selectors) {
+          if (
+            selector.type === "PseudoClassSelector" &&
+            selector.args != null &&
+            !isGlobal(selector)
+          ) {
+            fromList(selector.args);
+          }
+        }
+      }
+    }
+  };
+  const visit = (nodes: ReadonlyArray<AST.CSS.Node>) => {
+    for (const node of nodes) {
+      if (node.type === "Atrule") {
+        if (!node.name.endsWith("keyframes") && node.block != null) {
+          visit(node.block.children);
+        }
+      } else if (node.type === "Rule") {
+        fromList(node.prelude);
+        const isGlobalBlock = node.prelude.children.every((complex) =>
+          complex.children.some((relative) =>
+            relative.selectors.some((selector) => isBareGlobal(selector)),
+          ),
+        );
+        if (!isGlobalBlock) {
+          visit(node.block.children);
+        }
+      }
+    }
+  };
+  visit(css?.children ?? []);
+  return found;
+}
+
+function wordsOf(value: AST.Attribute["value"]) {
+  if (value === true) {
+    return [];
+  }
+  if (!Array.isArray(value) || value.some((piece) => piece.type !== "Text")) {
+    return null;
+  }
+  return value
+    .map((piece) => (piece.type === "Text" ? piece.data : ""))
+    .join("")
+    .split(/\s+/u)
+    .filter((word) => word !== "");
+}
+
+function traitsOf(element: AST.RegularElement | AST.SvelteElement): Traits {
+  const traits: Traits = {
+    tag: element.type === "RegularElement" ? element.name.toLowerCase() : null,
+    classes: new Set(),
+    ids: new Set(),
+    attributes: new Set(),
+  };
+  for (const attribute of element.attributes) {
+    if (attribute.type === "SpreadAttribute") {
+      return { tag: traits.tag, classes: null, ids: null, attributes: null };
+    }
+    switch (attribute.type) {
+      case "ClassDirective": {
+        traits.classes?.add(attribute.name);
+        traits.attributes?.add("class");
+
+        break;
+      }
+      case "StyleDirective": {
+        traits.attributes?.add("style");
+
+        break;
+      }
+      case "BindDirective": {
+        traits.attributes?.add(attribute.name.toLowerCase());
+
+        break;
+      }
+      case "Attribute": {
+        const name = attribute.name.toLowerCase();
+        traits.attributes?.add(name);
+        if (name === "class" || name === "id") {
+          const words = wordsOf(attribute.value);
+          const key = name === "class" ? "classes" : "ids";
+          if (words == null) {
+            traits[key] = null;
+          } else {
+            for (const word of words) {
+              traits[key]?.add(word);
+            }
+          }
+        }
+
+        break;
+      }
+      // No default
+    }
+  }
+  return traits;
+}
+
+function isMatchable(traits: Traits, compound: Compound) {
+  return compound.every((selector) => {
+    switch (selector.type) {
+      case "TypeSelector": {
+        return (
+          selector.name === "*" ||
+          traits.tag == null ||
+          selector.name.toLowerCase() === traits.tag
+        );
+      }
+      case "ClassSelector": {
+        return traits.classes == null || traits.classes.has(selector.name);
+      }
+      case "IdSelector": {
+        return traits.ids == null || traits.ids.has(selector.name);
+      }
+      case "AttributeSelector": {
+        return (
+          traits.attributes == null ||
+          traits.attributes.has(selector.name.toLowerCase())
+        );
+      }
+      case "PseudoClassSelector": {
+        return selector.name !== "root" && selector.name !== "host";
+      }
+      default: {
+        return true;
+      }
+    }
+  });
+}
+
+function styledElement(
+  node: unknown,
+  compounds: ReadonlyArray<Compound>,
+): string | null {
+  if (compounds.length === 0) {
+    return null;
+  }
   if (Array.isArray(node)) {
-    return node.some((item) => hasElements(item));
+    for (const item of node) {
+      const found = styledElement(item, compounds);
+      if (found != null) {
+        return found;
+      }
+    }
+    return null;
   }
   if (!isNode(node)) {
-    return false;
+    return null;
   }
-  if (ELEMENTS.has(node.type)) {
-    return true;
+  if (isElement(node)) {
+    const traits = traitsOf(node);
+    if (compounds.some((compound) => isMatchable(traits, compound))) {
+      return node.type === "RegularElement"
+        ? `<${node.name}>`
+        : "<svelte:element>";
+    }
   }
-  return Object.entries(node).some(
-    ([key, value]) =>
-      key !== "metadata" &&
-      typeof value === "object" &&
-      value != null &&
-      hasElements(value),
-  );
+  for (const [key, value] of Object.entries(node)) {
+    if (key === "metadata" || typeof value !== "object" || value == null) {
+      continue;
+    }
+
+    const found = styledElement(value, compounds);
+    if (found != null) {
+      return found;
+    }
+  }
+  return null;
 }
 
 function fresh(base: string, code: string) {
   let name = base;
-  while (new RegExp(`\\b${name.replaceAll("$", "\\$")}\\b`, "u").test(code)) {
-    name = `${name}_`;
+  while (
+    new RegExp(
+      String.raw`\b${name.replaceAll("$", String.raw`\$`)}\b`,
+      "u",
+    ).test(code)
+  ) {
+    name += "_";
   }
   return name;
 }
 
-function importLine(name: string, { source, kind, imported, attributes }: Imported) {
+function importLine(
+  name: string,
+  { source, kind, imported, attributes }: Imported,
+) {
   const from = JSON.stringify(source);
   if (kind === "default") {
     return `import ${name} from ${from}${attributes};`;
@@ -934,7 +1165,7 @@ function importLine(name: string, { source, kind, imported, attributes }: Import
   const specifier =
     imported === name
       ? name
-      : `${/^[\p{ID_Start}$_][\p{ID_Continue}$‌‍]*$/u.test(imported) ? imported : JSON.stringify(imported)} as ${name}`;
+      : `${/^[\p{ID_Start}$_][\p{ID_Continue}$\u{200C}\u{200D}]*$/u.test(imported) ? imported : JSON.stringify(imported)} as ${name}`;
   return `import { ${specifier} } from ${from}${attributes};`;
 }
 
@@ -951,7 +1182,7 @@ function analyze(
   declared: Scope,
   at: Scope,
   code: string,
-  hasScopedStyles: boolean,
+  compounds: ReadonlyArray<Compound>,
 ): Analysis {
   const result: Analysis = {
     captures: new Map(),
@@ -969,9 +1200,10 @@ function analyze(
     if (isCopy) {
       result.copies.push(node);
     }
-    if (hasScopedStyles && hasElements(node.body)) {
+    const styled = styledElement(node.body, compounds);
+    if (styled != null) {
       result.problems.push(
-        "its markup uses the page's scoped styles; move the markup into a component",
+        `its ${styled} matches a selector in the page's scoped styles; move the markup into a component, or make the selector :global`,
       );
     }
     const walker = new Walker();
@@ -982,7 +1214,10 @@ function analyze(
       if (declaration == null || walker.inner.has(declaration.scope)) {
         continue;
       }
-      if (declaration.kind !== "store" && at.lookup(reference.name) !== declaration) {
+      if (
+        declaration.kind !== "store" &&
+        at.lookup(reference.name) !== declaration
+      ) {
         result.problems.push(
           `"${reference.name}" means something else where the island is`,
         );
@@ -1016,7 +1251,12 @@ function analyze(
   return result;
 }
 
-function rewrite(text: MagicString, reference: Reference, scope: string, code: string) {
+function rewrite(
+  text: MagicString,
+  reference: Reference,
+  scope: string,
+  code: string,
+) {
   const member = `${scope}.${reference.name}`;
   const owner = reference.owner;
   switch (reference.role) {
@@ -1040,13 +1280,21 @@ function rewrite(text: MagicString, reference: Reference, scope: string, code: s
     }
     case "shorthand-directive": {
       if (owner != null) {
-        text.overwrite(owner.start, owner.end, `${code.slice(owner.start, owner.end)}={${member}}`);
+        text.overwrite(
+          owner.start,
+          owner.end,
+          `${code.slice(owner.start, owner.end)}={${member}}`,
+        );
       }
       return;
     }
     case "shorthand-style": {
       if (owner != null) {
-        text.overwrite(owner.start, owner.end, `style:${reference.name}={${member}}`);
+        text.overwrite(
+          owner.start,
+          owner.end,
+          `style:${reference.name}={${member}}`,
+        );
       }
       return;
     }
@@ -1064,10 +1312,10 @@ function rewrite(text: MagicString, reference: Reference, scope: string, code: s
     }
     case "directive": {
       text.overwrite(reference.start, reference.end, member);
-      return;
+      break;
     }
     case "debug": {
-      return;
+      break;
     }
   }
 }
@@ -1080,7 +1328,7 @@ function scopeObject(
   const members: Array<string> = [];
   for (const [name, capture] of captures) {
     members.push(`get ${name}() { return ${name}; }`);
-    if (capture.isWritten && !isServer) {
+    if (!isServer && capture.isWritten) {
       members.push(`set ${name}(${value}) { ${name} = ${value}; }`);
     }
   }
@@ -1088,9 +1336,9 @@ function scopeObject(
 }
 
 function headerEnd(snippet: AST.SnippetBlock, code: string) {
-  const last = snippet.parameters.at(-1) as unknown as Node | undefined;
-  const from =
-    last?.end ?? code.indexOf("(", (snippet.expression as unknown as Node).end);
+  const parameter = snippet.parameters.at(-1);
+  const last = parameter == null ? undefined : asNode(parameter);
+  const from = last?.end ?? code.indexOf("(", asNode(snippet.expression).end);
   return code.indexOf("}", code.indexOf(")", from)) + 1;
 }
 
@@ -1126,7 +1374,7 @@ export function extract(
     return null;
   }
   const isServer = target === "server";
-  const hasScopedStyles = !isGlobalOnly(root.css);
+  const compounds = scopedCompounds(root.css);
   const isTypeScript = [root.instance, root.module].some((script) =>
     script?.attributes.some(
       (attribute) =>
@@ -1190,7 +1438,7 @@ export function extract(
       );
       return false;
     }
-    const analysis = analyze(snippet, declared, at, code, hasScopedStyles);
+    const analysis = analyze(snippet, declared, at, code, compounds);
     if (analysis.problems.length > 0) {
       warnings.push(
         `${name}:${line}: the island stays in the page, because ${[...new Set(analysis.problems)].join(", ")}`,
@@ -1213,15 +1461,17 @@ export function extract(
       return true;
     }
     for (const reference of analysis.references) {
-      if (!rewritten.has(reference.start)) {
-        rewritten.add(reference.start);
-        rewrite(moduleText, reference, scopeName, code);
+      if (rewritten.has(reference.start)) {
+        continue;
       }
+
+      rewritten.add(reference.start);
+      rewrite(moduleText, reference, scopeName, code);
     }
 
     const end = headerEnd(snippet, code);
     const close = code.lastIndexOf("{/snippet", snippet.end - 1);
-    const parameters = snippet.parameters as unknown as Array<Node>;
+    const parameters = nodesOf(snippet.parameters);
     const first = parameters[0];
     const last = parameters.at(-1);
     const params =
@@ -1268,23 +1518,28 @@ export function extract(
   };
 
   const walk = (node: Node, scope: Scope): void => {
-    if (node.type === "Component" && islands.has(node.name as string)) {
-      if (visitIsland(node as unknown as AST.Component, scope)) {
-        return;
-      }
+    if (
+      isComponent(node) &&
+      islands.has(node.name) &&
+      visitIsland(node, scope)
+    ) {
+      return;
     }
     if (node.type === "Fragment") {
       const inner = new Scope(scope);
       const nodes = node.nodes as Array<Node>;
       for (const child of nodes) {
-        if (child.type === "SnippetBlock") {
-          const block = child as unknown as AST.SnippetBlock;
-          inner.declare(block.expression.name, {
+        if (isSnippetBlock(child)) {
+          inner.declare(child.expression.name, {
             kind: "snippet",
-            snippet: { node: block, scope: inner },
+            snippet: { node: child, scope: inner },
           });
-        } else if (child.type === "ConstTag" || child.type === "DeclarationTag") {
-          for (const declarator of (child.declaration as Node).declarations as Array<Node>) {
+        } else if (
+          child.type === "ConstTag" ||
+          child.type === "DeclarationTag"
+        ) {
+          for (const declarator of (child.declaration as Node)
+            .declarations as Array<Node>) {
             for (const declaredName of namesOf(declarator.id as Node)) {
               inner.declare(declaredName, { kind: "template" });
             }
@@ -1339,13 +1594,17 @@ export function extract(
       return;
     }
     for (const child of children(node)) {
-      if (child.type === "Fragment" || ELEMENT_LIKE.has(child.type) || BLOCKS.has(child.type)) {
+      if (
+        child.type === "Fragment" ||
+        ELEMENT_LIKE.has(child.type) ||
+        BLOCKS.has(child.type)
+      ) {
         walk(child, inner);
       }
     }
   };
 
-  walk(root.fragment as unknown as Node, top);
+  walk(asNode(root.fragment), top);
   if (modules.length === 0) {
     return warnings.length > 0
       ? { code, map: page.generateMap({ hires: true }), modules, warnings }
@@ -1363,34 +1622,15 @@ export function extract(
   };
 }
 
-const BLOCKS = new Set([
-  "IfBlock",
-  "EachBlock",
-  "AwaitBlock",
-  "KeyBlock",
-  "SnippetBlock",
-]);
-
-const ELEMENT_LIKE = new Set([
-  "RegularElement",
-  "Component",
-  "SvelteElement",
-  "SvelteComponent",
-  "SvelteBoundary",
-  "SvelteFragment",
-  "SvelteHead",
-  "SvelteBody",
-  "SvelteWindow",
-  "SvelteDocument",
-  "TitleElement",
-  "SlotElement",
-]);
-
 function isRemoved(start: number, removed: Array<[number, number]>) {
   return removed.some(([from, to]) => start >= from && start < to);
 }
 
-function usedNames(root: AST.Root, code: string, removed: Array<[number, number]>) {
+function usedNames(
+  root: AST.Root,
+  code: string,
+  removed: Array<[number, number]>,
+) {
   const used = new Map<string, number>();
   const count = (name: string, start: number) => {
     if (!isRemoved(start, removed)) {
@@ -1413,9 +1653,7 @@ function usedNames(root: AST.Root, code: string, removed: Array<[number, number]
         ((parent.type === "MemberExpression" &&
           key === "property" &&
           parent.computed !== true) ||
-          ((parent.type === "Property" ||
-            parent.type === "MethodDefinition" ||
-            parent.type === "PropertyDefinition") &&
+          (KEYED.has(parent.type) &&
             key === "key" &&
             parent.computed !== true &&
             parent.shorthand !== true) ||
@@ -1431,15 +1669,8 @@ function usedNames(root: AST.Root, code: string, removed: Array<[number, number]
       }
       return;
     }
-    if (node.type === "Component") {
-      count((node.name as string).split(".")[0] ?? "", node.start);
-    }
-    if (
-      node.type === "UseDirective" ||
-      node.type === "TransitionDirective" ||
-      node.type === "AnimateDirective"
-    ) {
-      count((node.name as string).split(".")[0] ?? "", node.start);
+    if (node.type === "Component" || NAMED_DIRECTIVES.has(node.type)) {
+      count((node.name as string).split(".", 1)[0] ?? "", node.start);
     }
     if (node.type === "StyleDirective" && node.value === true) {
       count(node.name as string, node.start);
@@ -1500,8 +1731,11 @@ function pruneImports(
     if (script == null) {
       continue;
     }
-    for (const statement of script.content.body as unknown as Array<Node>) {
-      if (statement.type !== "ImportDeclaration" || statement.importKind === "type") {
+    for (const statement of nodesOf(script.content.body)) {
+      if (
+        statement.type !== "ImportDeclaration" ||
+        statement.importKind === "type"
+      ) {
         continue;
       }
       const specifiers = statement.specifiers as Array<Node>;
@@ -1517,7 +1751,8 @@ function pruneImports(
         const isAlone =
           lineEnd !== -1 && code.slice(statement.end, lineEnd).trim() === "";
         const lineStart = code.lastIndexOf("\n", statement.start - 1) + 1;
-        const isLineStart = code.slice(lineStart, statement.start).trim() === "";
+        const isLineStart =
+          code.slice(lineStart, statement.start).trim() === "";
         page.remove(
           isAlone && isLineStart ? lineStart : statement.start,
           isAlone && isLineStart ? lineEnd + 1 : statement.end,
@@ -1527,8 +1762,12 @@ function pruneImports(
       const defaults = kept.filter(
         (specifier) => specifier.type !== "ImportSpecifier",
       );
-      const named = kept.filter((specifier) => specifier.type === "ImportSpecifier");
-      const parts = defaults.map((specifier) => code.slice(specifier.start, specifier.end));
+      const named = kept.filter(
+        (specifier) => specifier.type === "ImportSpecifier",
+      );
+      const parts = defaults.map((specifier) =>
+        code.slice(specifier.start, specifier.end),
+      );
       if (named.length > 0) {
         parts.push(
           `{ ${named.map((specifier) => code.slice(specifier.start, specifier.end)).join(", ")} }`,

@@ -66,10 +66,9 @@ test.describe("held input", () => {
     await page.getByLabel("Name").pressSequentially("Grace");
     await page.getByRole("button", { name: "Send" }).click();
     await expect(page.getByTestId("sent")).toHaveText("unsent");
-    await expect(page.getByTestId("sent")).toHaveText(
-      "Grace||north|false",
-      { timeout: 10_000 },
-    );
+    await expect(page.getByTestId("sent")).toHaveText("Grace||north|false", {
+      timeout: 10_000,
+    });
     expect(new URL(page.url()).search).toBe(new URL(path, page.url()).search);
   });
 
@@ -133,7 +132,9 @@ test.describe("prefetch", () => {
     ).toMatchObject({ when: "interaction", isPrefetched: true });
   });
 
-  test("an island with prefetch off waits for the visitor", async ({ page }) => {
+  test("an island with prefetch off waits for the visitor", async ({
+    page,
+  }) => {
     await page.goto(seeded());
     await hydrated(page);
     await page.evaluate(
@@ -141,7 +142,9 @@ test.describe("prefetch", () => {
     );
     const events = await observed(page);
     expect(
-      events.some((event) => event.type === "load" && event.name === "form.rows"),
+      events.some(
+        (event) => event.type === "load" && event.name === "form.rows",
+      ),
     ).toBe(false);
   });
 
@@ -158,7 +161,9 @@ test.describe("prefetch", () => {
     );
     const events = await observed(page);
     expect(
-      events.some((event) => event.type === "load" && event.name === "near.rows"),
+      events.some(
+        (event) => event.type === "load" && event.name === "near.rows",
+      ),
     ).toBe(false);
   });
 });

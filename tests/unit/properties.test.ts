@@ -38,7 +38,9 @@ const { value } = fc.letrec<{ value: unknown }>((tie) => ({
     fc.array(fc.integer(), { maxLength: 6 }).map((items) => new Set(items)),
     fc
       .record({ id: fc.integer(), name: fc.string(), score: fc.double() })
-      .chain((row) => fc.array(fc.constant(row), { minLength: 4, maxLength: 20 })),
+      .chain((row) =>
+        fc.array(fc.constant(row), { minLength: 4, maxLength: 20 }),
+      ),
   ),
 }));
 
@@ -79,7 +81,19 @@ describe("serialize", () => {
   });
 });
 
-const TAGS = ["div", "section", "p", "span", "ul", "li", "table", "tr", "td", "b", "a"];
+const TAGS = [
+  "div",
+  "section",
+  "p",
+  "span",
+  "ul",
+  "li",
+  "table",
+  "tr",
+  "td",
+  "b",
+  "a",
+];
 const HEADINGS = ["h1", "h2", "h3"];
 
 const attribute = fc.oneof(
@@ -99,10 +113,19 @@ const { html } = fc.letrec<{ html: string }>((tie) => ({
     fc.constant(`<!-- ${SECRET} -->`),
     fc.constant(`<img src="/${SECRET}.png" alt="${SECRET}">`),
     fc
-      .tuple(fc.constantFrom(...TAGS), attribute, fc.array(tie("html"), { maxLength: 5 }))
-      .map(([tag, extra, inner]) => `<${tag}${extra}>${inner.join("")}</${tag}>`),
+      .tuple(
+        fc.constantFrom(...TAGS),
+        attribute,
+        fc.array(tie("html"), { maxLength: 5 }),
+      )
+      .map(
+        ([tag, extra, inner]) => `<${tag}${extra}>${inner.join("")}</${tag}>`,
+      ),
     fc
-      .tuple(fc.constantFrom(...HEADINGS), fc.stringMatching(/^[A-Za-z ]{1,12}$/u))
+      .tuple(
+        fc.constantFrom(...HEADINGS),
+        fc.stringMatching(/^[A-Za-z ]{1,12}$/u),
+      )
       .map(([tag, words]) => `<${tag}>${words}</${tag}>`),
     fc.string({ maxLength: 20 }),
   ),

@@ -1,6 +1,7 @@
 import type { RequestEvent } from "@sveltejs/kit";
 import { brotliDecompressSync } from "node:zlib";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type * as PartModule from "#lib/part.js";
 import type * as ServerModule from "#lib/server.js";
 import type { Store } from "#lib/server.js";
 
@@ -682,7 +683,7 @@ describe("the part server", () => {
 describe("pages without SvelteKit's client", () => {
   const KIT = "<script>__sveltekit_abc = { base: '' };</script>";
   let server: Server;
-  let part: typeof import("#lib/part.js");
+  let part: typeof PartModule;
   let enter: (event: RequestEvent) => void;
 
   async function load(isDev: boolean) {
@@ -700,21 +701,23 @@ describe("pages without SvelteKit's client", () => {
 
   function record(scope: object | null, context = new Map<unknown, unknown>()) {
     const made = server.part("shell", { rows: "x".repeat(8000) });
-    part.scope()?.record({
-      part: made,
-      key: "shell",
-      state: "static",
-      file: null,
-      needs: null,
-      module: "abc123",
-      hydrate: null,
-      reveal: "visible",
-      margin: null,
-      media: null,
-      prefetch: true,
-      scope,
-      context,
-    });
+    part
+      .scope()
+      ?.record({
+        part: made,
+        key: "shell",
+        state: "static",
+        file: null,
+        needs: null,
+        module: "abc123",
+        hydrate: null,
+        reveal: "visible",
+        margin: null,
+        media: null,
+        prefetch: true,
+        scope,
+        context,
+      });
     return made;
   }
 
@@ -739,9 +742,10 @@ describe("pages without SvelteKit's client", () => {
   }
 
   function sent(html: string) {
-    const text = /<script type="application\/json" id="svelte-islands">(.*?)<\/script>/u.exec(
-      html,
-    )?.[1];
+    const text =
+      /<script type="application\/json" id="svelte-islands">(.*?)<\/script>/u.exec(
+        html,
+      )?.[1];
     return text == null
       ? null
       : (part.deserialize(text) as Array<{
@@ -751,12 +755,13 @@ describe("pages without SvelteKit's client", () => {
         }>);
   }
 
-  it("get the boot script and each island's values and named contexts", async () => {
+  it("get the boot script, each island's values, and its named contexts but not SvelteKit's", async () => {
     const handler = server.handle();
     const html = await page(handler, "<head></head><body></body>", () => {
       record(
         { count: 2, when: new Date(0) },
         new Map<unknown, unknown>([
+          ["__request__", { page: { data: { secret: "page data" } } }],
           ["label", "warm"],
           [Symbol.for("tone"), "dry"],
           [Symbol("hidden"), "secret"],
@@ -764,7 +769,9 @@ describe("pages without SvelteKit's client", () => {
         ]),
       );
     });
-    expect(html).toContain('<link rel="modulepreload" href="/_app/islands.js">');
+    expect(html).toContain(
+      '<link rel="modulepreload" href="/_app/islands.js">',
+    );
     expect(html).toContain('<link rel="modulepreload" href="/_app/shared.js">');
     expect(html).toContain(
       '<script type="module" src="/_app/islands.js"></script></body>',
@@ -825,6 +832,7 @@ describe("pages without SvelteKit's client", () => {
     });
     const shell = await page(handler, "<head></head><body></body>");
     expect(shell).toContain('<script type="speculationrules">{"prefetch":');
+    expect(shell).toContain("[data-sveltekit-preload-data='false']");
     expect(shell).toContain("@view-transition");
     const routed = await page(handler, `<head></head><body>${KIT}</body>`);
     expect(routed).not.toContain("speculationrules");

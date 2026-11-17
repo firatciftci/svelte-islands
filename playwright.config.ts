@@ -32,7 +32,9 @@ export default defineConfig({
       name: "chromium",
       use: {
         ...devices["Desktop Chrome"],
-        ...(chromium != null && { launchOptions: { executablePath: chromium } }),
+        ...(chromium != null && {
+          launchOptions: { executablePath: chromium },
+        }),
       },
     },
     { name: "firefox", use: devices["Desktop Firefox"] },

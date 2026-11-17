@@ -10,6 +10,7 @@
     "pnpm-workspace.yaml",
     ".svelte-kit",
     "build",
-    "dist"
+    "dist",
+    "site/static/google*.html"
   ]
 }

@@ -5,7 +5,7 @@ import type { Strategy } from "./part.js";
  *
  * - `load`: a part's data was downloaded and decoded. `isPrefetch` is true when
  *   it was fetched early, at low priority, because the island came near the viewport.
- * - `markup`: a deferred or fresh island's HTML was downloaded.
+ * - `markup`: a deferred island's HTML was downloaded.
  * - `hydrate`: an island became interactive, with what it cost. `when` is the
  *   strategy that woke it, `duration` is how long hydration took, `delay` is
  *   the time from the first interaction with the island to it going live (or
