@@ -112,3 +112,15 @@ test.describe("pages with csr = false", () => {
     );
   });
 });
+
+test("without the plugin, islands on a page with csr = false stay as server HTML", async ({
+  page,
+}) => {
+  test.skip(isSplit, "checks the build without the Vite plugin");
+  const errors = watchErrors(page);
+  await page.goto(seeded("/shell"));
+  await expect(page.getByTestId("shell-scope")).toHaveText("hello 5");
+  await expect(page.locator("#svelte-islands")).toHaveCount(0);
+  await expect(page.locator("script[type=speculationrules]")).toHaveCount(1);
+  expect(errors).toStrictEqual([]);
+});
