@@ -1,10 +1,11 @@
 import type { RequestEvent } from "@sveltejs/kit";
 import type { Handle } from "@sveltejs/kit/hooks";
 import { building, dev } from "$app/env";
+import { asset } from "$app/paths";
 import { getRequestEvent } from "$app/server";
 import { createHash, randomUUID } from "node:crypto";
 import { render } from "svelte/server";
-import type { Fetch } from "./part.js";
+import type { Fetch, Shell } from "./part.js";
 import type { RebuildOptions } from "./rebuild.js";
 import type { Store } from "./stores.js";
 import Frame from "./frame.svelte";
@@ -37,6 +38,9 @@ const HOLLOW = 3;
 const IMMUTABLE = "public, max-age=31536000, immutable";
 const MIN_COMPRESSED = 1024;
 const SETTLE = 1000;
+const BOOT = "__svelte_islands_boot__";
+const NATIVE = /__sveltekit_\w+\s*=\s*\{/u;
+const VIEW_TRANSITIONS = "<style>@view-transition{navigation:auto}</style>";
 
 type Digest = { text: string; hash: string };
 
@@ -51,6 +55,7 @@ const requests = new WeakMap<
     parts: Set<Part>;
     files: Set<string>;
     early: Set<string>;
+    shells: Array<Shell>;
     isHeaded: boolean;
     isPersonal: boolean;
     isStreamed: boolean;
@@ -64,6 +69,7 @@ const squeezed = new Map<
 >();
 const outlines = new Map<string, string>();
 const hollow = new Map<string, { count: number; at: number }>();
+type Speculation = "prefetch" | "prerender" | false;
 type Prepare = (
   request: { url: URL; headers: Headers },
   event: RequestEvent,
@@ -78,6 +84,8 @@ const config: {
   compress: boolean;
   warnOnCookies: boolean;
   shareStreamed: boolean;
+  speculation: Speculation;
+  viewTransitions: boolean;
 } = {
   store: null,
   memory: 64 * 1024 ** 2,
@@ -87,6 +95,8 @@ const config: {
   compress: true,
   warnOnCookies: true,
   shareStreamed: false,
+  speculation: false,
+  viewTransitions: false,
 };
 const state: {
   held: number;
@@ -162,6 +172,7 @@ function track(locals: object) {
       parts: new Set(),
       files: new Set(),
       early: new Set(),
+      shells: [],
       isHeaded: false,
       isPersonal: false,
       isStreamed: false,
@@ -407,6 +418,9 @@ provide(() => {
       }
       return isAwait;
     },
+    record: (island) => {
+      track(event.locals).shells.push(island);
+    },
   };
 });
 
@@ -484,20 +498,175 @@ function swapped(early: Set<string>) {
       ];
 }
 
+function urlOf(file: string) {
+  return asset(file as Parameters<typeof asset>[0]);
+}
+
+function bootFiles(): Array<string> | null {
+  return BOOT.startsWith("[") ? (JSON.parse(BOOT) as Array<string>) : null;
+}
+
+function rulesFor(mode: "prefetch" | "prerender") {
+  const rules = {
+    [mode]: [
+      {
+        source: "document",
+        where: {
+          and: [
+            { href_matches: "/*" },
+            {
+              not: {
+                selector_matches:
+                  "[download], [rel~='external'], [data-sveltekit-preload-data='off'], [data-sveltekit-preload-data='off'] a",
+              },
+            },
+          ],
+        },
+        eagerness: "moderate",
+      },
+    ],
+  };
+  return `<script type="speculationrules">${JSON.stringify(rules)}</script>`;
+}
+
+type Sent = Omit<Shell, "scope" | "context"> & {
+  scope: Record<string, unknown> | null;
+  context: Array<[isSymbol: boolean, name: string, value: unknown]>;
+};
+
+function sendable(value: unknown, checked: Map<unknown, boolean>) {
+  const known = checked.get(value);
+  if (known != null) {
+    return known;
+  }
+  let isSendable = true;
+  try {
+    serialize(value, true);
+  } catch {
+    isSendable = false;
+  }
+  checked.set(value, isSendable);
+  return isSendable;
+}
+
+function valuesOf(island: Shell, checked: Map<unknown, boolean>) {
+  if (island.scope == null) {
+    return null;
+  }
+  const values: Record<string, unknown> = {};
+  for (const name of Object.keys(island.scope)) {
+    const value: unknown = Reflect.get(island.scope, name);
+    if (!sendable(value, checked)) {
+      const held =
+        typeof value === "function"
+          ? "a function"
+          : "a value that can't be serialized";
+      throw new Error(
+        `svelte-islands: the island for part("${island.part.name}") reads \`${name}\` from the page, and it holds ${held}. On a page with csr = false, an island gets a copy of each page value it reads, so \`${name}\` can't reach it. Define it in a module the island imports, or move it inside the island's snippet.`,
+      );
+    }
+    values[name] = value;
+  }
+  return values;
+}
+
+function contextsOf(island: Shell, checked: Map<unknown, boolean>) {
+  const kept: Sent["context"] = [];
+  const dropped: Array<string> = [];
+  for (const [key, value] of island.context) {
+    const name =
+      typeof key === "string"
+        ? key
+        : typeof key === "symbol"
+          ? Symbol.keyFor(key)
+          : undefined;
+    if (name == null || !sendable(value, checked)) {
+      dropped.push(typeof key === "string" ? `"${key}"` : String(key));
+      continue;
+    }
+    kept.push([typeof key === "symbol", name, value]);
+  }
+  const notice = `contexts:${dropped.join(", ")}`;
+  if (dev && dropped.length > 0 && !warned.has(notice)) {
+    warned.add(notice);
+    console.warn(
+      `svelte-islands: on a page with csr = false, an island only gets contexts whose keys are strings or Symbol.for() keys and whose values can be serialized, so the island for part("${island.part.name}") won't get ${dropped.join(", ")}. Use context() from svelte-islands for a key that reaches it.`,
+    );
+  }
+  return kept;
+}
+
+function shellOf(shells: ReadonlyArray<Shell>) {
+  const files = bootFiles();
+  if (files == null || files.length === 0 || shells.length === 0) {
+    return null;
+  }
+  const checked = new Map<unknown, boolean>();
+  const islands: Array<Sent> = [];
+  for (const island of shells) {
+    let values: Record<string, unknown> | null;
+    try {
+      values = valuesOf(island, checked);
+    } catch (error) {
+      if (dev || !(error instanceof Error)) {
+        throw error;
+      }
+      if (!warned.has(error.message)) {
+        warned.add(error.message);
+        console.error(error.message);
+      }
+      continue;
+    }
+    islands.push({
+      ...island,
+      scope: values,
+      context: contextsOf(island, checked),
+    });
+  }
+  if (islands.length === 0) {
+    return null;
+  }
+  const [entry = ""] = files;
+  const data = serialize(islands, true).replaceAll("<", String.raw`\u003c`);
+  return {
+    head: files.map(
+      (file) => `<link rel="modulepreload" href="${urlOf(file)}">`,
+    ),
+    body: `<script type="application/json" id="svelte-islands">${data}</script><script type="module" src="${urlOf(entry)}"></script>`,
+  };
+}
+
+function before(html: string, marker: string, text: string) {
+  const at = html.indexOf(marker);
+  return at === -1 || text === ""
+    ? html
+    : `${html.slice(0, at)}${text}${html.slice(at)}`;
+}
+
 function inject(html: string, event: RequestEvent) {
   const found = requests.get(event.locals);
-  if (found == null || found.isHeaded) {
+  if (found?.isHeaded === true) {
     return html;
   }
-  found.isHeaded = true;
-  const at = html.indexOf("</head>");
-  const links = [
-    ...(building ? crawlable(found) : preloads(found)),
-    ...swapped(found.early),
+  if (found != null) {
+    found.isHeaded = true;
+  }
+  const isShell = !NATIVE.test(html);
+  const shell = isShell && found != null ? shellOf(found.shells) : null;
+  const head = [
+    ...(config.viewTransitions ? [VIEW_TRANSITIONS] : []),
+    ...(isShell && config.speculation !== false
+      ? [rulesFor(config.speculation)]
+      : []),
+    ...(found == null ? [] : building ? crawlable(found) : preloads(found)),
+    ...(found == null ? [] : swapped(found.early)),
+    ...(shell?.head ?? []),
   ];
-  return at === -1 || links.length === 0
-    ? html
-    : `${html.slice(0, at)}${links.join("")}${html.slice(at)}`;
+  return before(
+    before(html, "</head>", head.join("")),
+    "</body>",
+    shell?.body ?? "",
+  );
 }
 
 function pageOf(event: RequestEvent) {
@@ -777,6 +946,8 @@ export function handle({
   compress = true,
   warnOnCookies = true,
   shareStreamed = false,
+  speculation = false,
+  viewTransitions = false,
 }: {
   /** Persists parts, deferred HTML, and skeletons across restarts and servers. */
   store?: Store | null;
@@ -799,6 +970,14 @@ export function handle({
    * so a CDN never keeps a copy whose HTML holds skeletons instead of content.
    */
   shareStreamed?: boolean;
+  /**
+   * Adds Speculation Rules to pages with `csr = false`, so the browser
+   * prefetches or prerenders a same-origin page when a link is hovered. Links
+   * with `data-sveltekit-preload-data="off"` are left alone. The default is `false`.
+   */
+  speculation?: Speculation;
+  /** Adds cross-document View Transitions to every page. The default is `false`. */
+  viewTransitions?: boolean;
 } = {}): Handle {
   config.store = store;
   config.memory = memory;
@@ -808,6 +987,8 @@ export function handle({
   config.compress = compress;
   config.warnOnCookies = warnOnCookies;
   config.shareStreamed = shareStreamed;
+  config.speculation = speculation;
+  config.viewTransitions = viewTransitions;
   return handler;
 }
 

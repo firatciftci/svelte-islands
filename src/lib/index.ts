@@ -1,4 +1,5 @@
 export { default as Await } from "./await.svelte";
+export { context } from "./context.js";
 export { default as Island } from "./island.svelte";
 export { type Observation, observe } from "./observe.js";
 export { type Fetch, islands, Part, type Strategy } from "./part.js";

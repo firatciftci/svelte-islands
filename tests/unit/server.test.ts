@@ -678,3 +678,156 @@ describe("the part server", () => {
     expect(transformed).toContain('rel="preload"');
   });
 });
+
+describe("pages without SvelteKit's client", () => {
+  const KIT = "<script>__sveltekit_abc = { base: '' };</script>";
+  let server: Server;
+  let part: typeof import("#lib/part.js");
+  let enter: (event: RequestEvent) => void;
+
+  async function load(isDev: boolean) {
+    vi.resetModules();
+    vi.doMock("$app/env", () => ({ dev: isDev, building: false }));
+    server = await import("#lib/server.js");
+    part = await import("#lib/part.js");
+    ({ enter } = await import("../stubs/server.js"));
+  }
+
+  beforeEach(async () => {
+    vi.restoreAllMocks();
+    await load(false);
+  });
+
+  function record(scope: object | null, context = new Map<unknown, unknown>()) {
+    const made = server.part("shell", { rows: "x".repeat(8000) });
+    part.scope()?.record({
+      part: made,
+      key: "shell",
+      state: "static",
+      file: null,
+      needs: null,
+      module: "abc123",
+      hydrate: null,
+      reveal: "visible",
+      margin: null,
+      media: null,
+      prefetch: true,
+      scope,
+      context,
+    });
+    return made;
+  }
+
+  async function page(
+    handler: ReturnType<Server["handle"]>,
+    html: string,
+    fill: () => void = () => {},
+  ) {
+    const event = eventFor("/page");
+    enter(event);
+    fill();
+    let transformed = "";
+    await handler({
+      event,
+      resolve: async (_, options) => {
+        transformed =
+          (await options?.transformPageChunk?.({ html, done: true })) ?? "";
+        return new Response(transformed);
+      },
+    });
+    return transformed;
+  }
+
+  function sent(html: string) {
+    const text = /<script type="application\/json" id="svelte-islands">(.*?)<\/script>/u.exec(
+      html,
+    )?.[1];
+    return text == null
+      ? null
+      : (part.deserialize(text) as Array<{
+          module: string;
+          scope: Record<string, unknown> | null;
+          context: Array<[boolean, string, unknown]>;
+        }>);
+  }
+
+  it("get the boot script and each island's values and named contexts", async () => {
+    const handler = server.handle();
+    const html = await page(handler, "<head></head><body></body>", () => {
+      record(
+        { count: 2, when: new Date(0) },
+        new Map<unknown, unknown>([
+          ["label", "warm"],
+          [Symbol.for("tone"), "dry"],
+          [Symbol("hidden"), "secret"],
+          ["helper", () => {}],
+        ]),
+      );
+    });
+    expect(html).toContain('<link rel="modulepreload" href="/_app/islands.js">');
+    expect(html).toContain('<link rel="modulepreload" href="/_app/shared.js">');
+    expect(html).toContain(
+      '<script type="module" src="/_app/islands.js"></script></body>',
+    );
+    const [island] = sent(html) ?? [];
+    expect(island?.module).toBe("abc123");
+    expect(island?.scope).toStrictEqual({ count: 2, when: new Date(0) });
+    expect(island?.context).toStrictEqual([
+      [false, "label", "warm"],
+      [true, "tone", "dry"],
+    ]);
+  });
+
+  it("escape the island data so it can't close its script", async () => {
+    const handler = server.handle();
+    const html = await page(handler, "<head></head><body></body>", () => {
+      record({ text: "</script><script>alert(1)</script>" });
+    });
+    expect(html.match(/<\/script>/gu)?.length).toBe(2);
+    expect(sent(html)?.[0]?.scope).toStrictEqual({
+      text: "</script><script>alert(1)</script>",
+    });
+  });
+
+  it("leave pages with SvelteKit's client alone", async () => {
+    const handler = server.handle({ speculation: "prerender" });
+    const html = await page(handler, `<head></head><body>${KIT}</body>`, () => {
+      record({ count: 2 });
+    });
+    expect(sent(html)).toBeNull();
+    expect(html).not.toContain("speculationrules");
+  });
+
+  it("throw in development when an island reads a function from the page", async () => {
+    await load(true);
+    const handler = server.handle();
+    await expect(
+      page(handler, "<head></head><body></body>", () => {
+        record({ shout: () => "" });
+      }),
+    ).rejects.toThrow(/reads `shout` from the page, and it holds a function/u);
+  });
+
+  it("leave such an island as server HTML in production", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    const handler = server.handle();
+    const html = await page(handler, "<head></head><body></body>", () => {
+      record({ shout: () => "" });
+    });
+    expect(sent(html)).toBeNull();
+    expect(logged).toHaveBeenCalledOnce();
+  });
+
+  it("get speculation rules when asked, and every page gets view transitions", async () => {
+    const handler = server.handle({
+      speculation: "prefetch",
+      viewTransitions: true,
+    });
+    const shell = await page(handler, "<head></head><body></body>");
+    expect(shell).toContain('<script type="speculationrules">{"prefetch":');
+    expect(shell).toContain("@view-transition");
+    const routed = await page(handler, `<head></head><body>${KIT}</body>`);
+    expect(routed).not.toContain("speculationrules");
+    expect(routed).toContain("@view-transition");
+  });
+});

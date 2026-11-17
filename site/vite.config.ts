@@ -31,6 +31,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "svelte-islands/server": library("server.ts"),
+      "svelte-islands/shell": library("shell.svelte.ts"),
       "svelte-islands/styles.css": library("styles.css"),
       "svelte-islands": library("index.ts"),
     },

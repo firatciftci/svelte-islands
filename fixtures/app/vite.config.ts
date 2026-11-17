@@ -47,6 +47,7 @@ export default defineConfig({
       "svelte-islands/stores": library("stores.ts"),
       "svelte-islands/sw": library("sw.ts"),
       "svelte-islands/server": library("server.ts"),
+      "svelte-islands/shell": library("shell.svelte.ts"),
       "svelte-islands/styles.css": library("styles.css"),
       "svelte-islands": library("index.ts"),
     },

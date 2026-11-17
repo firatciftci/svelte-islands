@@ -107,6 +107,22 @@ export class Part<T = unknown> {
   }
 }
 
+export type Shell = {
+  part: Part;
+  key: string;
+  state: "static" | "deferred" | "client";
+  file: string | null;
+  needs: string | null;
+  module: string;
+  hydrate: Array<Strategy> | null;
+  reveal: Strategy;
+  margin: string | null;
+  media: string | null;
+  prefetch: boolean;
+  scope: object | null;
+  context: Map<unknown, unknown>;
+};
+
 export type Scope = {
   render: (
     body: Snippet<[never]>,
@@ -119,6 +135,7 @@ export type Scope = {
   stash: (html: string, isEarly: boolean) => string;
   outline: (identity: string, html: () => string, view?: string) => string;
   awaited: (error: unknown, name: string) => boolean;
+  record: (island: Shell) => void;
 };
 
 const state: {

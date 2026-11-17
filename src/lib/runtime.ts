@@ -197,6 +197,10 @@ function shared() {
   return scope.__svelteIslands;
 }
 
+export function holdSwaps() {
+  shared().isClaiming = true;
+}
+
 async function handed(file: string) {
   const { early } = shared();
   const found = early?.get(file);

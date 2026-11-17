@@ -58,6 +58,10 @@
       "types": "./dist/sw.d.ts",
       "default": "./dist/sw.js"
     },
+    "./shell": {
+      "types": "./dist/shell.svelte.d.ts",
+      "default": "./dist/shell.svelte.js"
+    },
     "./vite": {
       "types": "./dist/vite.d.ts",
       "default": "./dist/vite.js"

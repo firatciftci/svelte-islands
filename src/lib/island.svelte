@@ -200,6 +200,26 @@
     };
   });
 
+  untrack(() => {
+    if (server != null && moduleId != null && adopted != null) {
+      server.record({
+        part: origin,
+        key: first,
+        state: adopted.state,
+        file: adopted.file,
+        needs: adopted.needs,
+        module: moduleId,
+        hydrate: hydrate == null ? null : strategiesOf(hydrate),
+        reveal: revealOn,
+        margin: margin ?? null,
+        media: media ?? null,
+        prefetch,
+        scope: scope ?? null,
+        context,
+      });
+    }
+  });
+
   const strategies = $derived.by((): Array<Strategy> => {
     if (hydrate != null) {
       return strategiesOf(hydrate);

@@ -7,11 +7,23 @@ function local(path: string) {
 }
 
 export default defineConfig({
-  plugins: [svelte()],
+  plugins: [
+    svelte(),
+    {
+      name: "boot",
+      transform(code) {
+        return code.replaceAll(
+          '"__svelte_islands_boot__"',
+          JSON.stringify(JSON.stringify(["_app/islands.js", "_app/shared.js"])),
+        );
+      },
+    },
+  ],
   resolve: {
     alias: {
       "$app/env": local("tests/stubs/env.ts"),
       "$app/navigation": local("tests/stubs/navigation.ts"),
+      "$app/paths": local("tests/stubs/paths.ts"),
       "$app/server": local("tests/stubs/server.ts"),
     },
   },
