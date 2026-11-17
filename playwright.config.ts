@@ -1,4 +1,4 @@
-import { defineConfig } from "@playwright/test";
+import { defineConfig, devices } from "@playwright/test";
 
 const chromium = process.env.PLAYWRIGHT_CHROMIUM_PATH;
 const A = 5301;
@@ -26,10 +26,18 @@ export default defineConfig({
   forbidOnly: true,
   retries: 0,
   reporter: [["list"]],
-  use: {
-    baseURL: `http://127.0.0.1:${A}`,
-    ...(chromium != null && { launchOptions: { executablePath: chromium } }),
-  },
+  use: { baseURL: `http://127.0.0.1:${A}` },
+  projects: [
+    {
+      name: "chromium",
+      use: {
+        ...devices["Desktop Chrome"],
+        ...(chromium != null && { launchOptions: { executablePath: chromium } }),
+      },
+    },
+    { name: "firefox", use: devices["Desktop Firefox"] },
+    { name: "webkit", use: devices["Desktop Safari"] },
+  ],
   webServer: [
     node(A),
     node(B),

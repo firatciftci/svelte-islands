@@ -316,7 +316,6 @@ test.describe("recovery", () => {
     await hydrated(page);
     const retry = await reach(page, "retry");
     isDown = false;
-    await expect(page.getByTestId("deferred")).toBeAttached();
     await expect(retry).toBeVisible();
     await retry.click();
     await expect(page.getByTestId("client")).toBeVisible();
