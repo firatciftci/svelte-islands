@@ -1,12 +1,12 @@
 ---
 title: When islands wake
-description: Choose when an island downloads its data and hydrates: on interaction, when it scrolls into view, when a media query matches, or never.
+description: Choose when an island downloads its data and hydrates, with one strategy or several: on interaction, when it scrolls into view, when a media query matches, or never. Covers prefetching too.
 ---
 
-An island _wakes_ when the browser downloads its data and hydrates it. You choose the moment with `when`:
+An island _wakes_ when the browser downloads its data and hydrates it. You choose the moment with `hydrate`:
 
 ```svelte
-<Island part={data.products} when="visible">
+<Island part={data.products} hydrate="visible">
   {#snippet children(products)}
     <ProductTable {products} />
   {/snippet}
@@ -22,6 +22,8 @@ There are six strategies:
 - `eager` wakes right away
 - `never` stays as server HTML
 
+The default is `interaction`, except for an island with `render="client"`, which defaults to `visible`. See [Islands](20-islands.md#client-only).
+
 Each of these islands uses a different one, so you can see what it takes to wake each:
 
 <!-- example: strategies -->
@@ -30,7 +32,7 @@ Each of these islands uses a different one, so you can see what it takes to wake
 
 This is the default because it costs nothing until someone reaches for the island. Most of what's on a page gets read rather than used, so most islands on most visits will never wake.
 
-Moving a pointer over the island is enough to start the download, which means the data is often in memory by the time the click lands. If the click gets there first, the island holds it and replays it, as described in [clicks before hydration](../20-core-concepts/60-clicks.md).
+Moving a pointer over the island is enough to start the download, which means the data is often in memory by the time the click lands. If the click gets there first, the island holds it and replays it, as described in [input before hydration](../20-core-concepts/60-clicks.md).
 
 ## `visible`
 
@@ -39,7 +41,7 @@ You can use this for a chart or map that should be live as soon as someone can s
 `margin` says how close to the viewport the island has to come, as a CSS margin. It defaults to `320px`, so that the work starts before the island scrolls into view:
 
 ```svelte
-<Island part={data.sales} when="visible" margin="600px">
+<Island part={data.sales} hydrate="visible" margin="600px">
   {#snippet children(sales)}
     <SalesChart {sales} />
   {/snippet}
@@ -53,7 +55,7 @@ Islands with the same `margin` share one `IntersectionObserver`, so having a lot
 Sometimes an island only has work to do at certain sizes (a sales chart in a sidebar that a phone never shows, for example):
 
 ```svelte
-<Island part={data.sales} when="media" media="(min-width: 64rem)">
+<Island part={data.sales} hydrate="media" media="(min-width: 64rem)">
   {#snippet children(sales)}
     <SalesChart {sales} />
   {/snippet}
@@ -66,11 +68,25 @@ If the query never matches, the island never wakes, and that phone never downloa
 
 Content that never responds to anything has no reason to hydrate. It stays as server HTML, and the browser never downloads its data.
 
-The text you're reading is one of these.
+This paragraph is one of them.
 
-## Changing `when` after mount
+## More than one strategy
 
-You can change `when` after the island has mounted. The usual reason is a control outside the island that needs it to be live, and switching to `eager` wakes it right away:
+`hydrate` also takes an array. The first strategy to fire wins, and the rest are dropped:
+
+```svelte
+<Island part={data.products} hydrate={["interaction", "idle"]}>
+  {#snippet children(products)}
+    <ProductTable {products} />
+  {/snippet}
+</Island>
+```
+
+This island wakes when someone touches it, or when the browser goes idle, whichever comes first.
+
+## Changing `hydrate` after mount
+
+You can change `hydrate` after the island has mounted. The usual reason is a control outside the island that needs it to be live, and switching to `eager` wakes it right away:
 
 ```svelte
 <script>
@@ -79,12 +95,23 @@ You can change `when` after the island has mounted. The usual reason is a contro
 
 <button onclick={() => (isFiltering = true)}>Filter</button>
 
-<Island part={data.products} when={isFiltering ? "eager" : "interaction"}>
+<Island part={data.products} hydrate={isFiltering ? "eager" : "interaction"}>
   {#snippet children(products)}
     <ProductTable {products} {isFiltering} />
   {/snippet}
 </Island>
 ```
+
+## Prefetching
+
+An island doesn't always have to wait for its data to arrive. With `prefetch` on, which is the default, an island whose part isn't in memory fetches it at low priority once the island comes near the viewport and the browser is idle. The data is often there by the time the island wakes. Set `prefetch={false}` to turn this off for one island.
+
+Prefetching doesn't happen in a few cases:
+
+- when `hydrate` includes `visible` or `eager`, since the island fetches its data then anyway
+- when `hydrate` is only `never`, since the island never wakes
+- when the reader has asked to save data with `Save-Data`, or the connection is `slow-2g` or `2g`, so that data the reader may never need doesn't use up a slow connection
+- once the page has prefetched 1 MiB of parts, until the page is reloaded, so that a long page can't fetch everything up front
 
 ## Several at once
 
@@ -99,4 +126,4 @@ They go in this order:
 
 An island with a held click moves to the front, because someone is waiting for it.
 
-Islands that render in the browser (after a client-side navigation, or with `ssr={false}`) go through the same queue.
+Islands that render in the browser (after a client-side navigation, or with `render="client"`) go through the same queue.

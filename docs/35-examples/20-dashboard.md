@@ -68,14 +68,14 @@ If the page computed them in the browser, every visitor would have to download e
 The revenue chart sits at the top, and people expect to point at it right away, so it wakes as soon as it's visible:
 
 ```svelte
-<Island part={data.revenue} when="visible">
+<Island part={data.revenue} hydrate="visible">
   {#snippet children(revenue)}
     <RevenueChart {revenue} />
   {/snippet}
 </Island>
 ```
 
-On its own, `when="visible"` would wait for your JavaScript to load before it asked for the data. That's why the part uses `fetch: "preload"`: the download starts as soon as the page arrives. On a first page load the library adds a `<link rel="preload">` to the head, so the browser fetches the data alongside your code rather than after it.
+On its own, `hydrate="visible"` would wait for your JavaScript to load before it asked for the data. That's why the part uses `fetch: "preload"`: the download starts as soon as the page arrives. On a first page load the library adds a `<link rel="preload">` to the head, so the browser fetches the data alongside your code rather than after it.
 
 We recommend `preload` only for data near the top that's too big to [stay in the page](../20-core-concepts/10-parts.md#small-parts-stay-in-the-page). Preloading everything brings back the cost you made parts to avoid.
 
@@ -84,7 +84,7 @@ We recommend `preload` only for data near the top that's too big to [stay in the
 The orders appear twice: as a chart of orders by day, and as a table. Both read the same part, and each has its own `view`...
 
 ```svelte
-<Island part={data.orders} view="chart" when="visible">
+<Island part={data.orders} view="chart" hydrate="visible">
   {#snippet children(orders)}
     <OrderChart {orders} />
   {/snippet}
@@ -113,11 +113,11 @@ Without that, the table would hydrate with no categories and render differently 
 
 ## The sidebar
 
-The sidebar holds a chart of sales by category, and on a phone the sidebar is hidden. Use `when="media"` with the same query as your CSS...
+The sidebar holds a chart of sales by category, and on a phone the sidebar is hidden. Use `hydrate="media"` with the same media query as your CSS...
 
 ```svelte
 <aside class="sidebar">
-  <Island part={data.categories} when="media" media="(min-width: 64rem)">
+  <Island part={data.categories} hydrate="media" media="(min-width: 64rem)">
     {#snippet children(categories)}
       <CategoryChart {categories} />
     {/snippet}
@@ -125,7 +125,7 @@ The sidebar holds a chart of sales by category, and on a phone the sidebar is hi
 </aside>
 ```
 
-...and a phone never wakes the chart. Its server HTML is still in the page, because the island is static. If that HTML is large, you can keep it out as well with [`defer`](../20-core-concepts/20-islands.md#deferred).
+...and the chart never wakes on a phone. Its server HTML is still in the page, because the island is static. If that HTML is large, you can keep it out as well with [`render="deferred"`](../20-core-concepts/20-islands.md#deferred).
 
 ## The map
 
@@ -133,7 +133,7 @@ A map usually can't render on the server, since map libraries tend to reach for 
 
 ```svelte
 <div class="map">
-  <Island part={data.stores} ssr={false} margin="600px">
+  <Island part={data.stores} render="client" margin="600px">
     {#snippet children(stores)}
       <StoreMap {stores} />
     {/snippet}
@@ -202,11 +202,11 @@ You can hint at that with `data-island-state`, which the wrapper carries on a fi
 }
 ```
 
-The state is `static`, `deferred`, `client`, or `live` ([more on styling](../60-best-practices/20-styling.md#selecting-islands)). After a client-side navigation there is no server HTML to adopt, so the attribute is not there at all.
+The state is `static`, `deferred`, `client`, `fresh`, or `live` ([more on styling](../60-best-practices/20-styling.md#selecting-islands)). After a client-side navigation there is no server HTML to adopt, so the attribute is not there at all.
 
 ## What you'd change
 
-- if the table is the first thing people use, you can wake it early with `when="idle"`, or with `when="eager"` from a control outside it ([changing `when` after mount](../20-core-concepts/30-when-islands-wake.md#changing-when-after-mount))
+- if the table is the first thing people use, you can wake it early with `hydrate="idle"`, or with `hydrate="eager"` from a control outside it ([changing `hydrate` after mount](../20-core-concepts/30-when-islands-wake.md#changing-hydrate-after-mount))
 - if the dashboard differs per visitor (a store manager's own branch, for example), every part needs `private: true`, which keeps them in the page's data ([private data](../60-best-practices/10-private-data.md))
 - if the table runs to thousands of rows, see [a sortable table with thousands of rows](30-sortable-table.md)
 - if a value is slow to compute, you can [stream it](../20-core-concepts/45-streaming.md) instead of waiting for it in `load`

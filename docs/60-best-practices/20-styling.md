@@ -44,7 +44,7 @@ If you need a box, put an element of your own around the island:
 
 ## Selecting islands
 
-`class` puts a class on the wrapper, which you can use along with `data-island-state` to style what's inside. The state is `static`, `deferred`, `client`, or `live`, so you could fade a table's sort arrows until the table can respond:
+`class` puts a class on the wrapper, which you can use along with `data-island-state` to style what's inside. The state is `static`, `deferred`, `client`, `fresh`, or `live`, so you could fade a table's sort arrows until the table can respond:
 
 ```css
 .products[data-island-state="static"] .arrow {

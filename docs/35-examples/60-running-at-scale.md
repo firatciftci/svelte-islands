@@ -91,6 +91,7 @@ The shop shows prices in the visitor's language, and the same rows read differen
 ```ts
 /// file: src/hooks.server.ts
 import { type Handle, sequence } from "@sveltejs/kit/hooks";
+import { pickLocale } from "#lib/locale";
 import { handle as islands } from "svelte-islands/server";
 
 const locale: Handle = async ({ event, resolve }) => {
@@ -170,7 +171,7 @@ Parts come from the cache first, since an old copy of a content-addressed file c
 
 Lab numbers tell you what is possible (on your machine, at least), and real visitors tell you what happened. [`observe`](../50-tooling/40-measuring.md) reports what each island does in the browser, and three of its events are worth collecting in production:
 
-- `hydrate`, with `when` and `duration`, so you can see which islands people actually wake
+- `hydrate`, with `when`, `duration`, and `isPrefetched`, so you can see which islands people actually wake, and whether their data was already on its way
 - `reveal`, with `from` and `to`, so you can find skeletons that shift the page
 - `fail`, with `message`, so you hear about failed downloads before anyone reports them
 
@@ -304,6 +305,7 @@ Most of what goes wrong shows up in the first few minutes after a deploy:
 /// file: src/hooks.server.ts
 import { REDIS_URL } from "$app/env/private";
 import { type Handle, sequence } from "@sveltejs/kit/hooks";
+import { pickLocale } from "#lib/locale";
 import { Redis } from "ioredis";
 import { handle as islands } from "svelte-islands/server";
 import { compressed, redisStore } from "svelte-islands/stores";

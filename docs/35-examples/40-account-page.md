@@ -78,7 +78,7 @@ export async function load({ cookies }) {
 
 <section>
   <h2>Buy again</h2>
-  <Island part={data.catalog} when="visible">
+  <Island part={data.catalog} hydrate="visible">
     {#snippet children(catalog)}
       <BuyAgain {catalog} orders={peek(data.orders)?.value ?? []} />
     {/snippet}
@@ -90,7 +90,7 @@ export async function load({ cookies }) {
 
 The library never stores a private part or gives it a URL. It stays in your page's data, and SvelteKit sends it to the browser along with the rest of your `load` data, the same as if you had not called `part` at all.
 
-That has a consequence worth knowing about: like a [small part](../20-core-concepts/10-parts.md#small-parts-stay-in-the-page), a private part is not a hydration boundary. The orders island renders and hydrates with the rest of the page, so `when` will not delay it, and `defer` is ignored (deferred HTML lives at a public URL).
+That has a consequence worth knowing about: like a [small part](../20-core-concepts/10-parts.md#small-parts-stay-in-the-page), a private part is not a hydration boundary. The orders island renders and hydrates with the rest of the page, so `hydrate` will not delay it, and `render="deferred"` is ignored (deferred HTML lives at a public URL).
 
 So why make it a part at all? Because the library can then keep track of it, which matters in the next section.
 
@@ -98,9 +98,9 @@ So why make it a part at all? Because the library can then keep track of it, whi
 
 The shelf is an island around the shared catalog, and it reads the visitor's orders with [`peek`](../20-core-concepts/50-reading-parts.md#reading-another-part-inside-an-island) to decide what to suggest.
 
-While the server renders an island, it records every part the island reads. Here it sees a private one, which means this island's HTML holds something personal, so it renders as a [static island](../20-core-concepts/20-islands.md#static) even if you add `defer`, and no outline or skeleton is learned from it on the server.
+While the server renders an island, it records every part the island reads. Here it sees a private one, so this island's HTML holds something personal, and it renders as a [static island](../20-core-concepts/20-islands.md#static) even if you set `render="deferred"`, and no outline or skeleton is learned from it on the server.
 
-You might be tempted to read `data.orders` directly inside the snippet. That works, but the library cannot see a value it did not hand you, and a later `defer` would publish this visitor's orders at a public URL. Reading through `peek` is what keeps it safe.
+You might be tempted to read `data.orders` directly inside the snippet. That works, but the library cannot see a value it did not hand you, and a later `render="deferred"` would publish this visitor's orders at a public URL. Reading through `peek` is what keeps it safe.
 
 The catalog itself waits until the shelf comes into view. Once it has downloaded, it is cached for good, and the next visitor's browser (or your CDN) may already have it.
 

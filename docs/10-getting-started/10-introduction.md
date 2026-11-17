@@ -6,7 +6,7 @@ description: What svelte-islands is, the problem it solves on SvelteKit pages wi
 ## Before we begin
 
 > [!NOTE]
-> svelte-islands is new and has not reached 1.0, so you should expect the odd breaking change until it does. It was built for [electionsarchive.com](https://electionsarchive.com), where a single page can hold tens of thousands of rows, but it works on any SvelteKit page that carries a lot of data.
+> svelte-islands was built for [electionsarchive.com](https://electionsarchive.com), where a single page can hold tens of thousands of rows, but it works on any SvelteKit page that carries a lot of data.
 
 If you're new to SvelteKit, we recommend starting with [its docs](https://svelte.dev/docs/kit). Everything here assumes you've written a `load` function and a component or two.
 
@@ -22,7 +22,7 @@ svelte-islands is a library for SvelteKit pages that carry a lot of data. It kee
   let { data } = $props();
 </script>
 
-<Island part={data.products} when="visible">
+<Island part={data.products} hydrate="visible">
   {#snippet children(products)}
     <ProductTable {products} />
   {/snippet}
@@ -33,7 +33,7 @@ The table still renders on the server, so its HTML is in the page from the start
 
 But the browser will not download `data.products`, or hydrate the table, until the table comes into view. Before that it's just HTML. Nothing runs, and there is nothing to parse.
 
-If you've used Astro, `when` will look familiar, since it does the job of a `client:*` directive.
+If you've used Astro, `hydrate` will look familiar, since it does the job of a `client:*` directive.
 
 ## Why you might want it
 
@@ -46,6 +46,10 @@ svelte-islands takes that copy out of the page. Each value (we call it a [_part_
 [Deferred islands](../20-core-concepts/20-islands.md#deferred) do the same for HTML, so a long table below the fold costs your page a small skeleton instead of hundreds of kilobytes of markup.
 
 While a part's data is on its way, the island shows a [skeleton](../20-core-concepts/40-skeletons.md). You do not write these by hand. The library learns them from what the island rendered last time.
+
+## More than islands
+
+Three extensions build on the core idea, and each has its own page. An optional [Vite plugin](../20-core-concepts/70-vite-plugin.md) gives each island its own chunk of JavaScript, so the browser downloads an island's code when it downloads the island's data. With the plugin, islands also work on pages with `csr = false`, through [shell pages](../20-core-concepts/80-shell-pages.md). And a [fresh island](../20-core-concepts/90-fresh-islands.md) renders for each visitor on a page that a server can still cache.
 
 ## What it won't do
 

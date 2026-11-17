@@ -73,7 +73,7 @@ Replace the place that reads the value with an `Island`:
 
 The default suits most content, and [choosing a mode](../20-core-concepts/20-islands.md#choosing-a-mode) lists the others.
 
-A value of 4,096 characters or less [stays in your page](../20-core-concepts/10-parts.md#small-parts-stay-in-the-page), so an island around it costs almost nothing. It also is not a hydration boundary unless you add `defer`, so a small part will not delay its hydration.
+A value of 4,096 characters or less [stays in your page](../20-core-concepts/10-parts.md#small-parts-stay-in-the-page), so an island around it costs almost nothing. It also is not a hydration boundary unless you set `render="deferred"`, so a small part will not delay its hydration.
 
 ## Keep per-visitor data out of public URLs
 
@@ -89,6 +89,21 @@ export default [islands.configs.recommended];
 ## Share parts between servers
 
 If you run more than one process, or your hosting restarts processes often, pass `handle` a [store](../40-build-and-deploy/20-stores.md). Without one, a process that does not have a part reruns the page that made it.
+
+## Split each island's code
+
+By default, each island's code is part of your page's JavaScript. The optional Vite plugin gives each island its own chunk, so the page loads the code outside islands, and each island loads its own. Add it next to `sveltekit()`:
+
+```ts
+/// file: vite.config.ts
+import { sveltekit } from "@sveltejs/kit/vite";
+import { islands } from "svelte-islands/vite";
+import { defineConfig } from "vite";
+
+export default defineConfig({ plugins: [sveltekit(), islands()] });
+```
+
+Without the plugin, everything works as before. With it, pages with `csr = false` can keep their islands too, which [the Vite plugin](../20-core-concepts/70-vite-plugin.md) explains.
 
 ## Keep it from growing back
 
@@ -112,3 +127,14 @@ Add `svelte-islands check` to CI, and render the [overlay](../50-tooling/30-over
 - a deferred island's HTML is not in the page yet, so a link to an id inside it finds nothing unless that id is on a heading — put the id on an element outside the island
 - an island's wrapper is a `div`, which the browser moves out of a table, so inside a table you should use [`as="tbody"`](../30-long-content/20-long-tables.md)
 - a deferred island's content is not in the first response, so a test that looks for it in the page's HTML will have to use a browser
+
+## Upgrading from 0.8
+
+Version 1.0 renames the `Island` props. Each rename is a change to one prop, and `svelte-check` flags any old prop you miss:
+
+- `defer` is now `render="deferred"`
+- `defer="idle"`, the strategy form, is now `render="deferred" reveal="idle"`, and `defer when="visible"` is now `render="deferred" hydrate="visible"`
+- `ssr={false}` is now `render="client"`
+- `when` is now `hydrate`, which also takes an array, where the first strategy to fire wins
+
+`render="fresh"` and `prefetch` are new, and the Vite plugin is optional. The `when` field in `observe` events keeps its name, because it names the strategy that woke the island.

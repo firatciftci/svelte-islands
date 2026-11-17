@@ -154,13 +154,16 @@ So the first sort downloads the orders with `load`, sorts them, and swaps every 
 
   async function sort(key) {
     isSorting = true;
-    const orders = await load(data.orders);
-    down = by === key ? !down : true;
-    by = key;
-    sorted = orders.toSorted((a, b) =>
-      down ? compare(b[key], a[key]) : compare(a[key], b[key]),
-    );
-    isSorting = false;
+    try {
+      const orders = await load(data.orders);
+      down = by === key ? !down : true;
+      by = key;
+      sorted = orders.toSorted((a, b) =>
+        down ? compare(b[key], a[key]) : compare(a[key], b[key]),
+      );
+    } finally {
+      isSorting = false;
+    }
   }
 
   // ...
@@ -250,18 +253,18 @@ The live version below has the same parts, with 300 rows in three chunks rather 
 
 <!-- example: table -->
 
-## Why not `defer`
+## Why not a deferred island
 
-A `tbody` island has nowhere to put a skeleton, since its wrapper is part of the table. So `as="tbody"` needs its rows in the page, and it throws an error if you combine it with `defer` or `ssr={false}`.
+A `tbody` island has nowhere to put a skeleton, since its wrapper is part of the table. So `as="tbody"` needs its rows in the page, and it throws an error if you combine it with `render="deferred"` or `render="client"`.
 
 That's the right trade for a table near the top of the page. If yours starts below the fold, you can [defer the whole table](../30-long-content/20-long-tables.md#below-the-fold) instead, and keep its HTML out of the page until someone scrolls toward it.
 
 ## Rows with no controls
 
-If the rows have no checkboxes or buttons, they never need to hydrate. Make the rows one island with `when="never"`:
+If the rows have no checkboxes or buttons, they never need to hydrate. Make the rows one island with `hydrate="never"`:
 
 ```svelte
-<Island part={data.orders} as="tbody" when="never">
+<Island part={data.orders} as="tbody" hydrate="never">
   {#snippet children(orders)}
     {#each orders as order (order.id)}
       {@render row(order)}
@@ -274,7 +277,7 @@ The chunks are gone, since nothing will ever hydrate. The orders don't download 
 
 ## Printing and find in page
 
-Both work with no extra code. The chunks' HTML is in the page from the start, and before printing each static chunk hydrates. After a sort, the `unroll` list renders every row when the browser is about to print, and keeps growing when someone presses Ctrl+F or Cmd+F, so their text becomes searchable ([more on this](../30-long-content/30-printing-and-find.md)).
+Both work with no extra code. The chunks' HTML is in the page from the start, so they print as they are. After a sort, the `unroll` list renders every row when the browser is about to print, and keeps growing when someone presses Ctrl+F or Cmd+F, so their text becomes searchable ([more on this](../30-long-content/30-printing-and-find.md)).
 
 ## Limits
 

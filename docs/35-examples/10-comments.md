@@ -62,7 +62,7 @@ The heading goes outside the island, and the list goes inside it:
 
 Keeping the heading outside means it is always in your page, so a link to `#comments` lands even before the list has loaded, and the heading hydrates with the rest of the page.
 
-The island uses the default strategy, `interaction`. The comments render on the server and their HTML is in the page from the start, but the browser does not download their data, or hydrate the list, until someone points at it or tabs into it. Most readers never do, and they pay nothing for the list beyond its HTML.
+The island uses the default strategy, `interaction`. The comments render on the server, so their HTML is in the page from the start. Once the list nears the viewport and the browser is idle, the library downloads the comments' data at low priority, but it hydrates the list only when someone points at it or tabs into it. Most readers never reach for it, so for them the list's HTML and that background download are wasted. The library skips the download on slow connections and when someone has turned on data saving, and it stops after 1 MiB of prefetched data per page.
 
 ## The list
 
@@ -100,7 +100,7 @@ The island uses the default strategy, `interaction`. The comments render on the 
 </ol>
 ```
 
-The Like button works even if someone presses it before the island has hydrated. The island [holds the click](../20-core-concepts/60-clicks.md), downloads the comments, hydrates, and replays the click, so the press is not lost. Moving a pointer over the list is usually enough to start the download, so by the time the click lands, the data is often already there.
+The Like button works even if someone presses it before the island has hydrated. The island [holds the click](../20-core-concepts/60-clicks.md), loads the comments if it hasn't already, hydrates, and replays the click, so the press is not lost. Usually the data has already arrived by then, because the library fetches it while the reader scrolls toward the list.
 
 You can try it here. The count sits outside the island, and the thread wakes when you reach for it:
 
@@ -120,10 +120,10 @@ You do not need to treat short threads differently. The same code handles both, 
 
 ## Long threads below the post
 
-If the comments usually sit below a long post, you can keep their HTML out of the page as well with [`defer`](../20-core-concepts/20-islands.md#deferred):
+If the comments usually sit below a long post, you can keep their HTML out of the page as well with [`render="deferred"`](../20-core-concepts/20-islands.md#deferred):
 
 ```svelte
-<Island part={data.comments} defer>
+<Island part={data.comments} render="deferred">
   {#snippet children(comments)}
     <CommentList {comments} />
   {/snippet}
@@ -132,16 +132,16 @@ If the comments usually sit below a long post, you can keep their HTML out of th
 
 Your page then holds a [skeleton](../20-core-concepts/40-skeletons.md) learned from earlier renders of the list, and the HTML arrives as the reader scrolls toward it.
 
-This has a trade-off: the comments are not in the first response, so a crawler that does not run JavaScript will not see them. The [outline](../20-core-concepts/20-islands.md#screen-readers) keeps only headings with ids, and comments rarely have any. If you want your comments indexed, leave out `defer`.
+This has a trade-off: the comments are not in the first response, so a crawler that does not run JavaScript will not see them. The [outline](../20-core-concepts/20-islands.md#screen-readers) keeps only headings with ids, and comments rarely have any. If you want your comments indexed, leave out `render="deferred"`.
 
 A thread with thousands of comments has a second problem: it takes a while to hydrate once someone touches it. [`unroll`](../30-long-content/10-long-lists.md) renders the list a piece at a time, and it works inside an island.
 
 ## When to use `visible`
 
-`interaction` suits a list that people read. If the list has to be live as soon as it is on screen (comments that update in real time, for example, or a reply box that should accept typing right away), you should use `when="visible"` instead:
+`interaction` suits a list that people read. If the list has to be live as soon as it is on screen (comments that update in real time, for example, or a reply box that should accept typing right away), you should use `hydrate="visible"` instead:
 
 ```svelte
-<Island part={data.comments} when="visible">
+<Island part={data.comments} hydrate="visible">
   {#snippet children(comments)}
     <CommentList {comments} />
   {/snippet}
@@ -154,6 +154,6 @@ The download starts 320 pixels before the list scrolls into view, so it is usual
 
 The comments themselves are the same for everyone, which is why they can be an ordinary part with a public URL. Anything that differs per visitor, such as an Edit button on the reader's own comments, must _not_ go in that part.
 
-You can send it as plain page data instead (a list of the reader's comment ids, say) and read it inside the island. That keeps the public part public. But a deferred island's HTML also gets a public URL, so an island that shows per-visitor controls should not use `defer`. There's more on this in [private data](../60-best-practices/10-private-data.md).
+You can send it as plain page data instead (a list of the reader's comment ids, say) and read it inside the island. That keeps per-visitor data out of the public part. But a deferred island's HTML also gets a public URL, so an island that shows per-visitor controls should not use `render="deferred"`. There's more on this in [private data](../60-best-practices/10-private-data.md).
 
 Relative times need care too. A time such as "3 hours ago" can come out differently on the server and in the browser, which makes the island [mismatch when it hydrates](../70-appendix/20-troubleshooting.md#svelte-warns-about-a-hydration-mismatch). You can format times on the server, or render a fixed date in a `<time>` element.

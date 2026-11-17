@@ -1,11 +1,15 @@
 ---
-title: Clicks before hydration
-description: A click on an island that hasn't hydrated isn't lost. The island holds it, hydrates, and replays it. Learn how to keep clicks that land even earlier.
+title: Input before hydration
+description: A click, a form submission, or typed text on an island that hasn't hydrated isn't lost. The island holds it, hydrates, and replays it. Learn how to keep clicks that land even earlier.
 ---
 
-If someone clicks a button inside an island before it has hydrated, the island holds the click, hydrates, and replays it as a full press. You don't need to do anything for this to work, and controls that open on pointer events respond too.
+If someone clicks a button inside an island before it has hydrated, the island holds the click, hydrates, and replays it as a full press. A form submission is held the same way: the island submits the form once it's live, with the button the reader pressed. You don't need to do anything for this to work, and controls that open on pointer events respond too.
 
-There's one gap. An island can only hold a click once its code has loaded, and a click can land before any of your code has loaded. On a slow connection that window can last a few seconds.
+Typed text survives hydration as well. Hydration can reset a field to the value the server rendered, so the island stores each field someone changed and puts the value back once it's live. It also fires `input` and `change` for each one, so your handlers see the change. Checkboxes, radio buttons, and selects keep their state the same way.
+
+Clicks on text fields, checkboxes, radio buttons, selects, and links aren't held, because the browser already handles them. A submit button's click goes through the form's submission, which is held as described above.
+
+There's one gap. An island can only hold input once its code has loaded, and input can land before any of your code has loaded. On a slow connection that window can last a few seconds.
 
 To keep that click as well, you can remember it in a small inline script in `app.html`...
 

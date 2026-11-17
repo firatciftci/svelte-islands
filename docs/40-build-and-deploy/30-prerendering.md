@@ -42,3 +42,7 @@ If that matters to you, keep the previous build's `_parts/` files in place for a
 The skeleton file holds the shapes learned up to the moment the crawler requested it.
 
 A page that was crawled later still has its own skeletons in its HTML, but a client-side navigation to that page can show a plain placeholder instead of a learned skeleton.
+
+## Fresh islands
+
+A prerendered page can't be rendered again, so a [fresh island](../20-core-concepts/90-fresh-islands.md) on one shows its fallback, which is the value the page was built with. The server answers the browser's request for the page's fresh islands with 502 and logs a warning, and the island keeps that value. On a static host there is no server to ask, so the island shows the same value.

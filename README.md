@@ -3,7 +3,7 @@
 Islands for SvelteKit: content-addressed page data, server HTML adopted without hydration, and skeletons learned from your own markup.
 
 ```svelte
-<Island part={data.products} when="visible">
+<Island part={data.products} hydrate="visible">
   {#snippet children(products)}
     <ProductTable {products} />
   {/snippet}
@@ -14,7 +14,15 @@ The table renders on the server, so its HTML is in the page from the start. But 
 
 A SvelteKit page sends your `load` data twice: once as HTML, and once as serialized data so that the page can hydrate. For a page with a long table, map, or chart, the serialized copy can run to several megabytes, and the browser has to parse all of it before anything responds to a click.
 
-svelte-islands takes that copy out of the page. Each value is stored under a hash of its contents at its own URL, which means browsers and CDNs can keep it forever. While it's on its way, the island shows a skeleton that the library learned from what the island rendered last time.
+svelte-islands takes that copy out of the page. Each value is stored under a hash of its contents at its own URL, so browsers and CDNs can keep it forever. While it's on its way, the island shows a skeleton that the library learned from what the island rendered last time.
+
+## Beyond the data
+
+The data is where most of the weight is, but 1.0 also limits the other costs of an island:
+
+- with the optional [Vite plugin](docs/20-core-concepts/70-vite-plugin.md), each island's code moves into its own chunk, which loads together with its data
+- a page with `export const csr = false` still gets working islands, and only they boot, with no SvelteKit client at all ([shell pages](docs/20-core-concepts/80-shell-pages.md))
+- `render="fresh"` fills in what's different for each visitor (a name, a basket) on a page you cache for everyone, with one private request ([fresh islands](docs/20-core-concepts/90-fresh-islands.md))
 
 ## When it won't help
 
@@ -24,33 +32,14 @@ Islands also make the work happen later, and often never. They do not make it sm
 
 ## Getting started
 
-You'll need SvelteKit 3 and Svelte 5.57 or later:
+You'll need SvelteKit 3 and Svelte 5.57 or later. Install the package, then run `init`, which makes the edits that set up a SvelteKit app:
 
 ```sh
 npm install svelte-islands
+npx svelte-islands init
 ```
 
-Register the transport in `src/hooks.ts`...
-
-```ts
-import { islands } from "svelte-islands";
-
-export const transport = islands();
-```
-
-...add the handle to `src/hooks.server.ts`...
-
-```ts
-import { handle as islands } from "svelte-islands/server";
-
-export const handle = islands();
-```
-
-...and import the styles once in your root layout:
-
-```ts
-import "svelte-islands/styles.css";
-```
+`init` registers the transport, adds the server handle, imports the stylesheet, and adds the optional [Vite plugin](docs/20-core-concepts/70-vite-plugin.md), which gives each island its own chunk of code. [Setup](docs/10-getting-started/20-setup.md) shows each of those edits, in case you'd rather make them by hand.
 
 Nothing on your pages changes until you make your first island. Wrap a heavy value in your server `load` function...
 
@@ -70,7 +59,7 @@ The [docs](https://firatciftci.github.io/svelte-islands/) have live demos, a [tu
 
 ## Status
 
-svelte-islands has not reached 1.0, so you should expect the odd breaking change until it does. It was built for [electionsarchive.com](https://electionsarchive.com), where a single page can hold tens of thousands of rows, but nothing in it is specific to that site.
+svelte-islands 1.0 is the first stable release. It was built for [electionsarchive.com](https://electionsarchive.com), where a single page can hold tens of thousands of rows, but nothing in it is specific to that site.
 
 ## Credits
 

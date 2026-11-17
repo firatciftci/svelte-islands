@@ -41,7 +41,7 @@ Table rows are the exception: the rows a skeleton leaves out become one spacer r
 
 ```svelte
 <div style="--island-item: 2.75rem">
-  <Island part={data.products} defer when="visible">
+  <Island part={data.products} render="deferred" hydrate="visible">
     {#snippet children(products)}
       <ProductTable {products} />
     {/snippet}

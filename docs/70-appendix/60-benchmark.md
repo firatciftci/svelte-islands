@@ -12,18 +12,18 @@ We chose a long page of data because that is what islands are for, so you should
 |                                          |     Plain SvelteKit |        With islands |
 | ---------------------------------------- | ------------------: | ------------------: |
 | HTML                                     |               99 KB |                5 KB |
-| Total downloaded by the end of the load  |              250 KB |              169 KB |
-| Total downloaded after using both tables |              250 KB |              262 KB |
-| First paint                              | 852 ms (840 to 868) | 488 ms (484 to 488) |
+| Total downloaded by the end of the load  |              250 KB |              170 KB |
+| Total downloaded after using both tables |              250 KB |              263 KB |
+| First paint                              | 856 ms (844 to 888) | 488 ms (484 to 500) |
 | Long tasks                               |                   1 |                   0 |
-| Blocking time                            | 202 ms (197 to 208) |       0 ms (0 to 0) |
-| Main thread time                         | 765 ms (761 to 775) | 180 ms (173 to 183) |
-| DOM nodes                                |              34,629 |               2,121 |
-| First sort of the harbors                |    37 ms (33 to 42) |    42 ms (40 to 45) |
-| First sort of the berths                 | 238 ms (232 to 248) | 247 ms (237 to 260) |
-| Second sort of the berths                | 246 ms (234 to 253) | 253 ms (245 to 261) |
+| Blocking time                            | 214 ms (210 to 241) |       0 ms (0 to 0) |
+| Main thread time                         | 799 ms (779 to 895) | 179 ms (173 to 208) |
+| DOM nodes                                |              34,631 |               2,126 |
+| First sort of the harbors                |    39 ms (37 to 49) |    41 ms (40 to 44) |
+| First sort of the berths                 | 257 ms (233 to 278) | 263 ms (244 to 300) |
+| Second sort of the berths                | 273 ms (263 to 302) | 275 ms (253 to 296) |
 
-Recorded on November 17, 2026 with Chromium 156 on Apple M5 Pro, using Svelte 5.57.3 and SvelteKit 3.1.1. Each number is the median of 7 runs, and the parentheses show the lowest and highest run.
+Recorded on November 18, 2026 with Chromium 156 on Apple M5 Pro, using Svelte 5.57.3 and SvelteKit 3.1.1. Each number is the median of 7 runs, and the parentheses show the lowest and highest run.
 
 <!-- /results -->
 
@@ -31,7 +31,7 @@ Recorded on November 17, 2026 with Chromium 156 on Apple M5 Pro, using Svelte 5.
 
 The load is where islands help. The plain page sends every row as HTML and again as data, and it can't respond to anything until it has hydrated all of them. The islands page sends the HTML for the harbors, leaves the berths out until you scroll toward them, and hydrates neither table until you reach for it.
 
-The first sort is where you pay for that. On the plain page the code is already running, so sorting only has to move the rows. On the islands page, the first sort of a table also hydrates it, and the first sort of the berths has to download their data as well. Once a table has hydrated, it's as fast as the plain one, which is why the second sort is close.
+The first sort is where you'd expect to pay for that, since on the islands page it also hydrates the table. In practice it costs only a few milliseconds more than on the plain page, and the two ranges overlap. By the time you reach a table, the browser has already fetched its data and its code, at low priority while it was idle, so the sort doesn't wait for the network. That depends on the early fetch, though. On a slow connection, or with `Save-Data` on, nothing is fetched early, so the first sort of the berths, which have the most data on the page, would wait for the download.
 
 ## Where islands don't help
 
@@ -40,7 +40,7 @@ The first sort is where you pay for that. On the plain page the code is already 
 - a small part doesn't become an island at all (see [small parts](../20-core-concepts/10-parts.md#small-parts-stay-in-the-page)), so a short page has nothing to gain
 - once everything is hydrated, the page is doing the same work as the plain one
 
-If people usually open your page to sort its only table, an island moves the cost from the load to the moment they care about, and you may prefer to keep that table out of an island or to [wake it early](../20-core-concepts/30-when-islands-wake.md).
+If people usually open your page to sort its only table, and their connections are slow, an island moves the cost from the load to the moment they care about, and you may prefer to keep that table out of an island or to [wake it early](../20-core-concepts/30-when-islands-wake.md).
 
 ## How it's measured
 

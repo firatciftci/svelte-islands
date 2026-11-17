@@ -1,6 +1,6 @@
 ---
 title: Glossary
-description: Short definitions of the terms used across the svelte-islands docs: part, island, wake, skeleton, outline, rebuild, store, and the three island modes.
+description: Short definitions of the terms used across the svelte-islands docs: part, island, wake, skeleton, outline, rebuild, store, shell page, fresh island, and the render modes.
 ---
 
 ## Part
@@ -13,7 +13,7 @@ A region of your page that loads and hydrates on its own, using [`Island`](../20
 
 ## Wake
 
-What an island does when its [`when` strategy](../20-core-concepts/30-when-islands-wake.md) fires: the browser downloads its part and hydrates it.
+What an island does when its [`hydrate` strategy](../20-core-concepts/30-when-islands-wake.md) fires: the browser downloads its part and hydrates it.
 
 ## Static island
 
@@ -21,11 +21,19 @@ An island whose HTML is in your page from the start, and which runs no code unti
 
 ## Deferred island
 
-An island whose HTML is stored at its own URL and arrives as the island nears the viewport. You get one by [adding `defer`](../20-core-concepts/20-islands.md#deferred).
+An island whose HTML is stored at its own URL and arrives as the island nears the viewport. You get one with [`render="deferred"`](../20-core-concepts/20-islands.md#deferred).
 
 ## Client-only island
 
-An island with no server HTML in your page, which renders in the browser. You get one with [`ssr={false}`](../20-core-concepts/20-islands.md#client-only).
+An island with no server HTML in your page, which renders in the browser. You get one with [`render="client"`](../20-core-concepts/20-islands.md#client-only).
+
+## Fresh island
+
+An island whose HTML is rendered again for each visitor, so the page around it can be cached. You get one with [`render="fresh"`](../20-core-concepts/90-fresh-islands.md).
+
+## Shell page
+
+A page with `export const csr = false`, which SvelteKit renders without running its client. Its islands boot with the [Vite plugin](../20-core-concepts/80-shell-pages.md).
 
 ## Skeleton
 

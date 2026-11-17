@@ -26,6 +26,23 @@ An island that reads a private part renders as a static island: its HTML is in t
 
 A private part nested inside a public part throws an error, because the outer part would publish it.
 
+## Per-visitor islands on cached pages
+
+A private part keeps data out of public URLs, but the page is still one page for everyone. If a cached page needs an island that shows each visitor's own data, use `render="fresh"`. The island is rendered for each visitor when the browser asks for it, and its part comes from `fresh()`, which reads the value from the visitor's request and keeps it private:
+
+```ts
+/// file: src/routes/cart/+page.server.ts
+import { fresh } from "svelte-islands/server";
+
+export async function load({ cookies }) {
+  return {
+    cart: await fresh("cart", () => getCart(cookies.get("session")), []),
+  };
+}
+```
+
+The page's HTML stays the same for everyone, so it can be cached. The per-visitor part never gets a public URL. [Fresh islands](../20-core-concepts/90-fresh-islands.md) covers the request and the fallback.
+
 ## `Await`
 
 For content that comes from an `<Await>` (not a part), set `<Await private>` so the server does not learn a skeleton from it. The visitor's browser still saves that skeleton for later navigations; see Skeletons below.

@@ -14,6 +14,53 @@ The island's data probably failed to load. Look in the console for `svelte-islan
 - if the response is a page of HTML, another handle answered first, so put the library's handle earlier in your `sequence`
 - if the value can't be decoded, register your own types by passing `codecs` to `islands()`
 
+## The Vite plugin leaves an island in the page
+
+The plugin moves an island's code into its own chunk only when it can make a copy of the island's snippet and the values the snippet reads. When it can't, the island stays in the page and the build warns with a line like this:
+
+```
+src/routes/products/+page.svelte:12: the island stays in the page, because "label" means something else where the island is
+```
+
+The reasons are:
+
+- the island's children aren't a snippet the plugin can find, so declare the snippet in the same component
+- the snippet reads `$$props`, `$$restProps`, or `$$slots`, or it uses `let:`, `<slot>`, or `<svelte:self>`
+- an element in the snippet could match a selector in the page's scoped styles, so move the markup into a component or make the selector `:global` (see [scoped styles](../20-core-concepts/70-vite-plugin.md#when-a-snippet-stays-in-the-page))
+- a name in the snippet means something else where the island is, or the same name means two different things
+
+The island still works, but its code stays in the page's JavaScript instead of its own chunk. On a page with `csr = false`, it stays as server HTML.
+
+## A page with csr = false throws about a page value
+
+On a page with `csr = false`, an island gets a copy of each page value it reads, and the copy has to survive serialization. In development, an island that reads a function, or a value that can't be serialized, throws an error like this:
+
+```
+svelte-islands: the island for part("products") reads `formatPrice` from the page, and it holds a function. On a page with csr = false, an island gets a copy of each page value it reads, so `formatPrice` can't reach it. Define it in a module the island imports, or move it inside the island's snippet.
+```
+
+Define the function in a module that the island imports, or move it inside the island's snippet. In production, the library logs the same message and leaves that island as server HTML. Contexts have a similar limit on these pages: an island gets a context only if its key is a string or a `Symbol.for()` key, and its value can be serialized. Use `context()` from `svelte-islands` to make a key that reaches the island.
+
+## The build warns that islands stay as server HTML
+
+Pages with `csr = false` need the build to split code, so the plugin can boot their islands there. If the build has code splitting turned off, the plugin warns:
+
+```
+the build doesn't split code, so each island's code stays in the main bundle, and islands on pages with csr = false stay as server HTML. Use the default output.bundleStrategy, "split".
+```
+
+Remove the output setting that turned splitting off, so that the build uses the default.
+
+## Fresh islands show the page's own values
+
+A `render="fresh"` island asks the server to render its page again for the visitor. On a prerendered page, the server can't do that, so the request fails. If you run a server, it logs:
+
+```
+svelte-islands: the server couldn't render /products/shirt for its fresh islands, so they show the page's own values. The server can't render a prerendered page again, so render the page on the server and cache it with cache-control instead.
+```
+
+The island shows the value the page was built with, which is the fallback. That's expected on a prerendered page or a static host. To get per-visitor values, render the page on the server, and cache it with a `cache-control` header instead. [Fresh islands](../20-core-concepts/90-fresh-islands.md) explains the request.
+
 ## Requests for parts return 404
 
 One 404 is normal. When a server does not have a part (usually because it restarted, or because another server made the part), the browser asks again with the page the part came from, and the server reruns that page to make it again.
@@ -60,7 +107,11 @@ You should [load the data into the part](50-async-mode.md) instead.
 
 An island's wrapper is a `div`, and the HTML parser moves a `div` out of a `table`.
 
-Pass [`as="tbody"`](../30-long-content/20-long-tables.md#near-the-top), which needs server HTML in the page, so it throws an error if you combine it with `defer` or `ssr={false}`.
+Pass [`as="tbody"`](../30-long-content/20-long-tables.md#near-the-top), which needs server HTML in the page. Combining it with `render="deferred"`, `render="client"`, or `render="fresh"` throws an error while the page renders on the server:
+
+```
+The island "products" uses as="tbody", which needs its rows in the page. Use render="server".
+```
 
 ## A link to an anchor doesn't land
 
@@ -75,7 +126,7 @@ If the id is inside an `Await`, its content had not arrived when the browser loo
 Each island brings its content in when the browser is about to print, or when someone presses Ctrl+F or Cmd+F. There are two cases it can't cover:
 
 - choosing Find from the browser's menu sends the page no event, so the library can't react to it
-- a client-only island with no headings has no outline, and it does not load for printing or searching
+- a client-only island prints only if its code has already loaded, and find in page can't load one with no headings in its outline
 
 There's more on this in [Printing and find in page](../30-long-content/30-printing-and-find.md).
 

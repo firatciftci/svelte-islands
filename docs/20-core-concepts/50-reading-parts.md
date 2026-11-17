@@ -62,7 +62,7 @@ The same part can render in more than one way. If you give each rendering a `vie
   {/snippet}
 </Island>
 
-<Island part={data.products} view="chart" when="visible">
+<Island part={data.products} view="chart" hydrate="visible">
   {#snippet children(products)}
     <ProductChart {products} />
   {/snippet}

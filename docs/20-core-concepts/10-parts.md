@@ -32,9 +32,9 @@ Only the contents count toward the hash, so the same value on two pages is one d
 
 A part of 4,096 characters or less stays in your page's data, because a separate request would cost more than it saves. You can change the limit with `islands({ inline })`.
 
-This has a consequence you might not expect: an island around a small part is not a hydration boundary. The component hydrates along with the rest of the page, so `when` will not delay it.
+Without the [Vite plugin](70-vite-plugin.md), an island around a small part is not a hydration boundary. The component hydrates along with the rest of the page, so `hydrate` will not delay it. With the plugin, the island keeps its own code and waits for `hydrate` as usual.
 
-If you want it to wait anyway, add [`defer`](20-islands.md#deferred).
+Without the plugin, if you want the island to wait anyway, add [`render="deferred"`](20-islands.md#deferred).
 
 ## Names
 

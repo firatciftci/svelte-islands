@@ -37,7 +37,7 @@ Here you keep all of SvelteKit, and an island stays part of your component, so i
 
 ## How does this compare with Astro?
 
-Astro is a different framework that ships no JavaScript by default. If you've used its `client:*` directives, `when` does the same job.
+Astro is a different framework that ships no JavaScript by default. If you've used its `client:*` directives, `hydrate` does the same job: `client:visible` is `hydrate="visible"`, `client:idle` is `hydrate="idle"`, and `client:only` is `render="client"`.
 
 Here you keep SvelteKit's routing, `load`, and client-side navigation, and each island's data lives at its own URL.
 
@@ -51,10 +51,10 @@ The library was built for [electionsarchive.com](https://electionsarchive.com), 
 
 A static island's HTML is in the page, so yes.
 
-A deferred island's HTML is not in the first response, so a crawler that does not run JavaScript sees only the [outline](../20-core-concepts/20-islands.md#screen-readers) (its headings). You should use `defer` only for content you don't need indexed that way.
+A deferred island's HTML is not in the first response, so a crawler that does not run JavaScript sees only the [outline](../20-core-concepts/20-islands.md#screen-readers) (its headings). You should use `render="deferred"` only for content you don't need indexed that way.
 
 Content streamed into an [`Await`](../20-core-concepts/45-streaming.md) appears only once the page hydrates, so a crawler that does not run JavaScript sees its skeleton. You can give crawlers `stream(values, { budget: Infinity })`, so that their page waits for all of the content.
 
 ## How much JavaScript does it add?
 
-About 10.5 KiB gzipped for `Island` alone, and 11.5 KiB for every client export together. CI fails if those go over 11.5 KiB and 12.5 KiB.
+About 11 KiB gzipped for `Island` alone, and 12.4 KiB for every client export together. CI fails if those go over 11.5 KiB and 12.5 KiB.

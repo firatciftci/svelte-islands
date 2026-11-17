@@ -76,3 +76,19 @@ If your proxy or CDN already compresses these responses, you should turn this of
 /// file: src/hooks.server.ts
 export const handle = islands({ compress: false });
 ```
+
+## `speculation` and `viewTransitions`
+
+`speculation` adds [Speculation Rules](https://developer.mozilla.org/docs/Web/API/Speculation_Rules_API) to [shell pages](../20-core-concepts/80-shell-pages.md), which are the pages with `csr = false`. The browser then prefetches, or prerenders, a same-origin page when a link is hovered. Links with `data-sveltekit-preload-data="false"` are left alone. The default is `false`, and the other values are `"prefetch"` and `"prerender"`:
+
+```ts
+/// file: src/hooks.server.ts
+export const handle = islands({ speculation: "prefetch" });
+```
+
+`viewTransitions` adds cross-document View Transitions to every page. The browser animates between pages, and by default that's a crossfade. It's off by default too:
+
+```ts
+/// file: src/hooks.server.ts
+export const handle = islands({ viewTransitions: true });
+```

@@ -215,7 +215,7 @@ Until the island wakes, a click on Price has to wait for the data and the code t
 </style>
 ```
 
-The state is `static` until the island wakes and `live` after it, and [Styling](../60-best-practices/20-styling.md#selecting-islands) lists the other two, for deferred and client-only islands.
+The state is `static` until the island wakes and `live` after it, and [Styling](../60-best-practices/20-styling.md#selecting-islands) lists the other values for deferred, client-only, and fresh islands.
 
 ## Rendering fewer rows at first
 
@@ -264,14 +264,14 @@ So the island should wake when it comes into view instead:
 ```svelte
 <!--- file: src/routes/products/+page.svelte --->
 ---<Island part={data.products} class="catalog">---
-+++<Island part={data.products} class="catalog" when="visible">+++
++++<Island part={data.products} class="catalog" hydrate="visible">+++
   {#snippet children(products)}
     <ProductTable {products} />
   {/snippet}
 </Island>
 ```
 
-This is the usual pairing: `unroll` keeps the first render short, and `when="visible"` makes sure the island is awake before anyone gets to the end of it.
+This is the usual pairing: `unroll` keeps the first render short, and `hydrate="visible"` makes sure the island is awake before anyone gets to the end of it.
 
 This has a trade-off. Our table is at the top of the page, so `visible` wakes it soon after the page loads, and the data now downloads on almost every visit. It still arrives after the page has painted, from a URL the browser can cache, and only 100 rows hydrate instead of 5,000. A table further down the page would keep waiting until someone scrolled to it.
 
@@ -283,7 +283,7 @@ A download can fail, and with nothing else in place, the island shows a plain Re
 
 ```svelte
 <!--- file: src/routes/products/+page.svelte --->
-<Island part={data.products} class="catalog" when="visible">
+<Island part={data.products} class="catalog" hydrate="visible">
   {#snippet children(products)}
     <ProductTable {products} />
   {/snippet}

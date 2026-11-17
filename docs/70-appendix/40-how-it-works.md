@@ -39,7 +39,25 @@ When several islands are ready at once, they hydrate one after another in slices
 
 Islands that hydrate on interaction go first, then `visible` and `eager` islands, then `media` islands, then `idle` ones. An island with a held click moves to the front.
 
-Islands that render in the browser (after a client-side navigation, or with `ssr={false}`) go through the same queue.
+Islands that render in the browser (after a client-side navigation, or with `render="client"`) go through the same queue.
+
+## Prefetching
+
+An island that waits for a reader (`interaction`, `idle`, or `media`) doesn't download its data until then. Once the island comes within its `margin` of the viewport (320 pixels by default) and the browser is idle, the library fetches its part, the other parts it reads, and its code, all at low priority. Islands that wake on `visible` or `eager` skip this, since they download when they wake. Prefetching stops on slow connections and when someone has turned on data saving, and it's capped at 1 MiB per page. Set `prefetch={false}` to turn it off for one island.
+
+## Code splitting and shell pages
+
+With the [Vite plugin](../20-core-concepts/70-vite-plugin.md), the build moves each island's snippet into its own chunk, and the server records which chunk belongs to which island. A page that renders normally loads only the chunks of the islands it needs.
+
+On a [shell page](../20-core-concepts/80-shell-pages.md), which is a page with `csr = false`, SvelteKit doesn't run its client, so something else has to boot the islands. The server writes the islands' data, their page values, and their chunk names into a JSON script, along with a small module that starts them. The module loads each island's chunk only when that island needs it.
+
+## Fresh requests
+
+A [fresh island](../20-core-concepts/90-fresh-islands.md) renders its fallback in the first response, so the page can be cached. When the page loads, the browser asks for its fresh islands at `/_parts/fresh`, using the page's address. The server renders that page again for this visitor, collects the fresh islands and their parts, and sends them back in one private response that shared caches never keep. The browser then draws each island from it. If the server can't render the page again, the islands keep the page's own values.
+
+## Held input
+
+Until an island is live, the library holds what the reader does in it, then replays it. A click on a button or another control that isn't a native form control is pressed again once the island hydrates. Links aren't held, since they navigate on their own. Native fields such as text inputs and checkboxes aren't intercepted, but the values someone typed or checked are kept when the island hydrates. A form submission is held and sent again with `requestSubmit`.
 
 ## Compact transport
 

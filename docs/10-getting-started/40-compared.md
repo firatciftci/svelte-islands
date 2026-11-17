@@ -12,15 +12,15 @@ If you build with SvelteKit, the third bet is usually the right one, for three r
 
 ## At a glance
 
-|                              | svelte-islands                         | ogygia                                     | Mochi                     |
-| ---------------------------- | -------------------------------------- | ------------------------------------------ | ------------------------- |
-| What it is                   | a library for SvelteKit                | a library and Vite plugin for SvelteKit    | its own framework, on Bun |
-| The rest of the page         | hydrates as usual                      | stays HTML, on routes with `csr = false`   | stays HTML                |
-| Navigation                   | SvelteKit's                            | ogygia's router                            | full page loads           |
-| What crosses into an island  | snippets, context, and live page state | serialized props                           | serialized props          |
-| Where an island's data lives | its own cacheable URL                  | the island's props                         | the island's props        |
-| Getting started              | two hooks and a stylesheet             | a Vite plugin, a handle, and `csr = false` | a new app                 |
-| Runs on                      | any SvelteKit adapter                  | SvelteKit                                  | Bun only                  |
+|                              | svelte-islands                             | ogygia                                     | Mochi                     |
+| ---------------------------- | ------------------------------------------ | ------------------------------------------ | ------------------------- |
+| What it is                   | a library for SvelteKit                    | a library and Vite plugin for SvelteKit    | its own framework, on Bun |
+| The rest of the page         | hydrates as usual                          | stays HTML, on routes with `csr = false`   | stays HTML                |
+| Navigation                   | SvelteKit's                                | ogygia's router                            | full page loads           |
+| What crosses into an island  | snippets, context, and live page state     | serialized props                           | serialized props          |
+| Where an island's data lives | its own cacheable URL                      | the island's props                         | the island's props        |
+| Getting started              | one command, or two hooks and a stylesheet | a Vite plugin, a handle, and `csr = false` | a new app                 |
+| Runs on                      | any SvelteKit adapter                      | SvelteKit                                  | Bun only                  |
 
 ## The same island in each
 
@@ -35,7 +35,7 @@ The example below is a table of orders that hydrates when it scrolls into view. 
   let { data } = $props();
 </script>
 
-<Island part={data.orders} when="visible">
+<Island part={data.orders} hydrate="visible">
   {#snippet children(orders)}
     <OrderTable {orders} />
   {/snippet}
@@ -61,11 +61,11 @@ With Mochi, a directive on the component does it:
 <OrderTable mochi:hydrate:visible {orders} />
 ```
 
-They look alike, but what's allowed inside each boundary differs, and that difference shapes everything else.
+They look alike, but what's allowed inside each boundary differs.
 
 ## An island is part of your component
 
-In svelte-islands, an island's content is a snippet, written in the page like any other markup. It closes over the page's state, calls the page's functions, and hydrates with the [context](https://svelte.dev/docs/svelte/context) of the component around it. Here a checkbox inside the island updates a count outside it:
+In svelte-islands, an island's content is a snippet, written in the page like any other markup. It closes over the page's state, calls the page's functions, and hydrates with the [context](https://svelte.dev/docs/svelte/context) of the component around it. On a [shell page](../20-core-concepts/80-shell-pages.md), an island finds a context only by its name, so make it with `context()` from svelte-islands. Here a checkbox inside the island updates a count outside it:
 
 ```svelte
 <script>
@@ -107,9 +107,11 @@ That means you decide where each boundary goes before you build, and ogygia call
 
 ## Your app stays a SvelteKit app
 
-Setting up svelte-islands takes a transport hook, a server handle, and a stylesheet. There's no Vite plugin or compiler step, and nothing else about your app changes: routing, `load`, form actions, client-side navigation, prerendering, and your adapter all work as before. You can wrap one region on one page, measure it, and stop there.
+Setting up svelte-islands takes a transport hook, a server handle, and a stylesheet, or one `init` command that adds them. The Vite plugin is optional, and nothing else about your app changes: routing, `load`, form actions, client-side navigation, prerendering, and your adapter all work as before. You can wrap one region on one page, measure it, and stop there.
 
 ogygia sits on SvelteKit too. Its model is a route that sets `csr = false`, and on those routes SvelteKit's client doesn't load. The page's own script never runs in the browser, so a top-level `onMount` or effect does nothing, anything interactive has to live in an island, and navigation goes through ogygia's router.
+
+svelte-islands can also run on a `csr = false` route, with the Vite plugin, through [shell pages](../20-core-concepts/80-shell-pages.md).
 
 Mochi replaces SvelteKit. Routes become `Mochi.page()` and its siblings, and by [Mochi's own comparison](https://mochi.fast/docs/mochi-vs-sveltekit/) it runs only on Bun, renders only on the server (there's no static build), and has no client-side router or remote functions.
 
@@ -126,24 +128,26 @@ An island's data in svelte-islands is a [part](../20-core-concepts/10-parts.md):
 
 In ogygia and Mochi, an island's data is its props, serialized for that instance.
 
-On the [benchmark](../70-appendix/60-benchmark.md) page, moving two tables and a chart into islands cut the HTML from 99 KB to 5 KB, and blocking time from 203 ms to 0. That compares against plain SvelteKit, not against the other two.
+On the [benchmark](../70-appendix/60-benchmark.md) page, moving two tables and a chart into islands cut the HTML from 99 KB to 5 KB, and blocking time from 214 ms to 0. That compares against plain SvelteKit, not against the other two.
 
 ## What comes with it
 
 These are the parts of the library that SvelteKit apps tend to need after their first island:
 
 - a [skeleton](../20-core-concepts/40-skeletons.md) for each island, learned from what it rendered, so you rarely write a placeholder
-- [clicks before hydration](../20-core-concepts/60-clicks.md), held and replayed, so a quick reader doesn't lose one
-- [`defer`](../20-core-concepts/20-islands.md), which keeps an island's HTML out of the page until someone scrolls toward it
+- [clicks, form submissions, and typed text](../20-core-concepts/60-clicks.md) before hydration, held and replayed, so an early action of any of those kinds isn't lost
+- [`render="deferred"`](../20-core-concepts/20-islands.md#deferred), which keeps an island's HTML out of the page until someone scrolls toward it
+- [fresh islands](../20-core-concepts/90-fresh-islands.md), which render for each visitor on a page that can still be cached
+- the [Vite plugin](../20-core-concepts/70-vite-plugin.md), which gives each island its own chunk of code, so the browser downloads it with the island's data
 - [`unroll`](../30-long-content/10-long-lists.md), which renders a long list a few rows at a time without breaking find in page or printing
 - [`Await` and `stream()`](../20-core-concepts/45-streaming.md), for data that arrives late
 - a [budget check](../50-tooling/10-budget-check.md) for CI, an [overlay](../50-tooling/30-overlay.md), and an [ESLint rule](../50-tooling/20-eslint.md) that catches per-visitor data in a public part
 
 ## The trade-off
 
-Keeping SvelteKit's client has a cost. A page with svelte-islands still loads SvelteKit's runtime and hydrates everything outside its islands, and the library adds about 11 KB of compressed JavaScript. An ogygia page with `csr = false` ships only its islands and a runtime that ogygia puts at about 7.6 KB.
+Keeping SvelteKit's client has a cost. A normal page with svelte-islands still loads SvelteKit's runtime and hydrates everything outside its islands, and the library adds about 11 KB of compressed JavaScript. An ogygia page with `csr = false` ships only its islands and a runtime that ogygia puts at about 7.6 KB.
 
-You can close some of that gap by wrapping static regions in islands with `when="never"`, which skip hydration and keep their data out of the page (these docs do this with every page's text). Their code still ships with the page, though.
+You can close some of that gap by wrapping static regions in islands with `hydrate="never"`, which skip hydration and keep their data out of the page (these docs do this with every page's text). Without the Vite plugin, their code still ships with the page. With it, that code is in its own chunk, which the browser never downloads.
 
 ## When to choose ogygia
 

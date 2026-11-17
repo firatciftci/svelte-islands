@@ -13,7 +13,7 @@ If the table starts below the fold, you can defer the whole thing:
 
 ```svelte
 <div style="--island-item: 2.75rem">
-  <Island part={data.products} defer when="visible">
+  <Island part={data.products} render="deferred" hydrate="visible">
     {#snippet children(products)}
       <ProductTable {products} />
     {/snippet}
@@ -29,7 +29,7 @@ A skeleton is [learned per name](../20-core-concepts/40-skeletons.md), though, s
 
 ```svelte
 <div style:--island-item="0px" style:min-block-size="{data.count * 3}rem">
-  <Island part={data.products} defer when="visible">
+  <Island part={data.products} render="deferred" hydrate="visible">
     {#snippet children(products)}
       <ProductTable {products} />
     {/snippet}
@@ -49,7 +49,7 @@ If the table is near the top of your page, or its HTML has to be in the page, yo
 <table>
   <thead><!-- your header --></thead>
   {#each ["0", "1", "2"] as chunk (chunk)}
-    <Island part={data.products} view={chunk} as="tbody" when="visible">
+    <Island part={data.products} view={chunk} as="tbody" hydrate="visible">
       {#snippet children(products)}
         {#each products.slice(Number(chunk) * 100, (Number(chunk) + 1) * 100) as product (product.id)}
           <tr><td>{product.name}</td></tr>
@@ -64,7 +64,7 @@ Each chunk hydrates on its own when it comes into view, and all the chunks share
 
 A table may hold any number of `tbody` elements, so to the browser this is still one table.
 
-Since `as="tbody"` makes the island's wrapper part of the table, there's nowhere to put a skeleton. So it needs its server HTML in the page, and it throws an error if you combine it with `defer` or `ssr={false}`.
+Since `as="tbody"` makes the island's wrapper part of the table, there's nowhere to put a skeleton. So it needs its server HTML in the page, which means `render="server"`, the default. Combining it with `render="deferred"`, `render="client"`, or `render="fresh"` throws an error while the page renders on the server.
 
 ## What about `content-visibility`?
 

@@ -46,3 +46,5 @@ If you keep more than one budget (for staging and production, say), `--config` p
 ```sh
 npx svelte-islands check http://localhost:4173 --config budgets/staging.json
 ```
+
+To see more than the total size of a page, including the size of each island's part and whether its code has a chunk of its own, use [`inspect`](05-init-and-inspect.md). It reads from the same running server, and it doesn't fail when a page goes over budget.

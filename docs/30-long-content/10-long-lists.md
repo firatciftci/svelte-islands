@@ -49,7 +49,7 @@ A virtual list keeps only the visible rows in the DOM, which means it can handle
 The two work together. The island keeps the data out of your page until it's needed, and `unroll` keeps the first render short when it wakes:
 
 ```svelte
-<Island part={data.rows} when="visible">
+<Island part={data.rows} hydrate="visible">
   {#snippet children(rows)}
     <Rows {rows} />
   {/snippet}
