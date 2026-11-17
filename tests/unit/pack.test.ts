@@ -1,6 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { isPackable, pack, unpack } from "#lib/pack.js";
+import { isPackable, pack } from "#lib/pack.js";
+import { unpack } from "#lib/unpack.js";
 
 const number = fc
   .double({ noNaN: true, noDefaultInfinity: true })

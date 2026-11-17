@@ -1,7 +1,7 @@
 import type { Transport } from "@sveltejs/kit/hooks";
 import type { Snippet } from "svelte";
 import { parse, stringify } from "devalue";
-import { claim, isPackable, pack, unpack } from "./pack.js";
+import { unpack } from "./unpack.js";
 
 /**
  * Where an island's HTML comes from.
@@ -127,13 +127,26 @@ const state: {
   reducers: Record<string, (value: unknown) => unknown>;
   sealed: Record<string, (value: unknown) => unknown>;
   revivers: Record<string, (value: unknown) => unknown>;
+  claims: Array<(value: unknown) => unknown>;
+  packer: Packer | null;
 } = {
   read: () => null,
   arrived: () => {},
   reducers: {},
   sealed: {},
   revivers: {},
+  claims: [],
+  packer: null,
 };
+
+type Packer = (
+  value: unknown,
+  claims: ReadonlyArray<(value: unknown) => unknown>,
+) => string | null;
+
+export function usePacker(packer: Packer) {
+  state.packer = packer;
+}
 
 export function provide(reader: () => Scope | null) {
   state.read = reader;
@@ -204,9 +217,10 @@ const codec = {
 
 const packed = {
   encode: (value: unknown) =>
-    Array.isArray(value) && value.length >= 4 && isPackable(value)
-      ? JSON.stringify(pack(value))
-      : false,
+    (Array.isArray(value) &&
+      value.length >= 4 &&
+      state.packer?.(value, state.claims)) ??
+    false,
   decode: (text: string) => unpack(JSON.parse(text)),
 };
 
@@ -219,7 +233,7 @@ const nested = {
 };
 
 function index(codecs: Transport) {
-  claim(Object.values(codecs).map(({ encode: reduce }) => reduce));
+  state.claims = Object.values(codecs).map(({ encode: reduce }) => reduce);
   const merged: Transport = { ...codecs, ...compact, part: nested };
   const all = Object.entries(merged);
   state.sealed = Object.fromEntries(
@@ -275,9 +289,10 @@ export function islands({
 }
 
 export function serialize(value: unknown, isPrivate = false) {
-  return isPackable(value)
-    ? `~${JSON.stringify(pack(value))}`
-    : stringify(value, isPrivate ? state.sealed : state.reducers);
+  const packedText = state.packer?.(value, state.claims);
+  return packedText == null
+    ? stringify(value, isPrivate ? state.sealed : state.reducers)
+    : `~${packedText}`;
 }
 
 export function deserialize(text: string): unknown {

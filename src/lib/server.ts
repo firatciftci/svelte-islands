@@ -8,9 +8,21 @@ import type { Fetch } from "./part.js";
 import type { RebuildOptions } from "./rebuild.js";
 import type { Store } from "./stores.js";
 import Frame from "./frame.svelte";
-import { Part, provide, quietly, serialize, settings } from "./part.js";
+import { isPackable, pack } from "./pack.js";
+import {
+  Part,
+  provide,
+  quietly,
+  serialize,
+  settings,
+  usePacker,
+} from "./part.js";
 import { REBUILD_DEFAULTS, rebuilds } from "./rebuild.js";
 import { outline, skeletonize } from "./skeleton.js";
+
+usePacker((value, claims) =>
+  isPackable(value, claims) ? JSON.stringify(pack(value)) : null,
+);
 
 export type { RebuildOptions } from "./rebuild.js";
 export type { Store } from "./stores.js";

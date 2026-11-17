@@ -5,7 +5,6 @@ import { SvelteSet } from "svelte/reactivity";
 import type { Strategy } from "./part.js";
 import { emit, isObserved } from "./observe.js";
 import { deserialize, onArrival, Part, quietly, settings } from "./part.js";
-import { shape } from "./skeleton.js";
 
 const BUDGET = 64 * 1024 ** 2;
 const MARGIN = "320px";
@@ -562,6 +561,13 @@ export function idle(run: () => void) {
   };
 }
 
+let shaping: Promise<(element: Element) => string | null> | null = null;
+
+export async function shaper() {
+  shaping ??= import("./skeleton.js").then((module) => module.shape);
+  return shaping;
+}
+
 export function capture(key: string, element: Element) {
   read();
   if (skeletons.has(key)) {
@@ -580,11 +586,15 @@ export function capture(key: string, element: Element) {
       };
       return;
     }
-    const shaped = shape(element);
-    if (shaped != null && shaped !== "" && !skeletons.has(key)) {
-      skeletons.set(key, shaped);
-      save(key, shaped);
-    }
+    void quietly(
+      shaper().then((shape) => {
+        const shaped = shape(element);
+        if (shaped != null && shaped !== "" && !skeletons.has(key)) {
+          skeletons.set(key, shaped);
+          save(key, shaped);
+        }
+      }),
+    );
   };
   cancel = idle(attempt);
   return () => {

@@ -1,7 +1,7 @@
 import type { Attachment } from "svelte/attachments";
 import { flushSync } from "svelte";
-import { whenWanted } from "./runtime.js";
-import { shape } from "./skeleton.js";
+import { quietly } from "./part.js";
+import { shaper, whenWanted } from "./runtime.js";
 
 const BUDGET = 8;
 
@@ -33,7 +33,13 @@ export const unroll = (
         const model = node.previousElementSibling;
         if (model != null && node.childElementCount === 0) {
           node.className ||= model.className;
-          node.innerHTML = shape(model) ?? "";
+          void quietly(
+            shaper().then((shape) => {
+              if (node.childElementCount === 0) {
+                node.innerHTML = shape(model) ?? "";
+              }
+            }),
+          );
         }
         node.classList.add("island-skeleton");
         node.setAttribute("aria-hidden", "true");

@@ -1,3 +1,14 @@
+import {
+  DICTIONARY,
+  NESTED,
+  NULLABLE,
+  PLAIN,
+  RUNS,
+  SPARSE,
+  TABLE,
+  UNDEFINED,
+} from "./unpack.js";
+
 type Value =
   | undefined
   | null
@@ -17,24 +28,10 @@ type Json =
 
 type Row = Record<string, Value>;
 
-const PLAIN = 0;
-const TABLE = 1;
-const DICTIONARY = 2;
-const NESTED = 3;
-const RUNS = 4;
-const SPARSE = 5;
-const NULLABLE = 6;
-const UNDEFINED = 7;
-
-const claims: Array<(value: unknown) => boolean> = [];
-
-export function claim(encoders: Array<(value: unknown) => unknown>) {
-  claims.splice(
-    0,
-    claims.length,
-    ...encoders.map((encode) => (value: unknown) => Boolean(encode(value))),
-  );
-}
+type Walk = {
+  seen: Set<object>;
+  claims: ReadonlyArray<(value: unknown) => unknown>;
+};
 
 function isRow(value: Value): value is Row {
   return value != null && typeof value === "object" && !Array.isArray(value);
@@ -50,13 +47,13 @@ function isFlat(value: object) {
   return Object.values(value).every((item) => isPrimitive(item));
 }
 
-function isPackableObject(value: object, seen: Set<object>) {
+function isPackableObject(value: object, walk: Walk) {
   if (Array.isArray(value)) {
     const items: Array<unknown> = value;
     for (const [index, item] of items.entries()) {
       if (
         (item === undefined && !Object.hasOwn(items, index)) ||
-        !isPackableWithin(item, seen)
+        !isPackableWithin(item, walk)
       ) {
         return false;
       }
@@ -66,11 +63,11 @@ function isPackableObject(value: object, seen: Set<object>) {
   return (
     Object.getPrototypeOf(value) === Object.prototype &&
     Object.getOwnPropertySymbols(value).length === 0 &&
-    Object.values(value).every((item) => isPackableWithin(item, seen))
+    Object.values(value).every((item) => isPackableWithin(item, walk))
   );
 }
 
-function isPackableWithin(value: unknown, seen: Set<object>): value is Value {
+function isPackableWithin(value: unknown, walk: Walk): value is Value {
   if (
     value == null ||
     typeof value === "string" ||
@@ -84,18 +81,21 @@ function isPackableWithin(value: unknown, seen: Set<object>): value is Value {
   if (typeof value !== "object") {
     return false;
   }
-  if (seen.has(value)) {
+  if (walk.seen.has(value)) {
     return isFlat(value);
   }
-  if (claims.some((isClaimed) => isClaimed(value))) {
+  if (walk.claims.some((isClaimed) => Boolean(isClaimed(value)))) {
     return false;
   }
-  seen.add(value);
-  return isPackableObject(value, seen);
+  walk.seen.add(value);
+  return isPackableObject(value, walk);
 }
 
-export function isPackable(value: unknown): value is Value {
-  return isPackableWithin(value, new Set());
+export function isPackable(
+  value: unknown,
+  claims: ReadonlyArray<(value: unknown) => unknown> = [],
+): value is Value {
+  return isPackableWithin(value, { seen: new Set(), claims });
 }
 
 function runs(cells: Array<Value>) {
@@ -292,136 +292,4 @@ export function pack(value: Value): Json {
     );
   }
   return value;
-}
-
-function numbers(value: unknown) {
-  return Array.isArray(value) ? (value as Array<number>) : [];
-}
-
-function put(row: Record<string, unknown>, name: string, value: unknown) {
-  if (name === "__proto__") {
-    Object.defineProperty(row, name, {
-      value,
-      configurable: true,
-      enumerable: true,
-      writable: true,
-    });
-  } else {
-    row[name] = value;
-  }
-}
-
-function untable(keys: unknown, columns: Array<unknown>) {
-  const names = Array.isArray(keys) ? keys.map(String) : [];
-  const cells = columns.map((column) => unlist(column));
-  const rows: Array<unknown> = [];
-  for (let index = 0; index < (cells[0]?.length ?? 0); index += 1) {
-    const row: Record<string, unknown> = {};
-    let at = 0;
-    for (const name of names) {
-      put(row, name, cells[at]?.[index]);
-      at += 1;
-    }
-    rows.push(row);
-  }
-  return rows;
-}
-
-function unruns(bounds: Array<number>) {
-  const cells: Array<number> = [];
-  let start: number | null = null;
-  for (const bound of bounds) {
-    if (start == null) {
-      start = bound;
-    } else {
-      for (let cell = start; cell <= bound; cell += 1) {
-        cells.push(cell);
-      }
-      start = null;
-    }
-  }
-  return cells;
-}
-
-function unsparse(
-  length: unknown,
-  fill: unknown,
-  indices: unknown,
-  kept: unknown,
-) {
-  const cells = new Array<unknown>(Number(length)).fill(fill);
-  const items = unlist(kept);
-  let at = 0;
-  for (const index of numbers(indices)) {
-    cells[index] = items[at];
-    at += 1;
-  }
-  return cells;
-}
-
-function unlist(node: unknown): Array<unknown> {
-  if (!Array.isArray(node)) {
-    return [];
-  }
-  const fields: Array<unknown> = node;
-  const tag = fields[0];
-  const rest = fields.slice(1);
-  if (tag === TABLE) {
-    return untable(rest[0], rest.slice(1));
-  }
-  if (tag === DICTIONARY) {
-    const distinct = unlist(rest[0]);
-    return numbers(rest[1]).map((spot) => {
-      const value = distinct[spot];
-      if (Array.isArray(value)) {
-        const items: Array<unknown> = value;
-        return [...items];
-      }
-      return value !== null && typeof value === "object" ? { ...value } : value;
-    });
-  }
-  if (tag === NESTED) {
-    const items = unlist(rest[1]);
-    let at = 0;
-    return numbers(rest[0]).map((length) => {
-      if (length < 0) {
-        return length === -1 ? null : undefined;
-      }
-      at += length;
-      return items.slice(at - length, at);
-    });
-  }
-  if (tag === RUNS) {
-    return unruns(numbers(rest));
-  }
-  if (tag === SPARSE) {
-    return unsparse(rest[0], rest[1], rest[2], rest[3]);
-  }
-  if (tag === NULLABLE) {
-    const empty = new Set(numbers(rest[0]));
-    const items = unlist(rest[1]);
-    let at = 0;
-    return Array.from({ length: empty.size + items.length }, (_, index) => {
-      if (empty.has(index)) {
-        return null;
-      }
-      at += 1;
-      return items[at - 1];
-    });
-  }
-  return rest.map((item) => unpack(item));
-}
-
-export function unpack(node: unknown): unknown {
-  if (Array.isArray(node)) {
-    return node[0] === UNDEFINED ? undefined : unlist(node);
-  }
-  if (node !== null && typeof node === "object") {
-    const row: Record<string, unknown> = {};
-    for (const [key, item] of Object.entries(node)) {
-      put(row, key, unpack(item));
-    }
-    return row;
-  }
-  return node;
 }
