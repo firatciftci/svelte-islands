@@ -12,6 +12,10 @@ import { extract } from "#lib/extract.js";
 
 const RUNS = Number(process.env.FUZZ_RUNS ?? 150);
 
+function svelte(strings: TemplateStringsArray, ...values: Array<unknown>) {
+  return String.raw({ raw: strings }, ...values);
+}
+
 const SCRIPT = `<script>
   import { Island } from "svelte-islands";
   import Child from "./Child.svelte";
@@ -66,16 +70,15 @@ const CHILD = `<script>
 <span class="child">{String(value)}</span>{@render children?.()}
 `;
 
-let root = "";
-let made = 0;
+const scratch = { root: "", made: 0 };
 const tally = { islands: 0, split: 0, styled: 0, styledSplit: 0 };
 
 beforeAll(async () => {
-  root = await mkdtemp(path.join(tmpdir(), "islands-fuzz-"));
+  scratch.root = await mkdtemp(path.join(tmpdir(), "islands-fuzz-"));
 });
 
 afterAll(async () => {
-  await rm(root, { recursive: true, force: true });
+  await rm(scratch.root, { recursive: true, force: true });
 }, 60_000);
 
 type Draw = {
@@ -154,7 +157,7 @@ function node(
     () => `{@render tag(${expr()})}`,
   ];
   if (isIsland) {
-    leaves.push(() => `<input bind:value={text} />`);
+    leaves.push(() => svelte`<input bind:value={text} />`);
   }
   if (depth <= 0) {
     return pick(draw, leaves)();
@@ -187,7 +190,7 @@ function island(draw: Draw) {
   const isWrapped = draw.bool();
   const outer = isWrapped ? [...PAGE_NAMES, "item"] : PAGE_NAMES;
   const body = nodes(draw, [...outer, "rows"], 2, true);
-  const markup = `<Island part={data.rows}>{#snippet children(rows)}${body}{/snippet}</Island>`;
+  const markup = svelte`<Island part={data.rows}>{#snippet children(rows)}${body}{/snippet}</Island>`;
   return isWrapped ? `{#each list as item}${markup}{/each}` : markup;
 }
 
@@ -207,7 +210,7 @@ const pages = fc.gen().map((generator) => {
     const selector = pick(draw, SELECTORS);
     return selector.includes("{") ? selector : `${selector} { color: red; }`;
   });
-  return `${SCRIPT}
+  return svelte`${SCRIPT}
 {#snippet tag(value)}<em>{value} {label}</em>{/snippet}
 <h1>{${expression(draw, PAGE_NAMES, 1)}}</h1>
 ${sections.join("\n")}
@@ -229,8 +232,8 @@ async function renderVariant(
   variant: "original" | "server" | "client",
   page: string,
 ) {
-  made += 1;
-  const dir = path.join(root, `${made}-${variant}`);
+  scratch.made += 1;
+  const dir = path.join(scratch.root, `${scratch.made}-${variant}`);
   await mkdir(dir, { recursive: true });
   const file = path.join(dir, "Page.svelte");
   let source = page;

@@ -54,6 +54,21 @@ export type Control = { rouse: () => void };
 
 function nothing() {}
 
+async function when<T>(
+  promise: Promise<T>,
+  done: (value: T) => void,
+  failed: (error: unknown) => void,
+) {
+  let value: T;
+  try {
+    value = await promise;
+  } catch (error) {
+    failed(error);
+    return;
+  }
+  done(value);
+}
+
 export function codeOf(body: Body | undefined, chunk: Chunk | undefined): Code {
   if (chunk == null) {
     if (body == null) {
@@ -65,13 +80,14 @@ export function codeOf(body: Body | undefined, chunk: Chunk | undefined): Code {
   }
   let loaded: { body: Body; url: string | null } | null = null;
   let pending: Promise<Body> | null = null;
+  const fetchBody = async () => {
+    const module = await chunk();
+    loaded = { body: module.body, url: module.url ?? null };
+    return module.body;
+  };
   return {
     now: () => loaded?.body ?? null,
-    load: async () =>
-      (pending ??= chunk().then((module) => {
-        loaded = { body: module.body, url: module.url ?? null };
-        return module.body;
-      })),
+    load: async () => (pending ??= fetchBody()),
     bytes: () => {
       if (loaded?.url == null) {
         return null;
@@ -235,7 +251,8 @@ export function awaken(target: HTMLElement, wake: Wake, control: Control) {
       if (fired === "interaction") {
         touched ??= performance.now();
       }
-      ready(wake).then(
+      void when(
+        ready(wake),
         ({ value, body }) => {
           if (!isLive) {
             return;
@@ -247,7 +264,7 @@ export function awaken(target: HTMLElement, wake: Wake, control: Control) {
             job.hurry();
           }
         },
-        (error: unknown) => {
+        (error) => {
           held?.stop();
           if (isLive && error instanceof Gone && isFirstGone(wake.part.hash)) {
             wake.onGone();
@@ -344,7 +361,7 @@ export function reveal(
         void quietly(load(wake.part));
         void quietly(wake.code.load());
       }
-      markup.fetch().then(show, () => {
+      void when(markup.fetch(), show, () => {
         if (isLive) {
           wake.onRelease();
         }
@@ -385,7 +402,8 @@ export function freshen(
   const meter = measurer(wake.part);
   let isLive = true;
   let rest = nothing;
-  fresh().then(
+  void when(
+    fresh(),
     (found) => {
       if (!isLive) {
         return;
@@ -423,7 +441,8 @@ export function render(target: HTMLElement, wake: Wake, control: Control) {
     target,
     wake.hydrate(),
     (fired) => {
-      ready(wake).then(
+      void when(
+        ready(wake),
         ({ value, body }) => {
           if (!isLive) {
             return;
@@ -447,7 +466,7 @@ export function render(target: HTMLElement, wake: Wake, control: Control) {
             reportHydrate(target, wake, fired, started, null);
           }, wake.hydrate());
         },
-        (error: unknown) => {
+        (error) => {
           if (isLive && error instanceof Gone && isFirstGone(wake.part.hash)) {
             wake.onGone();
           }

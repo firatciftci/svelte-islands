@@ -1,4 +1,10 @@
-import type { DevEnvironment, Environment, Plugin, Rollup } from "vite";
+import type {
+  DevEnvironment,
+  Environment,
+  HookHandler,
+  Plugin,
+  Rollup,
+} from "vite";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
@@ -16,6 +22,9 @@ const HOOKS = [
   "src/hooks/index.ts",
   "src/hooks/index.js",
 ];
+
+type Context<K extends "buildStart" | "load" | "transform" | "writeBundle"> =
+  ThisParameterType<HookHandler<NonNullable<Plugin[K]>>>;
 
 function isRunnable(environment: Environment): environment is DevEnvironment {
   return "transformRequest" in environment;
@@ -144,7 +153,7 @@ export function islands(): Array<Plugin> {
         );
         plugins.splice(preprocess === -1 ? own : preprocess + 1, 0, plugin);
       },
-      buildStart() {
+      buildStart(this: Context<"buildStart">) {
         const { config, name } = this.environment;
         if (isServe || name !== "client" || pages.size === 0) {
           return;
@@ -167,7 +176,7 @@ export function islands(): Array<Plugin> {
         }
         return own(id);
       },
-      async load(id) {
+      async load(this: Context<"load">, id: string) {
         const [bare = id] = id.split("?", 1);
         if (bare === BOOT_ID) {
           return bootSource();
@@ -189,7 +198,7 @@ export function islands(): Array<Plugin> {
         filter: {
           id: { include: /\.svelte$/u, exclude: [/node_modules/u, ISLAND] },
         },
-        handler(code, id) {
+        handler(this: Context<"transform">, code: string, id: string) {
           const target =
             this.environment.config.consumer === "client" ? "client" : "server";
           const name = path.relative(root, id).split(path.sep).join("/");
@@ -213,7 +222,11 @@ export function islands(): Array<Plugin> {
           return { code: extracted.code, map: extracted.map };
         },
       },
-      writeBundle(options, bundle) {
+      writeBundle(
+        this: Context<"writeBundle">,
+        options: Rollup.NormalizedOutputOptions,
+        bundle: Rollup.OutputBundle,
+      ) {
         const { config, name } = this.environment;
         if (config.consumer !== "client") {
           for (const [file, chunk] of Object.entries(bundle)) {
@@ -237,7 +250,7 @@ export function islands(): Array<Plugin> {
       apply: "serve",
       transform: {
         filter: { code: SENTINEL },
-        handler(code) {
+        handler(this: Context<"transform">, code: string) {
           if (this.environment.config.consumer === "client") {
             return null;
           }

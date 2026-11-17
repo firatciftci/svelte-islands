@@ -62,7 +62,10 @@ function unsparse(
   indices: unknown,
   kept: unknown,
 ) {
-  const cells = new Array<unknown>(Number(length)).fill(fill);
+  const cells: Array<unknown> = [];
+  for (let index = 0; index < Number(length); index += 1) {
+    cells.push(fill);
+  }
   const items = unlist(kept);
   let at = 0;
   for (const index of numbers(indices)) {

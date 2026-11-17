@@ -240,6 +240,35 @@ function hoistVars(node: Node, into: Array<string>) {
   }
 }
 
+function declarePattern(pattern: Node | null | undefined, scope: Scope) {
+  for (const name of namesOf(pattern)) {
+    scope.declare(name, { kind: "template" });
+  }
+}
+
+function declareFragment(nodes: ReadonlyArray<Node>, scope: Scope) {
+  for (const node of nodes) {
+    if (isSnippetBlock(node)) {
+      scope.declare(node.expression.name, {
+        kind: "snippet",
+        snippet: { node, scope },
+      });
+    } else if (node.type === "ConstTag" || node.type === "DeclarationTag") {
+      for (const declarator of (node.declaration as Node)
+        .declarations as Array<Node>) {
+        declarePattern(declarator.id as Node, scope);
+      }
+    }
+  }
+}
+
+function expressionTags(value: unknown) {
+  const parts = (Array.isArray(value) ? value : [value]) as Array<Node>;
+  return parts.filter((part) => part.type === "ExpressionTag");
+}
+
+function nothing() {}
+
 class Walker {
   readonly references: Array<Reference> = [];
   readonly inner = new Set<Scope>();
@@ -281,95 +310,75 @@ class Walker {
     });
   }
 
-  declarePattern(pattern: Node | null | undefined, scope: Scope) {
-    for (const name of namesOf(pattern)) {
-      scope.declare(name, { kind: "template" });
+  identifier(
+    node: Node,
+    scope: Scope,
+    role: Reference["role"],
+    owner: Node | null = null,
+    isWrite = false,
+  ) {
+    if (node.type === "Identifier") {
+      this.reference(node.name as string, node, scope, role, owner, isWrite);
+    } else {
+      this.expression(node, scope);
     }
   }
 
-  defaults(pattern: Node | null | undefined, scope: Scope) {
+  computedKey(node: Node, scope: Scope) {
+    if (node.computed === true) {
+      this.expression(node.key as Node, scope);
+    }
+  }
+
+  pattern(
+    pattern: Node | null | undefined,
+    scope: Scope,
+    leaf: (node: Node) => void,
+  ) {
     if (pattern == null) {
       return;
     }
     switch (pattern.type) {
       case "AssignmentPattern": {
-        this.defaults(pattern.left as Node, scope);
+        this.pattern(pattern.left as Node, scope, leaf);
         this.expression(pattern.right as Node, scope);
         break;
       }
       case "ObjectPattern": {
         for (const property of pattern.properties as Array<Node>) {
           if (property.type === "RestElement") {
-            this.defaults(property.argument as Node, scope);
+            this.pattern(property.argument as Node, scope, leaf);
           } else {
-            if (property.computed === true) {
-              this.expression(property.key as Node, scope);
-            }
-            this.defaults(property.value as Node, scope);
+            this.computedKey(property, scope);
+            this.pattern(property.value as Node, scope, leaf);
           }
         }
         break;
       }
       case "ArrayPattern": {
         for (const element of pattern.elements as Array<Node | null>) {
-          this.defaults(element, scope);
+          this.pattern(element, scope, leaf);
         }
         break;
       }
       case "RestElement": {
-        this.defaults(pattern.argument as Node, scope);
+        this.pattern(pattern.argument as Node, scope, leaf);
         break;
+      }
+      default: {
+        leaf(pattern);
       }
     }
   }
 
-  target(pattern: Node, scope: Scope) {
-    switch (pattern.type) {
-      case "Identifier": {
-        this.reference(
-          pattern.name as string,
-          pattern,
-          scope,
-          "expression",
-          null,
-          true,
-        );
-        break;
-      }
-      case "ObjectPattern": {
-        for (const property of pattern.properties as Array<Node>) {
-          if (property.type === "RestElement") {
-            this.target(property.argument as Node, scope);
-          } else {
-            if (property.computed === true) {
-              this.expression(property.key as Node, scope);
-            }
-            this.target(property.value as Node, scope);
-          }
-        }
-        break;
-      }
-      case "ArrayPattern": {
-        for (const element of pattern.elements as Array<Node | null>) {
-          if (element != null) {
-            this.target(element, scope);
-          }
-        }
-        break;
-      }
-      case "RestElement": {
-        this.target(pattern.argument as Node, scope);
-        break;
-      }
-      case "AssignmentPattern": {
-        this.target(pattern.left as Node, scope);
-        this.expression(pattern.right as Node, scope);
-        break;
-      }
-      default: {
-        this.expression(pattern, scope);
-      }
-    }
+  defaults(pattern: Node | null | undefined, scope: Scope) {
+    this.pattern(pattern, scope, nothing);
+  }
+
+  target(pattern: Node | null | undefined, scope: Scope) {
+    this.pattern(pattern, scope, (node) => {
+      this.identifier(node, scope, "expression", null, true);
+    });
   }
 
   fn(node: Node, scope: Scope) {
@@ -378,7 +387,7 @@ class Walker {
       inner.declare(node.id.name as string, { kind: "template" });
     }
     for (const param of node.params as Array<Node>) {
-      this.declarePattern(param, inner);
+      declarePattern(param, inner);
     }
     const vars: Array<string> = [];
     hoistVars(node.body as Node, vars);
@@ -403,7 +412,7 @@ class Walker {
         statement.kind !== "var"
       ) {
         for (const declarator of statement.declarations as Array<Node>) {
-          this.declarePattern(declarator.id as Node, scope);
+          declarePattern(declarator.id as Node, scope);
         }
       } else if (
         (statement.type === "FunctionDeclaration" ||
@@ -415,6 +424,47 @@ class Walker {
     }
     for (const statement of body) {
       this.expression(statement, scope);
+    }
+  }
+
+  classLike(node: Node, scope: Scope) {
+    const inner = this.scope(scope);
+    if (isNode(node.id)) {
+      inner.declare(node.id.name as string, { kind: "template" });
+    }
+    this.expression(node.superClass as Node, inner);
+    this.expression(node.body as Node, inner);
+  }
+
+  loop(node: Node, scope: Scope) {
+    const inner = this.scope(scope);
+    const head = (node.init ?? node.left) as Node | null;
+    if (head?.type === "VariableDeclaration") {
+      for (const declarator of head.declarations as Array<Node>) {
+        declarePattern(declarator.id as Node, inner);
+      }
+      this.expression(head, inner);
+    } else if (node.type === "ForStatement") {
+      this.expression(head, inner);
+    } else {
+      this.target(head, inner);
+    }
+    this.expression(node.test as Node, inner);
+    this.expression(node.update as Node, inner);
+    this.expression(node.right as Node, inner);
+    this.expression(node.body as Node, inner);
+  }
+
+  switchStatement(node: Node, scope: Scope) {
+    this.expression(node.discriminant as Node, scope);
+    const inner = this.scope(scope);
+    const cases = node.cases as Array<Node>;
+    this.statements(
+      cases.flatMap((each) => each.consequent as Array<Node>),
+      inner,
+    );
+    for (const each of cases) {
+      this.expression(each.test as Node | null, inner);
     }
   }
 
@@ -442,28 +492,18 @@ class Walker {
         return;
       }
       case "Property": {
-        if (node.computed === true) {
-          this.expression(node.key as Node, scope);
-        }
-        const value = node.value as Node;
-        if (node.shorthand === true && value.type === "Identifier") {
-          this.reference(
-            value.name as string,
-            value,
-            scope,
-            "shorthand-property",
-          );
-        } else {
-          this.expression(value, scope);
-        }
+        this.computedKey(node, scope);
+        this.identifier(
+          node.value as Node,
+          scope,
+          node.shorthand === true ? "shorthand-property" : "expression",
+        );
         return;
       }
       case "MethodDefinition":
       case "PropertyDefinition":
       case "AccessorProperty": {
-        if (node.computed === true) {
-          this.expression(node.key as Node, scope);
-        }
+        this.computedKey(node, scope);
         this.expression(node.value as Node, scope);
         return;
       }
@@ -475,18 +515,12 @@ class Walker {
       }
       case "ClassDeclaration":
       case "ClassExpression": {
-        const inner = this.scope(scope);
-        if (isNode(node.id)) {
-          inner.declare(node.id.name as string, { kind: "template" });
-        }
-        this.expression(node.superClass as Node, inner);
-        this.expression(node.body as Node, inner);
+        this.classLike(node, scope);
         return;
       }
       case "BlockStatement":
       case "StaticBlock": {
-        const inner = this.scope(scope);
-        this.statements(node.body as Array<Node>, inner);
+        this.statements(node.body as Array<Node>, this.scope(scope));
         return;
       }
       case "VariableDeclaration": {
@@ -499,44 +533,18 @@ class Walker {
       case "ForStatement":
       case "ForInStatement":
       case "ForOfStatement": {
-        const inner = this.scope(scope);
-        const head = (node.init ?? node.left) as Node | null;
-        if (head?.type === "VariableDeclaration") {
-          for (const declarator of head.declarations as Array<Node>) {
-            this.declarePattern(declarator.id as Node, inner);
-          }
-          this.expression(head, inner);
-        } else if (head != null) {
-          if (node.type === "ForStatement") {
-            this.expression(head, inner);
-          } else {
-            this.target(head, inner);
-          }
-        }
-        this.expression(node.test as Node, inner);
-        this.expression(node.update as Node, inner);
-        this.expression(node.right as Node, inner);
-        this.expression(node.body as Node, inner);
+        this.loop(node, scope);
         return;
       }
       case "CatchClause": {
         const inner = this.scope(scope);
-        this.declarePattern(node.param as Node, inner);
+        declarePattern(node.param as Node, inner);
         this.defaults(node.param as Node, inner);
         this.expression(node.body as Node, inner);
         return;
       }
       case "SwitchStatement": {
-        this.expression(node.discriminant as Node, scope);
-        const inner = this.scope(scope);
-        const cases = node.cases as Array<Node>;
-        this.statements(
-          cases.flatMap((each) => each.consequent as Array<Node>),
-          inner,
-        );
-        for (const each of cases) {
-          this.expression(each.test as Node | null, inner);
-        }
+        this.switchStatement(node, scope);
         return;
       }
       case "LabeledStatement": {
@@ -559,19 +567,7 @@ class Walker {
         return;
       }
       case "UpdateExpression": {
-        const argument = node.argument as Node;
-        if (argument.type === "Identifier") {
-          this.reference(
-            argument.name as string,
-            argument,
-            scope,
-            "expression",
-            null,
-            true,
-          );
-        } else {
-          this.expression(argument, scope);
-        }
+        this.identifier(node.argument as Node, scope, "expression", null, true);
         return;
       }
       default: {
@@ -582,114 +578,85 @@ class Walker {
     }
   }
 
+  attributeValue(attribute: Node, scope: Scope, code: string) {
+    const { value } = attribute;
+    if (value === true) {
+      return;
+    }
+    const role =
+      !Array.isArray(value) && code[attribute.start] === "{"
+        ? "shorthand-attribute"
+        : "expression";
+    for (const part of expressionTags(value)) {
+      this.identifier(part.expression as Node, scope, role, attribute);
+    }
+  }
+
+  styleDirective(attribute: Node, scope: Scope) {
+    if (attribute.value === true) {
+      this.reference(
+        attribute.name as string,
+        attribute,
+        scope,
+        "shorthand-style",
+        attribute,
+      );
+      return;
+    }
+    for (const part of expressionTags(attribute.value)) {
+      this.expression(part.expression as Node, scope);
+    }
+  }
+
+  namedDirective(attribute: Node, scope: Scope, code: string) {
+    const [base = ""] = (attribute.name as string).split(".", 1);
+    const start = code.indexOf(":", attribute.start) + 1;
+    this.reference(
+      base,
+      { start, end: start + base.length },
+      scope,
+      "directive",
+      attribute,
+    );
+    this.expression(attribute.expression as Node | null, scope);
+  }
+
   attribute(attribute: Node, scope: Scope, code: string) {
+    const role =
+      code[attribute.end - 1] === "}" ? "expression" : "shorthand-directive";
     switch (attribute.type) {
       case "Attribute": {
-        const { value } = attribute;
-        if (value === true) {
-          return;
-        }
-        const parts = (Array.isArray(value) ? value : [value]) as Array<Node>;
-        for (const part of parts) {
-          if (part.type !== "ExpressionTag") {
-            continue;
-          }
-          const expression = part.expression as Node;
-          if (
-            !Array.isArray(value) &&
-            code[attribute.start] === "{" &&
-            expression.type === "Identifier"
-          ) {
-            this.reference(
-              expression.name as string,
-              expression,
-              scope,
-              "shorthand-attribute",
-              attribute,
-            );
-          } else {
-            this.expression(expression, scope);
-          }
-        }
+        this.attributeValue(attribute, scope, code);
         return;
       }
       case "SpreadAttribute":
-      case "AttachTag": {
-        this.expression(attribute.expression as Node, scope);
+      case "AttachTag":
+      case "OnDirective": {
+        this.expression(attribute.expression as Node | null, scope);
         return;
       }
       case "BindDirective": {
-        const expression = attribute.expression as Node;
-        const isShorthand = code[attribute.end - 1] !== "}";
-        if (expression.type === "Identifier") {
-          this.reference(
-            expression.name as string,
-            expression,
-            scope,
-            isShorthand ? "shorthand-directive" : "expression",
-            attribute,
-            true,
-          );
-        } else {
-          this.expression(expression, scope);
-        }
+        this.identifier(
+          attribute.expression as Node,
+          scope,
+          role,
+          attribute,
+          true,
+        );
         return;
       }
       case "ClassDirective": {
-        const expression = attribute.expression as Node;
-        if (
-          code[attribute.end - 1] !== "}" &&
-          expression.type === "Identifier"
-        ) {
-          this.reference(
-            expression.name as string,
-            expression,
-            scope,
-            "shorthand-directive",
-            attribute,
-          );
-        } else {
-          this.expression(expression, scope);
-        }
+        this.identifier(attribute.expression as Node, scope, role, attribute);
         return;
       }
       case "StyleDirective": {
-        const { value } = attribute;
-        if (value === true) {
-          this.reference(
-            attribute.name as string,
-            attribute,
-            scope,
-            "shorthand-style",
-            attribute,
-          );
-          return;
-        }
-        const parts = (Array.isArray(value) ? value : [value]) as Array<Node>;
-        for (const part of parts) {
-          if (part.type === "ExpressionTag") {
-            this.expression(part.expression as Node, scope);
-          }
-        }
-        return;
-      }
-      case "OnDirective": {
-        this.expression(attribute.expression as Node | null, scope);
+        this.styleDirective(attribute, scope);
         return;
       }
       case "UseDirective":
       case "TransitionDirective":
       case "AnimateDirective": {
-        const [base = ""] = (attribute.name as string).split(".", 1);
-        const start = code.indexOf(":", attribute.start) + 1;
-        this.reference(
-          base,
-          { start, end: start + base.length },
-          scope,
-          "directive",
-          attribute,
-        );
-        this.expression(attribute.expression as Node | null, scope);
+        this.namedDirective(attribute, scope, code);
         return;
       }
       case "LetDirective": {
@@ -700,32 +667,71 @@ class Walker {
 
   fragment(fragment: AST.Fragment, parent: Scope, code: string) {
     const scope = this.scope(parent);
-    for (const node of fragment.nodes) {
-      if (node.type === "SnippetBlock") {
-        scope.declare(node.expression.name, {
-          kind: "snippet",
-          snippet: { node, scope },
-        });
-      } else if (node.type === "ConstTag" || node.type === "DeclarationTag") {
-        for (const declarator of node.declaration.declarations) {
-          this.declarePattern(asNode(declarator.id), scope);
-        }
-      }
-    }
-    for (const node of fragment.nodes) {
-      this.node(asNode(node), scope, code);
+    const nodes = nodesOf(fragment.nodes);
+    declareFragment(nodes, scope);
+    for (const node of nodes) {
+      this.node(node, scope, code);
     }
   }
 
   snippet(node: AST.SnippetBlock, parent: Scope, code: string) {
     const inner = this.scope(parent);
     for (const parameter of node.parameters) {
-      this.declarePattern(asNode(parameter), inner);
+      declarePattern(asNode(parameter), inner);
     }
     for (const parameter of node.parameters) {
       this.defaults(asNode(parameter), inner);
     }
     this.fragment(node.body, inner, code);
+  }
+
+  branch(
+    fragment: AST.Fragment | null,
+    pattern: Node | null,
+    scope: Scope,
+    code: string,
+  ) {
+    if (fragment == null) {
+      return;
+    }
+    const inner = this.scope(scope);
+    declarePattern(pattern, inner);
+    this.defaults(pattern, inner);
+    this.fragment(fragment, inner, code);
+  }
+
+  each(node: Node, scope: Scope, code: string) {
+    this.expression(node.expression as Node, scope);
+    const inner = this.scope(scope);
+    declarePattern(node.context as Node | null, inner);
+    if (typeof node.index === "string") {
+      inner.declare(node.index, { kind: "template" });
+    }
+    this.defaults(node.context as Node | null, inner);
+    this.expression(node.key as Node | undefined, inner);
+    this.fragment(node.body as AST.Fragment, inner, code);
+    if (node.fallback != null) {
+      this.fragment(node.fallback as AST.Fragment, scope, code);
+    }
+  }
+
+  awaitBlock(node: Node, scope: Scope, code: string) {
+    this.expression(node.expression as Node, scope);
+    if (node.pending != null) {
+      this.fragment(node.pending as AST.Fragment, scope, code);
+    }
+    this.branch(
+      node.then as AST.Fragment | null,
+      node.value as Node | null,
+      scope,
+      code,
+    );
+    this.branch(
+      node.catch as AST.Fragment | null,
+      node.error as Node | null,
+      scope,
+      code,
+    );
   }
 
   node(node: Node, scope: Scope, code: string) {
@@ -737,12 +743,13 @@ class Walker {
       case "ExpressionTag":
       case "HtmlTag":
       case "RenderTag":
-      case "AttachTag":
+      case "AttachTag": {
+        this.expression(node.expression as Node, scope);
+        return;
+      }
       case "KeyBlock": {
         this.expression(node.expression as Node, scope);
-        if (node.type === "KeyBlock") {
-          this.fragment(node.fragment as AST.Fragment, scope, code);
-        }
+        this.fragment(node.fragment as AST.Fragment, scope, code);
         return;
       }
       case "ConstTag":
@@ -765,37 +772,11 @@ class Walker {
         return;
       }
       case "EachBlock": {
-        this.expression(node.expression as Node, scope);
-        const inner = this.scope(scope);
-        this.declarePattern(node.context as Node | null, inner);
-        if (typeof node.index === "string") {
-          inner.declare(node.index, { kind: "template" });
-        }
-        this.defaults(node.context as Node | null, inner);
-        this.expression(node.key as Node | undefined, inner);
-        this.fragment(node.body as AST.Fragment, inner, code);
-        if (node.fallback != null) {
-          this.fragment(node.fallback as AST.Fragment, scope, code);
-        }
+        this.each(node, scope, code);
         return;
       }
       case "AwaitBlock": {
-        this.expression(node.expression as Node, scope);
-        if (node.pending != null) {
-          this.fragment(node.pending as AST.Fragment, scope, code);
-        }
-        if (node.then != null) {
-          const inner = this.scope(scope);
-          this.declarePattern(node.value as Node | null, inner);
-          this.defaults(node.value as Node | null, inner);
-          this.fragment(node.then as AST.Fragment, inner, code);
-        }
-        if (node.catch != null) {
-          const inner = this.scope(scope);
-          this.declarePattern(node.error as Node | null, inner);
-          this.defaults(node.error as Node | null, inner);
-          this.fragment(node.catch as AST.Fragment, inner, code);
-        }
+        this.awaitBlock(node, scope, code);
         return;
       }
       case "SnippetBlock": {
@@ -851,80 +832,89 @@ class Walker {
   }
 }
 
-type Script = AST.Script | null;
+function nameOf(node: Node) {
+  return (node.name ?? node.value) as string;
+}
 
-function scriptScope(scripts: Array<Script>) {
+function importAttributes(declaration: Node) {
+  const attributes = (declaration.attributes ?? []) as Array<Node>;
+  if (attributes.length === 0) {
+    return "";
+  }
+  const pairs = attributes.map(
+    (attribute) =>
+      `${JSON.stringify(nameOf(attribute.key as Node))}: ${JSON.stringify((attribute.value as Node).value)}`,
+  );
+  return ` with { ${pairs.join(", ")} }`;
+}
+
+function specifierKind(specifier: Node): Imported["kind"] {
+  if (specifier.type === "ImportDefaultSpecifier") {
+    return "default";
+  }
+  return specifier.type === "ImportNamespaceSpecifier" ? "namespace" : "named";
+}
+
+function declareImports(declaration: Node, scope: Scope, islands: Set<string>) {
+  if (declaration.importKind === "type") {
+    return;
+  }
+  const source = (declaration.source as Node).value as string;
+  const attributes = importAttributes(declaration);
+  for (const specifier of declaration.specifiers as Array<Node>) {
+    if (specifier.importKind === "type") {
+      continue;
+    }
+    const local = (specifier.local as Node).name as string;
+    const kind = specifierKind(specifier);
+    const imported =
+      kind === "named" ? nameOf(specifier.imported as Node) : kind;
+    if (source === "svelte-islands" && imported === "Island") {
+      islands.add(local);
+    }
+    scope.declare(local, {
+      kind: "import",
+      imported: { source, kind, imported, attributes },
+    });
+  }
+}
+
+function declareStatement(statement: Node, scope: Scope, islands: Set<string>) {
+  const declared =
+    statement.type === "ExportNamedDeclaration" && isNode(statement.declaration)
+      ? statement.declaration
+      : statement;
+  switch (declared.type) {
+    case "ImportDeclaration": {
+      declareImports(declared, scope, islands);
+      break;
+    }
+    case "VariableDeclaration": {
+      for (const declarator of declared.declarations as Array<Node>) {
+        for (const name of namesOf(declarator.id as Node)) {
+          scope.declare(name, { kind: "local" });
+        }
+      }
+      break;
+    }
+    case "FunctionDeclaration":
+    case "ClassDeclaration":
+    case "TSEnumDeclaration": {
+      if (isNode(declared.id)) {
+        scope.declare(declared.id.name as string, { kind: "local" });
+      }
+      break;
+    }
+  }
+}
+
+function scriptScope(scripts: Array<AST.Script | null>) {
   const scope = new Scope(null);
   const islands = new Set<string>();
   for (const script of scripts) {
-    if (script == null) {
-      continue;
-    }
-    for (const statement of nodesOf(script.content.body)) {
-      const declared =
-        statement.type === "ExportNamedDeclaration" &&
-        isNode(statement.declaration)
-          ? statement.declaration
-          : statement;
-      switch (declared.type) {
-        case "ImportDeclaration": {
-          if (declared.importKind === "type") {
-            break;
-          }
-          const source = (declared.source as Node).value as string;
-          const attributes = declared.attributes as Array<Node> | undefined;
-          const tail =
-            attributes != null && attributes.length > 0
-              ? ` with { ${attributes
-                  .map(
-                    (attribute) =>
-                      `${JSON.stringify(((attribute.key as Node).name ?? (attribute.key as Node).value) as string)}: ${JSON.stringify((attribute.value as Node).value)}`,
-                  )
-                  .join(", ")} }`
-              : "";
-          for (const specifier of declared.specifiers as Array<Node>) {
-            if (specifier.importKind === "type") {
-              continue;
-            }
-            const local = (specifier.local as Node).name as string;
-            const kind =
-              specifier.type === "ImportDefaultSpecifier"
-                ? "default"
-                : specifier.type === "ImportNamespaceSpecifier"
-                  ? "namespace"
-                  : "named";
-            const imported =
-              kind === "named"
-                ? (((specifier.imported as Node).name ??
-                    (specifier.imported as Node).value) as string)
-                : kind;
-            if (source === "svelte-islands" && imported === "Island") {
-              islands.add(local);
-            }
-            scope.declare(local, {
-              kind: "import",
-              imported: { source, kind, imported, attributes: tail },
-            });
-          }
-          break;
-        }
-        case "VariableDeclaration": {
-          for (const declarator of declared.declarations as Array<Node>) {
-            for (const name of namesOf(declarator.id as Node)) {
-              scope.declare(name, { kind: "local" });
-            }
-          }
-          break;
-        }
-        case "FunctionDeclaration":
-        case "ClassDeclaration":
-        case "TSEnumDeclaration": {
-          if (isNode(declared.id)) {
-            scope.declare(declared.id.name as string, { kind: "local" });
-          }
-          break;
-        }
-      }
+    const statements = nodesOf(script?.content.body ?? []);
+    for (const statement of statements) {
+      declareStatement(statement, scope, islands);
     }
   }
   return { scope, islands };
@@ -951,33 +941,48 @@ function isBareGlobal(selector: AST.CSS.SimpleSelector) {
   );
 }
 
-function scopedCompounds(css: AST.CSS.StyleSheet | null) {
-  const found: Array<Compound> = [];
-  const fromList = (list: AST.CSS.SelectorList) => {
-    for (const complex of list.children) {
-      for (const relative of complex.children) {
-        if (relative.selectors.some((selector) => isBareGlobal(selector))) {
-          break;
-        }
-        const isOwn = relative.selectors.some(
-          (selector) =>
-            !isGlobal(selector) && selector.type !== "NestingSelector",
-        );
-        if (isOwn) {
-          found.push(relative.selectors);
-        }
-        for (const selector of relative.selectors) {
-          if (
-            selector.type === "PseudoClassSelector" &&
-            selector.args != null &&
-            !isGlobal(selector)
-          ) {
-            fromList(selector.args);
-          }
-        }
+function collectRelatives(
+  relatives: AST.CSS.ComplexSelector["children"],
+  found: Array<Compound>,
+) {
+  for (const relative of relatives) {
+    if (relative.selectors.some((selector) => isBareGlobal(selector))) {
+      return;
+    }
+    const isOwn = relative.selectors.some(
+      (selector) => !isGlobal(selector) && selector.type !== "NestingSelector",
+    );
+    if (isOwn) {
+      found.push(relative.selectors);
+    }
+    for (const selector of relative.selectors) {
+      if (
+        selector.type === "PseudoClassSelector" &&
+        selector.args != null &&
+        !isGlobal(selector)
+      ) {
+        collectCompounds(selector.args, found);
       }
     }
-  };
+  }
+}
+
+function collectCompounds(list: AST.CSS.SelectorList, found: Array<Compound>) {
+  for (const complex of list.children) {
+    collectRelatives(complex.children, found);
+  }
+}
+
+function isGlobalBlock(rule: AST.CSS.Rule) {
+  return rule.prelude.children.every((complex) =>
+    complex.children.some((relative) =>
+      relative.selectors.some((selector) => isBareGlobal(selector)),
+    ),
+  );
+}
+
+function scopedCompounds(css: AST.CSS.StyleSheet | null) {
+  const found: Array<Compound> = [];
   const visit = (nodes: ReadonlyArray<AST.CSS.Node>) => {
     for (const node of nodes) {
       if (node.type === "Atrule") {
@@ -985,13 +990,8 @@ function scopedCompounds(css: AST.CSS.StyleSheet | null) {
           visit(node.block.children);
         }
       } else if (node.type === "Rule") {
-        fromList(node.prelude);
-        const isGlobalBlock = node.prelude.children.every((complex) =>
-          complex.children.some((relative) =>
-            relative.selectors.some((selector) => isBareGlobal(selector)),
-          ),
-        );
-        if (!isGlobalBlock) {
+        collectCompounds(node.prelude, found);
+        if (!isGlobalBlock(node)) {
           visit(node.block.children);
         }
       }
@@ -1015,53 +1015,71 @@ function wordsOf(value: AST.Attribute["value"]) {
     .filter((word) => word !== "");
 }
 
+function addWords(
+  traits: Traits,
+  key: "classes" | "ids",
+  value: AST.Attribute["value"],
+) {
+  const words = wordsOf(value);
+  if (words == null) {
+    traits[key] = null;
+    return;
+  }
+  for (const word of words) {
+    traits[key]?.add(word);
+  }
+}
+
+function noteAttribute(
+  traits: Traits,
+  attribute: AST.RegularElement["attributes"][number],
+) {
+  switch (attribute.type) {
+    case "ClassDirective": {
+      traits.classes?.add(attribute.name);
+      traits.attributes?.add("class");
+      break;
+    }
+    case "StyleDirective": {
+      traits.attributes?.add("style");
+      break;
+    }
+    case "BindDirective": {
+      traits.attributes?.add(attribute.name.toLowerCase());
+      break;
+    }
+    case "Attribute": {
+      const name = attribute.name.toLowerCase();
+      traits.attributes?.add(name);
+      if (name === "class") {
+        addWords(traits, "classes", attribute.value);
+      } else if (name === "id") {
+        addWords(traits, "ids", attribute.value);
+      }
+      break;
+    }
+    default: {
+      break;
+    }
+  }
+}
+
 function traitsOf(element: AST.RegularElement | AST.SvelteElement): Traits {
+  const tag =
+    element.type === "RegularElement" ? element.name.toLowerCase() : null;
+  if (
+    element.attributes.some((attribute) => attribute.type === "SpreadAttribute")
+  ) {
+    return { tag, classes: null, ids: null, attributes: null };
+  }
   const traits: Traits = {
-    tag: element.type === "RegularElement" ? element.name.toLowerCase() : null,
+    tag,
     classes: new Set(),
     ids: new Set(),
     attributes: new Set(),
   };
   for (const attribute of element.attributes) {
-    if (attribute.type === "SpreadAttribute") {
-      return { tag: traits.tag, classes: null, ids: null, attributes: null };
-    }
-    switch (attribute.type) {
-      case "ClassDirective": {
-        traits.classes?.add(attribute.name);
-        traits.attributes?.add("class");
-
-        break;
-      }
-      case "StyleDirective": {
-        traits.attributes?.add("style");
-
-        break;
-      }
-      case "BindDirective": {
-        traits.attributes?.add(attribute.name.toLowerCase());
-
-        break;
-      }
-      case "Attribute": {
-        const name = attribute.name.toLowerCase();
-        traits.attributes?.add(name);
-        if (name === "class" || name === "id") {
-          const words = wordsOf(attribute.value);
-          const key = name === "class" ? "classes" : "ids";
-          if (words == null) {
-            traits[key] = null;
-          } else {
-            for (const word of words) {
-              traits[key]?.add(word);
-            }
-          }
-        }
-
-        break;
-      }
-      // No default
-    }
+    noteAttribute(traits, attribute);
   }
   return traits;
 }
@@ -1098,6 +1116,19 @@ function isMatchable(traits: Traits, compound: Compound) {
   });
 }
 
+function styledIn(
+  values: Iterable<unknown>,
+  compounds: ReadonlyArray<Compound>,
+): string | null {
+  for (const value of values) {
+    const found = styledElement(value, compounds);
+    if (found != null) {
+      return found;
+    }
+  }
+  return null;
+}
+
 function styledElement(
   node: unknown,
   compounds: ReadonlyArray<Compound>,
@@ -1106,13 +1137,7 @@ function styledElement(
     return null;
   }
   if (Array.isArray(node)) {
-    for (const item of node) {
-      const found = styledElement(item, compounds);
-      if (found != null) {
-        return found;
-      }
-    }
-    return null;
+    return styledIn(node, compounds);
   }
   if (!isNode(node)) {
     return null;
@@ -1125,17 +1150,15 @@ function styledElement(
         : "<svelte:element>";
     }
   }
-  for (const [key, value] of Object.entries(node)) {
-    if (key === "metadata" || typeof value !== "object" || value == null) {
-      continue;
-    }
-
-    const found = styledElement(value, compounds);
-    if (found != null) {
-      return found;
-    }
-  }
-  return null;
+  return styledIn(
+    Object.entries(node)
+      .filter(
+        ([key, value]) =>
+          key !== "metadata" && typeof value === "object" && value != null,
+      )
+      .map(([, value]) => value),
+    compounds,
+  );
 }
 
 function fresh(base: string, code: string) {
@@ -1177,6 +1200,44 @@ type Analysis = {
   problems: Array<string>;
 };
 
+function record(
+  reference: Reference,
+  inner: ReadonlySet<Scope>,
+  at: Scope,
+  result: Analysis,
+): NonNullable<Declaration["snippet"]> | null {
+  const { declaration, name } = reference;
+  if (declaration == null || inner.has(declaration.scope)) {
+    return null;
+  }
+  if (declaration.kind !== "store" && at.lookup(name) !== declaration) {
+    result.problems.push(`"${name}" means something else where the island is`);
+    return null;
+  }
+  if (declaration.kind === "snippet" && declaration.snippet != null) {
+    return declaration.snippet;
+  }
+  if (declaration.kind === "import" && declaration.imported != null) {
+    result.imports.set(name, declaration.imported);
+    return null;
+  }
+  if (reference.role === "debug") {
+    result.problems.push(`it uses {@debug ${name}}`);
+    return null;
+  }
+  const known = result.captures.get(name);
+  if (known != null && known.scope !== declaration.scope) {
+    result.problems.push(`"${name}" means two different things`);
+    return null;
+  }
+  result.captures.set(name, {
+    ...declaration,
+    isWritten: (known?.isWritten ?? false) || reference.isWrite,
+  });
+  result.references.push(reference);
+  return null;
+}
+
 function analyze(
   snippet: AST.SnippetBlock,
   declared: Scope,
@@ -1210,45 +1271,47 @@ function analyze(
     walker.snippet(node, scope, code);
     result.problems.push(...walker.problems);
     for (const reference of walker.references) {
-      const { declaration } = reference;
-      if (declaration == null || walker.inner.has(declaration.scope)) {
-        continue;
+      const next = record(reference, walker.inner, at, result);
+      if (next != null) {
+        visit(next.node, next.scope, true);
       }
-      if (
-        declaration.kind !== "store" &&
-        at.lookup(reference.name) !== declaration
-      ) {
-        result.problems.push(
-          `"${reference.name}" means something else where the island is`,
-        );
-        continue;
-      }
-      if (declaration.kind === "snippet" && declaration.snippet != null) {
-        visit(declaration.snippet.node, declaration.snippet.scope, true);
-        continue;
-      }
-      if (declaration.kind === "import" && declaration.imported != null) {
-        result.imports.set(reference.name, declaration.imported);
-        continue;
-      }
-      if (reference.role === "debug") {
-        result.problems.push(`it uses {@debug ${reference.name}}`);
-        continue;
-      }
-      const known = result.captures.get(reference.name);
-      if (known != null && known.scope !== declaration.scope) {
-        result.problems.push(`"${reference.name}" means two different things`);
-        continue;
-      }
-      result.captures.set(reference.name, {
-        ...declaration,
-        isWritten: (known?.isWritten ?? false) || reference.isWrite,
-      });
-      result.references.push(reference);
     }
   };
   visit(snippet, declared, false);
   return result;
+}
+
+function shorthandText(
+  role: "shorthand-attribute" | "shorthand-directive" | "shorthand-style",
+  name: string,
+  member: string,
+  original: string,
+) {
+  switch (role) {
+    case "shorthand-attribute": {
+      return `${name}={${member}}`;
+    }
+    case "shorthand-directive": {
+      return `${original}={${member}}`;
+    }
+    case "shorthand-style": {
+      return `style:${name}={${member}}`;
+    }
+  }
+}
+
+function renameClosingTag(
+  text: MagicString,
+  owner: Node,
+  name: string,
+  member: string,
+  code: string,
+) {
+  const closing = `</${owner.name as string}>`;
+  const at = owner.end - closing.length;
+  if (code.slice(at, owner.end) === closing) {
+    text.overwrite(at + 2, at + 2 + name.length, member);
+  }
 }
 
 function rewrite(
@@ -1258,10 +1321,9 @@ function rewrite(
   code: string,
 ) {
   const member = `${scope}.${reference.name}`;
-  const owner = reference.owner;
-  switch (reference.role) {
-    case "expression": {
-      text.overwrite(reference.start, reference.end, member);
+  const { owner, role } = reference;
+  switch (role) {
+    case "debug": {
       return;
     }
     case "shorthand-property": {
@@ -1272,50 +1334,28 @@ function rewrite(
       );
       return;
     }
-    case "shorthand-attribute": {
-      if (owner != null) {
-        text.overwrite(owner.start, owner.end, `${reference.name}={${member}}`);
-      }
-      return;
-    }
-    case "shorthand-directive": {
-      if (owner != null) {
-        text.overwrite(
-          owner.start,
-          owner.end,
-          `${code.slice(owner.start, owner.end)}={${member}}`,
-        );
-      }
-      return;
-    }
+    case "shorthand-attribute":
+    case "shorthand-directive":
     case "shorthand-style": {
       if (owner != null) {
         text.overwrite(
           owner.start,
           owner.end,
-          `style:${reference.name}={${member}}`,
+          shorthandText(
+            role,
+            reference.name,
+            member,
+            code.slice(owner.start, owner.end),
+          ),
         );
       }
       return;
     }
-    case "component": {
+    default: {
       text.overwrite(reference.start, reference.end, member);
-      if (owner != null) {
-        const name = owner.name as string;
-        const closing = `</${name}>`;
-        const at = owner.end - closing.length;
-        if (code.slice(at, owner.end) === closing) {
-          text.overwrite(at + 2, at + 2 + reference.name.length, member);
-        }
+      if (role === "component" && owner != null) {
+        renameClosingTag(text, owner, reference.name, member, code);
       }
-      return;
-    }
-    case "directive": {
-      text.overwrite(reference.start, reference.end, member);
-      break;
-    }
-    case "debug": {
-      break;
     }
   }
 }
@@ -1340,6 +1380,154 @@ function headerEnd(snippet: AST.SnippetBlock, code: string) {
   const last = parameter == null ? undefined : asNode(parameter);
   const from = last?.end ?? code.indexOf("(", asNode(snippet.expression).end);
   return code.indexOf("}", code.indexOf(")", from)) + 1;
+}
+
+function digest(text: string, length: number) {
+  return createHash("sha256").update(text).digest("base64url").slice(0, length);
+}
+
+function locateSnippet(island: AST.Component, at: Scope) {
+  const inline = island.fragment.nodes.find(
+    (node): node is AST.SnippetBlock =>
+      node.type === "SnippetBlock" && node.expression.name === "children",
+  );
+  if (inline != null) {
+    const holder = new Scope(at);
+    for (const node of island.fragment.nodes) {
+      if (node.type === "SnippetBlock") {
+        holder.declare(node.expression.name, {
+          kind: "snippet",
+          snippet: { node, scope: holder },
+        });
+      }
+    }
+    return { snippet: inline, declared: holder, owner: inline, isInline: true };
+  }
+  const attribute = island.attributes.find(
+    (item): item is AST.Attribute =>
+      item.type === "Attribute" && item.name === "children",
+  );
+  if (attribute == null) {
+    return null;
+  }
+  const { value } = attribute;
+  if (
+    value === true ||
+    Array.isArray(value) ||
+    value.expression.type !== "Identifier"
+  ) {
+    return null;
+  }
+  const declaration = at.lookup(value.expression.name);
+  if (declaration?.kind !== "snippet" || declaration.snippet == null) {
+    return null;
+  }
+  return {
+    snippet: declaration.snippet.node,
+    declared: declaration.snippet.scope,
+    owner: attribute,
+    isInline: false,
+  };
+}
+
+function islandSource(
+  snippet: AST.SnippetBlock,
+  analysis: Analysis,
+  text: MagicString,
+  code: string,
+  names: { scope: string; value: string },
+  isTypeScript: boolean,
+) {
+  const end = headerEnd(snippet, code);
+  const close = code.lastIndexOf("{/snippet", snippet.end - 1);
+  const parameters = nodesOf(snippet.parameters);
+  const first = parameters[0];
+  const last = parameters.at(-1);
+  const params =
+    first != null && last != null
+      ? `${text.slice(first.start, last.end)}, ${names.scope}`
+      : `_${names.value}, ${names.scope}`;
+  const copies = analysis.copies
+    .map((copy) => text.slice(copy.start, copy.end))
+    .join("");
+  const imports = [...analysis.imports]
+    .map(([local, imported]) => importLine(local, imported))
+    .join("\n  ");
+  return `<script module${isTypeScript ? ' lang="ts"' : ""}>
+  ${imports}
+  export { body };
+  export const url = import.meta.url;
+</script>
+
+{#snippet body(${params})}${copies}${text.slice(end, close)}{/snippet}
+`;
+}
+
+function isWalkable(node: Node) {
+  return (
+    node.type === "Fragment" ||
+    ELEMENT_LIKE.has(node.type) ||
+    BLOCKS.has(node.type)
+  );
+}
+
+function templateScope(
+  parent: Scope,
+  patterns: ReadonlyArray<Node | null | undefined>,
+) {
+  const inner = new Scope(parent);
+  for (const pattern of patterns) {
+    declarePattern(pattern, inner);
+  }
+  return inner;
+}
+
+function descend(node: Node, scope: Scope): Array<[Node, Scope]> {
+  switch (node.type) {
+    case "Fragment": {
+      const inner = new Scope(scope);
+      const nodes = node.nodes as Array<Node>;
+      declareFragment(nodes, inner);
+      return nodes.map((child) => [child, inner]);
+    }
+    case "EachBlock": {
+      const inner = templateScope(scope, [node.context as Node | null]);
+      if (typeof node.index === "string") {
+        inner.declare(node.index, { kind: "template" });
+      }
+      const next: Array<[Node, Scope]> = [[node.body as Node, inner]];
+      if (node.fallback != null) {
+        next.push([node.fallback as Node, scope]);
+      }
+      return next;
+    }
+    case "AwaitBlock": {
+      const branches = [
+        [node.pending, null],
+        [node.then, node.value],
+        [node.catch, node.error],
+      ] as Array<[Node | null, Node | null]>;
+      return branches
+        .filter((branch): branch is [Node, Node | null] => branch[0] != null)
+        .map(([fragment, pattern]) => [
+          fragment,
+          templateScope(scope, [pattern]),
+        ]);
+    }
+    case "SnippetBlock": {
+      return [
+        [
+          node.body as Node,
+          templateScope(scope, node.parameters as Array<Node>),
+        ],
+      ];
+    }
+    default: {
+      return children(node)
+        .filter((child) => isWalkable(child))
+        .map((child) => [child, scope]);
+    }
+  }
 }
 
 export type Extracted = {
@@ -1397,59 +1585,28 @@ export function extract(
   const prunable = new Set<AST.SnippetBlock>();
 
   const visitIsland = (island: AST.Component, at: Scope) => {
-    const inline = island.fragment.nodes.find(
-      (node): node is AST.SnippetBlock =>
-        node.type === "SnippetBlock" && node.expression.name === "children",
-    );
-    const attribute = island.attributes.find(
-      (item): item is AST.Attribute =>
-        item.type === "Attribute" && item.name === "children",
-    );
-    let snippet: AST.SnippetBlock | null = null;
-    let declared: Scope | null = null;
-    if (inline != null) {
-      snippet = inline;
-      const holder = new Scope(at);
-      for (const node of island.fragment.nodes) {
-        if (node.type === "SnippetBlock") {
-          holder.declare(node.expression.name, {
-            kind: "snippet",
-            snippet: { node, scope: holder },
-          });
-        }
-      }
-      declared = holder;
-    } else if (
-      attribute != null &&
-      !Array.isArray(attribute.value) &&
-      attribute.value !== true &&
-      attribute.value.expression.type === "Identifier"
-    ) {
-      const found = at.lookup(attribute.value.expression.name);
-      if (found?.kind === "snippet" && found.snippet != null) {
-        snippet = found.snippet.node;
-        declared = found.snippet.scope;
-      }
-    }
+    const located = locateSnippet(island, at);
     const line = code.slice(0, island.start).split("\n").length;
-    if (snippet == null || declared == null) {
+    if (located == null) {
       warnings.push(
         `${name}:${line}: the island stays in the page, because its children aren't a snippet the plugin can find`,
       );
       return false;
     }
-    const analysis = analyze(snippet, declared, at, code, compounds);
+    const analysis = analyze(
+      located.snippet,
+      located.declared,
+      at,
+      code,
+      compounds,
+    );
     if (analysis.problems.length > 0) {
       warnings.push(
         `${name}:${line}: the island stays in the page, because ${[...new Set(analysis.problems)].join(", ")}`,
       );
       return false;
     }
-    const index = modules.length;
-    const id = createHash("sha256")
-      .update(`${name}:${index}`)
-      .digest("base64url")
-      .slice(0, 12);
+    const id = digest(`${name}:${modules.length}`, 12);
     const scope =
       analysis.captures.size === 0
         ? ""
@@ -1464,35 +1621,18 @@ export function extract(
       if (rewritten.has(reference.start)) {
         continue;
       }
-
       rewritten.add(reference.start);
       rewrite(moduleText, reference, scopeName, code);
     }
-
-    const end = headerEnd(snippet, code);
-    const close = code.lastIndexOf("{/snippet", snippet.end - 1);
-    const parameters = nodesOf(snippet.parameters);
-    const first = parameters[0];
-    const last = parameters.at(-1);
-    const params =
-      first != null && last != null
-        ? `${moduleText.slice(first.start, last.end)}, ${scopeName}`
-        : `_${valueName}, ${scopeName}`;
-    const copies = analysis.copies
-      .map((copy) => moduleText.slice(copy.start, copy.end))
-      .join("");
-    const imports = [...analysis.imports]
-      .map(([local, imported]) => importLine(local, imported))
-      .join("\n  ");
-    const source = `<script module${isTypeScript ? ' lang="ts"' : ""}>
-  ${imports}
-  export { body };
-  export const url = import.meta.url;
-</script>
-
-{#snippet body(${params})}${copies}${moduleText.slice(end, close)}{/snippet}
-`;
-    const file = `${filename}.__island-${createHash("sha256").update(source).digest("base64url").slice(0, 10)}.svelte`;
+    const source = islandSource(
+      located.snippet,
+      analysis,
+      moduleText,
+      code,
+      { scope: scopeName, value: valueName },
+      isTypeScript,
+    );
+    const file = `${filename}.__island-${digest(source, 10)}.svelte`;
     modules.push({ id, file, source });
     for (const copy of analysis.copies) {
       prunable.add(copy);
@@ -1500,15 +1640,10 @@ export function extract(
     for (const [local, imported] of analysis.imports) {
       moved.set(local, imported);
     }
-    if (inline == null) {
-      if (attribute != null) {
-        page.remove(attribute.start, attribute.end);
-        removed.push([attribute.start, attribute.end]);
-      }
-      prunable.add(snippet);
-    } else {
-      page.remove(inline.start, inline.end);
-      removed.push([inline.start, inline.end]);
+    page.remove(located.owner.start, located.owner.end);
+    removed.push([located.owner.start, located.owner.end]);
+    if (!located.isInline) {
+      prunable.add(located.snippet);
     }
     page.appendLeft(
       nameEnd,
@@ -1525,82 +1660,8 @@ export function extract(
     ) {
       return;
     }
-    if (node.type === "Fragment") {
-      const inner = new Scope(scope);
-      const nodes = node.nodes as Array<Node>;
-      for (const child of nodes) {
-        if (isSnippetBlock(child)) {
-          inner.declare(child.expression.name, {
-            kind: "snippet",
-            snippet: { node: child, scope: inner },
-          });
-        } else if (
-          child.type === "ConstTag" ||
-          child.type === "DeclarationTag"
-        ) {
-          for (const declarator of (child.declaration as Node)
-            .declarations as Array<Node>) {
-            for (const declaredName of namesOf(declarator.id as Node)) {
-              inner.declare(declaredName, { kind: "template" });
-            }
-          }
-        }
-      }
-      for (const child of nodes) {
-        walk(child, inner);
-      }
-      return;
-    }
-    let inner = scope;
-    if (node.type === "EachBlock") {
-      inner = new Scope(scope);
-      for (const declaredName of namesOf(node.context as Node | null)) {
-        inner.declare(declaredName, { kind: "template" });
-      }
-      if (typeof node.index === "string") {
-        inner.declare(node.index, { kind: "template" });
-      }
-      walk(node.body as Node, inner);
-      if (node.fallback != null) {
-        walk(node.fallback as Node, scope);
-      }
-      return;
-    }
-    if (node.type === "AwaitBlock") {
-      for (const [fragment, pattern] of [
-        [node.pending, null],
-        [node.then, node.value],
-        [node.catch, node.error],
-      ] as Array<[Node | null, Node | null]>) {
-        if (fragment == null) {
-          continue;
-        }
-        const branch = new Scope(scope);
-        for (const declaredName of namesOf(pattern)) {
-          branch.declare(declaredName, { kind: "template" });
-        }
-        walk(fragment, branch);
-      }
-      return;
-    }
-    if (node.type === "SnippetBlock") {
-      inner = new Scope(scope);
-      for (const parameter of node.parameters as Array<Node>) {
-        for (const declaredName of namesOf(parameter)) {
-          inner.declare(declaredName, { kind: "template" });
-        }
-      }
-      walk(node.body as Node, inner);
-      return;
-    }
-    for (const child of children(node)) {
-      if (
-        child.type === "Fragment" ||
-        ELEMENT_LIKE.has(child.type) ||
-        BLOCKS.has(child.type)
-      ) {
-        walk(child, inner);
-      }
+    for (const [child, inner] of descend(node, scope)) {
+      walk(child, inner);
     }
   };
 
@@ -1611,7 +1672,7 @@ export function extract(
       : null;
   }
   if (!isServer) {
-    pruneSnippets(prunable, root, code, page, removed);
+    pruneSnippets(prunable, root, page, removed);
     pruneImports(moved, root, code, page, removed);
   }
   return {
@@ -1626,17 +1687,47 @@ function isRemoved(start: number, removed: Array<[number, number]>) {
   return removed.some(([from, to]) => start >= from && start < to);
 }
 
-function usedNames(
-  root: AST.Root,
-  code: string,
-  removed: Array<[number, number]>,
-) {
-  const used = new Map<string, number>();
-  const count = (name: string, start: number) => {
-    if (!isRemoved(start, removed)) {
-      used.set(name, (used.get(name) ?? 0) + 1);
+const IMPORT_SPECIFIERS = new Set([
+  "ImportSpecifier",
+  "ImportDefaultSpecifier",
+  "ImportNamespaceSpecifier",
+]);
+
+function isPropertyName(parent: Node | null, key: string) {
+  if (parent == null) {
+    return false;
+  }
+  if (IMPORT_SPECIFIERS.has(parent.type)) {
+    return true;
+  }
+  if (parent.computed === true) {
+    return false;
+  }
+  return (
+    (parent.type === "MemberExpression" && key === "property") ||
+    (KEYED.has(parent.type) && key === "key" && parent.shorthand !== true)
+  );
+}
+
+function namesIn(node: Node, parent: Node | null, key: string) {
+  if (node.type === "Identifier") {
+    if (isPropertyName(parent, key)) {
+      return [];
     }
-  };
+    const name = node.name as string;
+    return name.startsWith("$") ? [name, name.slice(1)] : [name];
+  }
+  if (node.type === "Component" || NAMED_DIRECTIVES.has(node.type)) {
+    return [(node.name as string).split(".", 1)[0] ?? ""];
+  }
+  if (node.type === "StyleDirective" && node.value === true) {
+    return [node.name as string];
+  }
+  return [];
+}
+
+function usedNames(root: AST.Root, removed: Array<[number, number]>) {
+  const used = new Map<string, number>();
   const visit = (node: unknown, parent: Node | null, key: string): void => {
     if (Array.isArray(node)) {
       for (const item of node) {
@@ -1647,39 +1738,19 @@ function usedNames(
     if (!isNode(node) || isRemoved(node.start, removed)) {
       return;
     }
+    for (const name of namesIn(node, parent, key)) {
+      used.set(name, (used.get(name) ?? 0) + 1);
+    }
     if (node.type === "Identifier") {
-      const isProperty =
-        parent != null &&
-        ((parent.type === "MemberExpression" &&
-          key === "property" &&
-          parent.computed !== true) ||
-          (KEYED.has(parent.type) &&
-            key === "key" &&
-            parent.computed !== true &&
-            parent.shorthand !== true) ||
-          parent.type === "ImportSpecifier" ||
-          parent.type === "ImportDefaultSpecifier" ||
-          parent.type === "ImportNamespaceSpecifier");
-      if (!isProperty) {
-        const name = node.name as string;
-        count(name, node.start);
-        if (name.startsWith("$")) {
-          count(name.slice(1), node.start);
-        }
-      }
       return;
     }
-    if (node.type === "Component" || NAMED_DIRECTIVES.has(node.type)) {
-      count((node.name as string).split(".", 1)[0] ?? "", node.start);
-    }
-    if (node.type === "StyleDirective" && node.value === true) {
-      count(node.name as string, node.start);
-    }
     for (const [childKey, value] of Object.entries(node)) {
-      if (childKey === "metadata" || childKey === "loc") {
-        continue;
-      }
-      if (typeof value === "object" && value != null) {
+      if (
+        childKey !== "metadata" &&
+        childKey !== "loc" &&
+        typeof value === "object" &&
+        value != null
+      ) {
         visit(value, node, childKey);
       }
     }
@@ -1687,14 +1758,12 @@ function usedNames(
   visit(root.fragment, null, "");
   visit(root.instance?.content, null, "");
   visit(root.module?.content, null, "");
-  void code;
   return used;
 }
 
 function pruneSnippets(
   shared: Set<AST.SnippetBlock>,
   root: AST.Root,
-  code: string,
   page: MagicString,
   removed: Array<[number, number]>,
 ) {
@@ -1702,7 +1771,7 @@ function pruneSnippets(
   let isChanged = left.size > 0;
   while (isChanged) {
     isChanged = false;
-    const used = usedNames(root, code, removed);
+    const used = usedNames(root, removed);
     for (const snippet of left) {
       if (isRemoved(snippet.start, removed)) {
         left.delete(snippet);
@@ -1716,6 +1785,59 @@ function pruneSnippets(
   }
 }
 
+function removeLine(node: Node, code: string, page: MagicString) {
+  const lineEnd = code.indexOf("\n", node.end);
+  const lineStart = code.lastIndexOf("\n", node.start - 1) + 1;
+  const isOwnLine =
+    lineEnd !== -1 &&
+    code.slice(node.end, lineEnd).trim() === "" &&
+    code.slice(lineStart, node.start).trim() === "";
+  if (isOwnLine) {
+    page.remove(lineStart, lineEnd + 1);
+  } else {
+    page.remove(node.start, node.end);
+  }
+}
+
+function importClause(kept: Array<Node>, code: string) {
+  const textOf = (specifier: Node) =>
+    code.slice(specifier.start, specifier.end);
+  const parts = kept
+    .filter((specifier) => specifier.type !== "ImportSpecifier")
+    .map((specifier) => textOf(specifier));
+  const named = kept
+    .filter((specifier) => specifier.type === "ImportSpecifier")
+    .map((specifier) => textOf(specifier));
+  if (named.length > 0) {
+    parts.push(`{ ${named.join(", ")} }`);
+  }
+  return parts.join(", ");
+}
+
+function pruneImport(
+  statement: Node,
+  isKept: (local: string) => boolean,
+  code: string,
+  page: MagicString,
+) {
+  const specifiers = statement.specifiers as Array<Node>;
+  const kept = specifiers.filter((specifier) =>
+    isKept((specifier.local as Node).name as string),
+  );
+  if (kept.length === specifiers.length) {
+    return;
+  }
+  if (kept.length === 0) {
+    removeLine(statement, code, page);
+    return;
+  }
+  page.overwrite(
+    statement.start,
+    (statement.source as Node).start,
+    `import ${importClause(kept, code)} from `,
+  );
+}
+
 function pruneImports(
   moved: Map<string, Imported>,
   root: AST.Root,
@@ -1726,59 +1848,18 @@ function pruneImports(
   if (moved.size === 0) {
     return;
   }
-  const used = usedNames(root, code, removed);
+  const used = usedNames(root, removed);
+  const isKept = (local: string) =>
+    !moved.has(local) || (used.get(local) ?? 0) > 0;
   for (const script of [root.instance, root.module]) {
-    if (script == null) {
-      continue;
-    }
-    for (const statement of nodesOf(script.content.body)) {
+    const statements = nodesOf(script?.content.body ?? []);
+    for (const statement of statements) {
       if (
-        statement.type !== "ImportDeclaration" ||
-        statement.importKind === "type"
+        statement.type === "ImportDeclaration" &&
+        statement.importKind !== "type"
       ) {
-        continue;
+        pruneImport(statement, isKept, code, page);
       }
-      const specifiers = statement.specifiers as Array<Node>;
-      const kept = specifiers.filter((specifier) => {
-        const local = (specifier.local as Node).name as string;
-        return !moved.has(local) || (used.get(local) ?? 0) > 0;
-      });
-      if (kept.length === specifiers.length) {
-        continue;
-      }
-      if (kept.length === 0) {
-        const lineEnd = code.indexOf("\n", statement.end);
-        const isAlone =
-          lineEnd !== -1 && code.slice(statement.end, lineEnd).trim() === "";
-        const lineStart = code.lastIndexOf("\n", statement.start - 1) + 1;
-        const isLineStart =
-          code.slice(lineStart, statement.start).trim() === "";
-        page.remove(
-          isAlone && isLineStart ? lineStart : statement.start,
-          isAlone && isLineStart ? lineEnd + 1 : statement.end,
-        );
-        continue;
-      }
-      const defaults = kept.filter(
-        (specifier) => specifier.type !== "ImportSpecifier",
-      );
-      const named = kept.filter(
-        (specifier) => specifier.type === "ImportSpecifier",
-      );
-      const parts = defaults.map((specifier) =>
-        code.slice(specifier.start, specifier.end),
-      );
-      if (named.length > 0) {
-        parts.push(
-          `{ ${named.map((specifier) => code.slice(specifier.start, specifier.end)).join(", ")} }`,
-        );
-      }
-      const source = statement.source as Node;
-      page.overwrite(
-        statement.start,
-        source.start,
-        `import ${parts.join(", ")} from `,
-      );
     }
   }
 }
