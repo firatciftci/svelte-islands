@@ -110,7 +110,7 @@ export class Part<T = unknown> {
 export type Shell = {
   part: Part;
   key: string;
-  state: "static" | "deferred" | "client";
+  state: "static" | "deferred" | "client" | "fresh";
   file: string | null;
   needs: string | null;
   module: string;
@@ -121,6 +121,13 @@ export type Shell = {
   prefetch: boolean;
   scope: object | null;
   context: Map<unknown, unknown>;
+};
+
+export type Fresh = {
+  key: string;
+  html: string;
+  part: Part;
+  needs: string | null;
 };
 
 export type Scope = {
@@ -136,6 +143,7 @@ export type Scope = {
   outline: (identity: string, html: () => string, view?: string) => string;
   awaited: (error: unknown, name: string) => boolean;
   record: (island: Shell) => void;
+  collect: ((island: Fresh) => void) | null;
 };
 
 const state: {

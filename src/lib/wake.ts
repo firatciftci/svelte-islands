@@ -1,6 +1,6 @@
 import type { Snippet } from "svelte";
 import { flushSync, hydrate, mount, unmount } from "svelte";
-import type { Part, Strategy } from "./part.js";
+import type { Fresh, Part, Strategy } from "./part.js";
 import type { Options } from "./runtime.js";
 import Frame from "./frame.svelte";
 import { emit, isObserved } from "./observe.js";
@@ -16,6 +16,7 @@ import {
   keepFields,
   load,
   loadNow,
+  partsOf,
   prefetch,
   schedule,
   watch,
@@ -294,6 +295,26 @@ export function awaken(target: HTMLElement, wake: Wake, control: Control) {
   };
 }
 
+function place(
+  target: HTMLElement,
+  html: string,
+  meter: ReturnType<typeof measurer>,
+) {
+  const skeleton = target.querySelector(":scope > .island-shell");
+  if (skeleton == null) {
+    return false;
+  }
+  meter.measure(target);
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  target.querySelector(":scope > .island-outline")?.remove();
+  skeleton.replaceWith(template.content);
+  target.dataset.islandState = "static";
+  target.removeAttribute("aria-busy");
+  meter.revealed(target);
+  return true;
+}
+
 /** Brings in HTML kept out of the page, then hydrates it like server HTML. */
 export function reveal(
   target: HTMLElement,
@@ -306,19 +327,11 @@ export function reveal(
   let rest = nothing;
   let stopWanting = nothing;
   const show = (html: string) => {
-    const skeleton = target.querySelector(":scope > .island-shell");
-    if (!isLive || skeleton == null) {
+    if (!isLive || target.querySelector(":scope > .island-shell") == null) {
       return;
     }
     stopWanting();
-    meter.measure(target);
-    const template = document.createElement("template");
-    template.innerHTML = html;
-    target.querySelector(":scope > .island-outline")?.remove();
-    skeleton.replaceWith(template.content);
-    target.dataset.islandState = "static";
-    target.removeAttribute("aria-busy");
-    meter.revealed(target);
+    place(target, html, meter);
     rest = awaken(target, wake, control);
   };
   const stop = arm(
@@ -355,6 +368,46 @@ export function reveal(
     isLive = false;
     stop();
     stopWanting();
+    rest();
+  };
+}
+
+/**
+ * Brings in an island rendered on the server for this visitor, then hydrates
+ * it with the value it was rendered from.
+ */
+export function freshen(
+  target: HTMLElement,
+  fresh: () => Promise<Fresh | null>,
+  wake: Wake,
+  control: Control,
+) {
+  const meter = measurer(wake.part);
+  let isLive = true;
+  let rest = nothing;
+  fresh().then(
+    (found) => {
+      if (!isLive) {
+        return;
+      }
+      if (found == null || !place(target, found.html, meter)) {
+        wake.onRelease();
+        return;
+      }
+      rest = awaken(
+        target,
+        { ...wake, part: found.part, needs: partsOf(found.needs) },
+        control,
+      );
+    },
+    () => {
+      if (isLive) {
+        wake.onRelease();
+      }
+    },
+  );
+  return () => {
+    isLive = false;
     rest();
   };
 }

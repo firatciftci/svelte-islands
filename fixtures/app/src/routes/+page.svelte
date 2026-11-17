@@ -7,3 +7,4 @@
 <a href="/modes?seed=hover" data-sveltekit-preload-data="hover">Hover modes</a>
 <a href="/prerendered">Prerendered</a>
 <a href="/table">Table</a>
+<a href="/fresh/live">Fresh</a>

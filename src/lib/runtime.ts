@@ -2,7 +2,7 @@ import type { Attachment } from "svelte/attachments";
 import { untrack } from "svelte";
 import { on } from "svelte/events";
 import { SvelteSet } from "svelte/reactivity";
-import type { Strategy } from "./part.js";
+import type { Fresh, Strategy } from "./part.js";
 import { emit, isObserved } from "./observe.js";
 import { deserialize, onArrival, Part, quietly, settings } from "./part.js";
 
@@ -70,7 +70,7 @@ export type Options = { margin?: string; media?: string };
 export type Want = "find" | "print";
 
 export type Claimed = {
-  state: "static" | "deferred" | "client";
+  state: "static" | "deferred" | "client" | "fresh";
   file: string | null;
   needs: string | null;
   isBusy: boolean;
@@ -195,6 +195,40 @@ function shared() {
   } = globalThis;
   scope.__svelteIslands ??= {};
   return scope.__svelteIslands;
+}
+
+type Batch = { found: Promise<Array<Fresh>>; taken: Map<string, number> };
+
+const freshened: { batch: Batch | null } = { batch: null };
+
+async function fetchFresh() {
+  await pause(0);
+  const url = new URL(`${settings.prefix}fresh`, location.origin);
+  url.searchParams.set("u", `${location.pathname}${location.search}`);
+  const response = await fetch(url, { cache: "no-store", priority: "high" });
+  if (!response.ok) {
+    throw new Error(`${response.status} ${response.statusText}`);
+  }
+  return deserialize(await response.text()) as Array<Fresh>;
+}
+
+export async function freshOf(key: string) {
+  let batch = freshened.batch;
+  if (batch == null) {
+    const made: Batch = { found: fetchFresh(), taken: new Map() };
+    const clear = () => {
+      if (freshened.batch === made) {
+        freshened.batch = null;
+      }
+    };
+    made.found.then(clear, clear);
+    freshened.batch = made;
+    batch = made;
+  }
+  const index = batch.taken.get(key) ?? 0;
+  batch.taken.set(key, index + 1);
+  const found = await batch.found;
+  return found.filter((island) => island.key === key)[index] ?? null;
 }
 
 export function holdSwaps() {
@@ -467,6 +501,7 @@ const CLAIMABLE: ReadonlySet<string> = new Set([
   "static",
   "deferred",
   "client",
+  "fresh",
 ]);
 
 function isClaimable(value: string | undefined): value is Claimed["state"] {

@@ -1,8 +1,14 @@
 import type { Part, Shell, Strategy } from "./part.js";
 import type { Body, Control, Wake } from "./wake.js";
 import { deserialize } from "./part.js";
-import { holdSwaps, markupNow, markupOf, partsOf } from "./runtime.js";
-import { awaken, codeOf, render, reveal } from "./wake.js";
+import {
+  freshOf,
+  holdSwaps,
+  markupNow,
+  markupOf,
+  partsOf,
+} from "./runtime.js";
+import { awaken, codeOf, freshen, render, reveal } from "./wake.js";
 
 type Sent = Omit<Shell, "scope" | "context"> & {
   scope: Record<string, unknown> | null;
@@ -69,7 +75,9 @@ function activate(
     },
   };
   const state = target.dataset.islandState;
-  if (state === "static") {
+  if (state === "fresh") {
+    freshen(target, async () => freshOf(island.key), wake, control);
+  } else if (state === "static") {
     awaken(target, wake, control);
   } else if (state === "deferred" && island.file != null) {
     const { file, part } = island;

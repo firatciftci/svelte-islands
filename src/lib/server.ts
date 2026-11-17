@@ -5,7 +5,7 @@ import { asset } from "$app/paths";
 import { getRequestEvent } from "$app/server";
 import { createHash, randomUUID } from "node:crypto";
 import { render } from "svelte/server";
-import type { Fetch, Shell } from "./part.js";
+import type { Fetch, Fresh, Shell } from "./part.js";
 import type { RebuildOptions } from "./rebuild.js";
 import type { Store } from "./stores.js";
 import Frame from "./frame.svelte";
@@ -29,6 +29,8 @@ export type { RebuildOptions } from "./rebuild.js";
 export type { Store } from "./stores.js";
 
 const TOKEN = "x-svelte-islands-token";
+const FRESH = "x-svelte-islands-fresh";
+const PRIVATE = "private, no-store";
 const SHAPES = "skeletons.json";
 const NAMES = "skeleton-names";
 const FILE = /^[\w-]{22}(?:\.json|\.html)?$/u;
@@ -49,6 +51,7 @@ const recent = new Map<string, string>();
 const exemplars = new Map<string, Map<string, { html: string; at: number }>>();
 const asked = new Set<string>();
 const waiting = new Map<string, Map<string, Digest>>();
+const gathering = new Map<string, Array<Fresh>>();
 const requests = new WeakMap<
   object,
   {
@@ -351,7 +354,7 @@ export function part<T>(
   value: T,
   {
     fetch = "auto",
-    private: isPrivate = false,
+    private: isAskedPrivate = false,
   }: {
     /** When the browser requests the part: `"auto"`, `"lazy"`, or `"preload"`. */
     fetch?: Fetch;
@@ -360,6 +363,7 @@ export function part<T>(
   } = {},
 ): Part<T> {
   const event = getRequestEvent();
+  const isPrivate = isAskedPrivate || gatheredBy(event) != null;
   const made = digest(value, isPrivate);
   const found = track(event.locals);
   if (!isPrivate) {
@@ -378,6 +382,28 @@ export function part<T>(
   });
   found.parts.add(created);
   return created;
+}
+
+/**
+ * Makes the part for an island with `render="fresh"`, so the page itself stays
+ * the same for every visitor and can be cached.
+ *
+ * While the page renders, the part holds `fallback`, and `read` doesn't run.
+ * When the browser asks for the page's fresh islands, `read` runs with that
+ * visitor's request, and the part it makes is private.
+ *
+ * @param name A stable name for this kind of data.
+ * @param read Reads the value for the visitor, for example from their cookies.
+ * @param fallback The value for everyone else, such as an empty cart.
+ */
+export async function fresh<T>(
+  name: string,
+  read: () => T | Promise<T>,
+  fallback: T,
+): Promise<Part<T>> {
+  return gatheredBy(getRequestEvent()) == null
+    ? part(name, fallback)
+    : part(name, await read(), { private: true });
 }
 
 provide(() => {
@@ -421,8 +447,23 @@ provide(() => {
     record: (island) => {
       track(event.locals).shells.push(island);
     },
+    collect: collector(event),
   };
 });
+
+function gatheredBy(event: RequestEvent) {
+  const token = event.request.headers.get(FRESH);
+  return token == null ? null : (gathering.get(token) ?? null);
+}
+
+function collector(event: RequestEvent) {
+  const found = gatheredBy(event);
+  return found == null
+    ? null
+    : (island: Fresh) => {
+        found.push(island);
+      };
+}
 
 function preloads({ parts }: { parts: Set<Part> }) {
   return parts
@@ -812,8 +853,56 @@ async function shapes(event: RequestEvent) {
   });
 }
 
+async function freshen(event: RequestEvent) {
+  const target = event.request.method === "GET" ? pageOf(event) : null;
+  if (target == null) {
+    return new Response(null, {
+      status: 404,
+      headers: { "cache-control": PRIVATE },
+    });
+  }
+  const token = randomUUID();
+  const found: Array<Fresh> = [];
+  gathering.set(token, found);
+  try {
+    const headers = new Headers({ [FRESH]: token, accept: "text/html" });
+    const language = event.request.headers.get("accept-language");
+    if (language != null) {
+      headers.set("accept-language", language);
+    }
+    config.prepare({ url: target, headers }, event);
+    let status = 502;
+    try {
+      const response = await event.fetch(target, { headers });
+      await response.arrayBuffer();
+      status = response.status;
+    } catch {
+      status = 502;
+    }
+    const notice = `fresh:${target.pathname}`;
+    if (status !== 200 && !warned.has(notice)) {
+      warned.add(notice);
+      console.warn(
+        `svelte-islands: the server couldn't render ${target.pathname} for its fresh islands, so they show the page's own values. The server can't render a prerendered page again, so render the page on the server and cache it with cache-control instead.`,
+      );
+    }
+    return new Response(status === 200 ? serialize(found, true) : null, {
+      status: status === 200 ? 200 : 502,
+      headers: {
+        "content-type": "application/json; charset=utf-8",
+        "cache-control": PRIVATE,
+      },
+    });
+  } finally {
+    gathering.delete(token);
+  }
+}
+
 async function respond(event: RequestEvent) {
   const file = event.url.pathname.slice(settings.prefix.length);
+  if (file === "fresh") {
+    return freshen(event);
+  }
   const key = file.replace(/\.json$/u, "");
   const isRead = ["GET", "HEAD"].includes(event.request.method);
   if (isRead && `${key}.json` === SHAPES) {

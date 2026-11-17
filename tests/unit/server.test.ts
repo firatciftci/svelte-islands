@@ -830,4 +830,24 @@ describe("pages without SvelteKit's client", () => {
     expect(routed).not.toContain("speculationrules");
     expect(routed).toContain("@view-transition");
   });
+
+  it("make fresh parts from the fallback, without reading, outside a fresh request", async () => {
+    server.handle();
+    enter(eventFor("/page"));
+    const read = vi.fn(() => ({ name: "Ada" }));
+    const made = await server.fresh("visitor", read, { name: "guest" });
+    expect(read).not.toHaveBeenCalled();
+    expect(made.loaded?.value).toStrictEqual({ name: "guest" });
+    expect(made.isPrivate).toBe(false);
+  });
+
+  it("answer a fresh request for a page outside the site with 404", async () => {
+    const handler = server.handle();
+    const response = await handler({
+      event: eventFor("/_parts/fresh?u=https://elsewhere.test/"),
+      resolve: async () => new Response("page"),
+    });
+    expect(response.status).toBe(404);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+  });
 });

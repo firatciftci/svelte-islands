@@ -26,6 +26,7 @@
     capture,
     claim,
     fallback,
+    freshOf,
     Gone,
     isFirstGone,
     load,
@@ -42,7 +43,13 @@
     watch,
     whenWanted,
   } from "./runtime.js";
-  import { awaken, codeOf, measurer, reveal as revealMarkup } from "./wake.js";
+  import {
+    awaken,
+    codeOf,
+    freshen,
+    measurer,
+    reveal as revealMarkup,
+  } from "./wake.js";
 
   const {
     part,
@@ -107,6 +114,7 @@
   const mode = untrack(() => render);
   const revealOn = untrack(() => reveal);
   const isDeferred = mode === "deferred" && !origin.isPrivate;
+  const isFresh = mode === "fresh";
   const ssr = mode !== "client";
   const code = codeOf(
     untrack(() => children as Body | undefined),
@@ -119,7 +127,13 @@
 
   const adopted = untrack((): (Claimed & { html: string }) | null => {
     if (server == null) {
-      if (origin.loaded != null && ssr && !isDeferred && moduleId == null) {
+      if (
+        origin.loaded != null &&
+        ssr &&
+        !isDeferred &&
+        !isFresh &&
+        moduleId == null
+      ) {
         return null;
       }
       const found = claim(origin, first);
@@ -133,7 +147,7 @@
     const { loaded } = origin;
     if (
       loaded == null ||
-      (origin.isInline && ssr && !isDeferred && moduleId == null)
+      (origin.isInline && ssr && !isDeferred && !isFresh && moduleId == null)
     ) {
       return null;
     }
@@ -154,6 +168,29 @@
       }
       return draw().result;
     };
+    if (isFresh) {
+      if (server.collect != null) {
+        try {
+          server.collect({
+            key: first,
+            html: draw().result,
+            part: origin,
+            needs: needsOf(draw().reads, origin),
+          });
+        } catch (error) {
+          if (!server.awaited(error, origin.name)) {
+            throw error;
+          }
+        }
+      }
+      return {
+        state: "fresh",
+        file: null,
+        needs: null,
+        isBusy: true,
+        html: shell(server.skeleton(origin.name, first, html)),
+      };
+    }
     if (!ssr) {
       const outlined = server.outline(`${origin.hash}:${first}`, html, first);
       return {
@@ -241,10 +278,10 @@
     return isLatched && !isReleased;
   });
 
-  const current = $derived(
-    peek(part) ??
-      (fetched?.hash === part.hash ? { value: fetched.value } : null),
-  );
+  const current = $derived.by(() => {
+    const own = fetched?.hash === part.hash ? { value: fetched.value } : null;
+    return isFresh && !isReleased ? own : (peek(part) ?? own);
+  });
 
   const control: Control = { rouse: () => {} };
   const meter = measurer(origin);
@@ -288,6 +325,9 @@
 
   function activate(target: HTMLElement) {
     const wake = wakeOf();
+    if (adopted?.state === "fresh") {
+      return freshen(target, async () => freshOf(first), wake, control);
+    }
     if (adopted?.state === "static") {
       return awaken(target, wake, control);
     }
@@ -368,7 +408,15 @@
     void attempt;
     let isLive = true;
     let job: ReturnType<typeof schedule> | null = null;
-    Promise.all([load(target), code.load()]).then(
+    const value =
+      isFresh && !isReleased
+        ? freshOf(first).then(
+            async (found) =>
+              load((found?.part as Part<T> | undefined) ?? target),
+            async () => load(target),
+          )
+        : load(target);
+    Promise.all([value, code.load()]).then(
       ([value, loadedBody]) => {
         if (isLive) {
           job = later(() => {
