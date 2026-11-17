@@ -37,6 +37,7 @@ const twoslash = createTwoslasher({
       "svelte-islands/stores": library("stores.ts"),
       "svelte-islands/sw": library("sw.ts"),
       "svelte-islands/eslint": library("eslint.ts"),
+      "svelte-islands/vite": library("vite.ts"),
       "svelte-islands": library("index.ts"),
     },
   },

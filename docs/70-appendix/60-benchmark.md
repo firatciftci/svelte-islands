@@ -12,18 +12,18 @@ We chose a long page of data because that is what islands are for, so you should
 |                                          |     Plain SvelteKit |        With islands |
 | ---------------------------------------- | ------------------: | ------------------: |
 | HTML                                     |               99 KB |                5 KB |
-| Total downloaded by the end of the load  |              250 KB |              167 KB |
-| Total downloaded after using both tables |              250 KB |              259 KB |
-| First paint                              | 860 ms (840 to 896) | 492 ms (492 to 504) |
+| Total downloaded by the end of the load  |              250 KB |              169 KB |
+| Total downloaded after using both tables |              250 KB |              262 KB |
+| First paint                              | 852 ms (840 to 868) | 488 ms (484 to 488) |
 | Long tasks                               |                   1 |                   0 |
-| Blocking time                            | 203 ms (198 to 220) |       0 ms (0 to 0) |
-| Main thread time                         | 760 ms (756 to 913) | 170 ms (164 to 183) |
-| DOM nodes                                |              34,612 |               1,959 |
-| First sort of the harbors                |    36 ms (33 to 42) |    39 ms (38 to 42) |
-| First sort of the berths                 | 237 ms (229 to 247) | 717 ms (707 to 725) |
-| Second sort of the berths                | 248 ms (237 to 294) | 245 ms (237 to 261) |
+| Blocking time                            | 202 ms (197 to 208) |       0 ms (0 to 0) |
+| Main thread time                         | 765 ms (761 to 775) | 180 ms (173 to 183) |
+| DOM nodes                                |              34,629 |               2,121 |
+| First sort of the harbors                |    37 ms (33 to 42) |    42 ms (40 to 45) |
+| First sort of the berths                 | 238 ms (232 to 248) | 247 ms (237 to 260) |
+| Second sort of the berths                | 246 ms (234 to 253) | 253 ms (245 to 261) |
 
-Recorded on November 16, 2026 with Chromium 156 on Apple M5 Pro, using Svelte 5.57.3 and SvelteKit 3.1.1. Each number is the median of 7 runs, and the parentheses show the lowest and highest run.
+Recorded on November 17, 2026 with Chromium 156 on Apple M5 Pro, using Svelte 5.57.3 and SvelteKit 3.1.1. Each number is the median of 7 runs, and the parentheses show the lowest and highest run.
 
 <!-- /results -->
 

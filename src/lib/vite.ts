@@ -13,6 +13,7 @@ const ISLAND = /\.__island-[\w-]+\.svelte$/u;
  * ```ts
  * import { sveltekit } from "@sveltejs/kit/vite";
  * import { islands } from "svelte-islands/vite";
+ * import { defineConfig } from "vite";
  *
  * export default defineConfig({ plugins: [sveltekit(), islands()] });
  * ```

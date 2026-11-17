@@ -2,6 +2,7 @@ import adapterStatic from "@sveltejs/adapter-static";
 import { sveltekit } from "@sveltejs/kit/vite";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
+import { islands } from "../src/lib/vite.ts";
 
 function isPath(value: string): value is `/${string}` {
   return value.startsWith("/");
@@ -25,6 +26,7 @@ export default defineConfig({
       },
       serviceWorker: { register: false },
     }),
+    process.env.SITE_PLUGIN !== "0" && islands(),
   ],
   resolve: {
     alias: {
