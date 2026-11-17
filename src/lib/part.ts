@@ -4,7 +4,19 @@ import { parse, stringify } from "devalue";
 import { claim, isPackable, pack, unpack } from "./pack.js";
 
 /**
- * When an island hydrates, or when a deferred island brings in its HTML.
+ * Where an island's HTML comes from.
+ *
+ * - `"server"`: in the page's HTML, rendered on the server.
+ * - `"deferred"`: rendered on the server but kept out of the page, and fetched
+ *   when `reveal` says so.
+ * - `"client"`: rendered in the browser, with a skeleton until then.
+ * - `"fresh"`: rendered on the server for each visitor and fetched after the
+ *   page loads, so the page itself can be cached or prerendered.
+ */
+export type Render = "server" | "deferred" | "client" | "fresh";
+
+/**
+ * When an island hydrates, or when deferred or fresh HTML is fetched.
  *
  * - `"visible"`: when it comes within `margin` of the viewport.
  * - `"idle"`: when the browser is idle.

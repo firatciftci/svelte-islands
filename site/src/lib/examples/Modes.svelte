@@ -29,7 +29,7 @@
   <p class="coast-note">
     <code>deferred</code> gets its HTML as you scroll toward it.
   </p>
-  <Island part={parts.deferred} defer>
+  <Island part={parts.deferred} render="deferred">
     {#snippet children(rows)}
       <HarborTable {rows} limit={3} />
     {/snippet}
@@ -37,7 +37,7 @@
 </Coast>
 <Coast>
   <p class="coast-note"><code>client</code> has no server HTML at all.</p>
-  <Island part={parts.client} ssr={false}>
+  <Island part={parts.client} render="client">
     {#snippet children(rows)}
       <HarborTable {rows} limit={3} />
     {/snippet}

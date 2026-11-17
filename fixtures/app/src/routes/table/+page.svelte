@@ -19,7 +19,7 @@
     <tr><th>Name</th><th>Votes</th></tr>
   </thead>
   {#each CHUNKS as chunk (chunk)}
-    <Island part={data.rows} view={chunk} as="tbody" when="visible">
+    <Island part={data.rows} view={chunk} as="tbody" hydrate="visible">
       {#snippet children(rows)}
         {#each rows.slice(Number(chunk) * SIZE, (Number(chunk) + 1) * SIZE) as row (row.id)}
           <tr>

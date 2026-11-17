@@ -13,7 +13,7 @@
     The chart and the table share one part, so whichever wakes first downloads
     it for both.
   </p>
-  <Island part={parts.harbors} view="chart" when="visible">
+  <Island part={parts.harbors} view="chart" hydrate="visible">
     {#snippet children(rows)}
       <OnTimeChart {rows} title="On time at the busiest harbors" count={6} />
     {/snippet}

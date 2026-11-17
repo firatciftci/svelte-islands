@@ -9,7 +9,7 @@
 
 <DemoPage label="Islands page" summary={data.summary}>
   {#snippet chart()}
-    <Island part={data.ports} view="chart" ssr={false}>
+    <Island part={data.ports} view="chart" render="client">
       {#snippet children(rows)}
         <OnTimeChart {rows} title="On time at the busiest harbors" />
       {/snippet}
@@ -23,7 +23,7 @@
     </Island>
   {/snippet}
   {#snippet berths()}
-    <Island part={data.berths} defer>
+    <Island part={data.berths} render="deferred">
       {#snippet children(rows)}
         <HarborTable {rows} nameLabel="Berth" />
       {/snippet}

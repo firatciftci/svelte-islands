@@ -100,7 +100,7 @@
     </div>
     <div class="hero-island" bind:this={hero}>
       <Coast onreach={reached}>
-        <Island part={data.harrow} when="interaction">
+        <Island part={data.harrow} hydrate="interaction">
           {#snippet children(rows)}
             <HarborTable {rows} limit={8} caption="Harrow Sound, by harbor" />
           {/snippet}
@@ -161,7 +161,7 @@
         </p>
       </div>
       <Coast>
-        <Island part={data.deferred} defer>
+        <Island part={data.deferred} render="deferred">
           {#snippet children(rows)}
             <HarborTable {rows} limit={6} />
           {/snippet}
@@ -178,7 +178,7 @@
         </p>
       </div>
       <Coast>
-        <Island part={data.never} when="never">
+        <Island part={data.never} hydrate="never">
           {#snippet children(rows)}
             <HarborTable {rows} limit={4} />
           {/snippet}
@@ -194,7 +194,7 @@
         </p>
       </div>
       <Coast>
-        <Island part={data.client} ssr={false}>
+        <Island part={data.client} render="client">
           {#snippet children(rows)}
             <OnTimeChart {rows} title="On time at the ten busiest harbors" />
           {/snippet}

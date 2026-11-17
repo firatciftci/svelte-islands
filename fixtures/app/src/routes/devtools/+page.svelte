@@ -9,7 +9,7 @@
 
 <div style="block-size: 3000px"></div>
 
-<Island part={data.rows} defer>
+<Island part={data.rows} render="deferred">
   {#snippet children(rows)}
     <Rows {rows} label="devtools" />
   {/snippet}

@@ -10,7 +10,7 @@
   <title>Private</title>
 </svelte:head>
 
-<Island part={data.account} defer>
+<Island part={data.account} render="deferred">
   {#snippet children(account)}
     <p data-testid="secret">{account.secret}</p>
     <button

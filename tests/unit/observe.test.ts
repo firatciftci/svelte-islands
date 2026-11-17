@@ -8,6 +8,7 @@ const event: Observation = {
   hash: "abc",
   bytes: 10,
   duration: 1,
+  isPrefetch: false,
 };
 
 afterEach(() => {

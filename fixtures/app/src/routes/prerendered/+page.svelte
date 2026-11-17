@@ -17,13 +17,13 @@
   {/snippet}
 </Island>
 
-<Island part={data.deferredRows} defer>
+<Island part={data.deferredRows} render="deferred">
   {#snippet children(rows)}
     <Rows {rows} label="deferred" />
   {/snippet}
 </Island>
 
-<Island part={data.clientRows} ssr={false}>
+<Island part={data.clientRows} render="client">
   {#snippet children(rows)}
     <Rows {rows} label="client" />
   {/snippet}

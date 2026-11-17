@@ -12,7 +12,7 @@
 <h1>Modes</h1>
 <a href="/">Home</a>
 
-<Island part={data.neverRows} when="never">
+<Island part={data.neverRows} hydrate="never">
   {#snippet children(rows)}
     <Rows {rows} label="never" />
   {/snippet}
@@ -26,7 +26,7 @@
 
 <div style="block-size: 4000px"></div>
 
-<Island part={data.deferredRows} defer>
+<Island part={data.deferredRows} render="deferred">
   {#snippet children(rows)}
     <Rows {rows} label="deferred" />
   {/snippet}
@@ -34,7 +34,7 @@
 
 <div style="block-size: 4000px"></div>
 
-<Island part={data.clientRows} ssr={false}>
+<Island part={data.clientRows} render="client">
   {#snippet children(rows)}
     <Rows {rows} label="client" />
   {/snippet}

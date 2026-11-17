@@ -24,7 +24,7 @@
   {/snippet}
 </Island>
 
-<Island part={data.later} defer>
+<Island part={data.later} render="deferred">
   {#snippet children(rows)}
     <Rows {rows} label="later" />
   {/snippet}

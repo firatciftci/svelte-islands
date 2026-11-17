@@ -1,24 +1,6 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
-
-function watchErrors(page: Page) {
-  const errors: Array<string> = [];
-  page.on("pageerror", (error) => {
-    errors.push(error.message);
-  });
-  page.on("console", (message) => {
-    if (message.type() === "error" || message.text().includes("hydration")) {
-      errors.push(message.text());
-    }
-  });
-  return errors;
-}
-
-async function hydrated(page: Page) {
-  await page.waitForFunction(
-    () => document.documentElement.dataset.hydrated === "true",
-  );
-}
+import { hydrated, watchErrors } from "./helpers.ts";
 
 async function watchSkeleton(page: Page) {
   await page.evaluate(() => {

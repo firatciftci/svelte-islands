@@ -19,7 +19,7 @@
 
 <div style="block-size: 3000px"></div>
 
-<Island part={data.deferredRows} defer>
+<Island part={data.deferredRows} render="deferred">
   {#snippet children()}
     <Waiting label="deferred" />
   {/snippet}
@@ -27,7 +27,7 @@
 
 <div style="block-size: 3000px"></div>
 
-<Island part={data.clientRows} ssr={false}>
+<Island part={data.clientRows} render="client">
   {#snippet children()}
     <Waiting label="client" />
   {/snippet}

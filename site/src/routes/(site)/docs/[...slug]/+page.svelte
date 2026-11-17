@@ -88,7 +88,7 @@
       <div class="prose">
         {#each data.segments as segment, index (index)}
           {#if segment.kind === "html"}
-            <Island part={segment.part} when="never">
+            <Island part={segment.part} hydrate="never">
               {#snippet children(html)}
                 {@html html}
               {/snippet}

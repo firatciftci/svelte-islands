@@ -18,6 +18,7 @@ const RETRY = 250;
 const RETRY_LIMIT = 4000;
 const INTERACTIONS = ["pointerenter", "pointerdown", "focusin", "touchstart"];
 const SLICE = 8;
+const PREFETCH_BUDGET = 1024 ** 2;
 const RANKS: Record<Strategy, number> = {
   interaction: 0,
   eager: 1,
@@ -39,8 +40,10 @@ const refreshed = new Set<string>();
 const watched = new Map<Element, Set<() => void>>();
 const observers = new Map<string, IntersectionObserver>();
 const wants = new Set<(want: Want) => void>();
+const prefetched = new Set<string>();
 const state: {
   held: number;
+  prefetched: number;
   isBooted: boolean;
   isRead: boolean;
   isDraining: boolean;
@@ -49,6 +52,7 @@ const state: {
   reads: Set<Part> | null;
 } = {
   held: 0,
+  prefetched: 0,
   isBooted: false,
   isRead: false,
   isDraining: false,
@@ -142,9 +146,11 @@ export function peek<T>(part: Part<T>): { value: T } | null {
   return { value: found.value as T };
 }
 
-async function fetched(name: string, source: string) {
+type Priority = "high" | "low" | "auto";
+
+async function fetched(name: string, source: string, priority: Priority) {
   const url = new URL(`${settings.prefix}${name}`, location.origin);
-  const response = await fetch(url);
+  const response = await fetch(url, { priority });
   if (response.ok) {
     return response.text();
   }
@@ -152,7 +158,7 @@ async function fetched(name: string, source: string) {
     throw new Error(`${response.status} ${response.statusText}`);
   }
   url.searchParams.set("u", source);
-  const rebuilt = await fetch(url);
+  const rebuilt = await fetch(url, { priority });
   if (rebuilt.ok) {
     return rebuilt.text();
   }
@@ -208,7 +214,7 @@ export async function markupOf(
   try {
     const text =
       (await handed(file)) ??
-      (await persist(async () => fetched(file, source)));
+      (await persist(async () => fetched(file, source, "auto")));
     if (isObserved()) {
       emit({
         type: "markup",
@@ -273,11 +279,13 @@ export function loadNow<T>(part: Part<T>): { value: T } | null {
   return { value };
 }
 
-async function request(part: Part) {
+async function request(part: Part, priority: Priority) {
   const started = performance.now();
   try {
     const value = deserialize(
-      await persist(async () => fetched(`${part.hash}.json`, part.source)),
+      await persist(async () =>
+        fetched(`${part.hash}.json`, part.source, priority),
+      ),
     );
     keep(part.hash, value, part.bytes);
     if (isObserved()) {
@@ -287,6 +295,7 @@ async function request(part: Part) {
         hash: part.hash,
         bytes: part.bytes,
         duration: performance.now() - started,
+        isPrefetch: priority === "low",
       });
     }
     return value;
@@ -306,16 +315,54 @@ async function request(part: Part) {
  * @returns The value.
  */
 export async function load<T>(part: Part<T>): Promise<T> {
+  return fetchPart(part, "auto");
+}
+
+async function fetchPart<T>(part: Part<T>, priority: Priority): Promise<T> {
   const known = untrack(() => peek(part));
   if (known != null) {
     return known.value;
   }
   let found = pending.get(part.hash);
   if (found == null) {
-    found = request(part);
+    found = request(part, priority);
     pending.set(part.hash, found);
   }
   return (await found) as T;
+}
+
+function isThrifty() {
+  const { connection } = navigator as Navigator & {
+    connection?: { saveData?: boolean; effectiveType?: string };
+  };
+  return (
+    connection?.saveData === true ||
+    connection?.effectiveType === "slow-2g" ||
+    connection?.effectiveType === "2g"
+  );
+}
+
+export function isPrefetched(part: Part) {
+  return prefetched.has(part.hash);
+}
+
+export function prefetch(parts: ReadonlyArray<Part>, extra: () => void) {
+  const missing = parts.filter(
+    (part) => peek(part) == null && !pending.has(part.hash),
+  );
+  let bytes = 0;
+  for (const part of missing) {
+    bytes += part.bytes;
+  }
+  if (isThrifty() || state.prefetched + bytes > PREFETCH_BUDGET) {
+    return;
+  }
+  state.prefetched += bytes;
+  for (const part of missing) {
+    prefetched.add(part.hash);
+    void quietly(fetchPart(part, "low"));
+  }
+  extra();
 }
 
 onArrival((part) => {
@@ -502,7 +549,7 @@ export function fallback(bytes: number, reserve?: string) {
   return `<div class="island-fallback">${bones}</div>`;
 }
 
-function idle(run: () => void) {
+export function idle(run: () => void) {
   if (typeof requestIdleCallback === "function") {
     const id = requestIdleCallback(run, { timeout: 2000 });
     return () => {
@@ -691,8 +738,15 @@ async function drain() {
   state.isDraining = false;
 }
 
-export function schedule(run: () => void, when: Strategy) {
-  const job: Job = { run, rank: RANKS[when], isDone: false };
+export function schedule(
+  run: () => void,
+  when: Strategy | ReadonlyArray<Strategy>,
+) {
+  const job: Job = {
+    run,
+    rank: Math.min(...strategiesOf(when).map((strategy) => RANKS[strategy])),
+    isDone: false,
+  };
   queue.push(job);
   if (!state.isDraining) {
     void drain();
@@ -724,28 +778,53 @@ const STRATEGIES: Record<
   never: () => nothing,
 };
 
+export function strategiesOf(when: Strategy | ReadonlyArray<Strategy>) {
+  return typeof when === "string" ? [when] : [...when];
+}
+
 export function watch(
   element: Element,
-  when: Strategy,
-  start: () => void,
+  when: Strategy | ReadonlyArray<Strategy>,
+  start: (fired: Strategy) => void,
   options: Options = {},
 ) {
   let isDone = false;
-  let stop = nothing;
-  const once = () => {
+  const stops: Array<() => void> = [];
+  const stopAll = () => {
+    for (const stop of stops.splice(0)) {
+      stop();
+    }
+  };
+  const once = (fired: Strategy) => {
     if (isDone) {
       return;
     }
     isDone = true;
-    stop();
-    start();
+    stopAll();
+    start(fired);
   };
-  stop = STRATEGIES[when](element, once, options);
+  for (const strategy of strategiesOf(when)) {
+    stops.push(
+      STRATEGIES[strategy](
+        element,
+        () => {
+          once(strategy);
+        },
+        options,
+      ),
+    );
+    if (isDone) {
+      stopAll();
+      break;
+    }
+  }
   return {
-    now: once,
+    now: () => {
+      once("interaction");
+    },
     stop: () => {
       isDone = true;
-      stop();
+      stopAll();
     },
   };
 }
@@ -800,39 +879,175 @@ export function replay(target: HTMLElement, press: MouseEvent): void {
   fire("click", { detail });
 }
 
+function isNative(target: HTMLElement): boolean {
+  if (target instanceof HTMLLabelElement) {
+    return target.control instanceof HTMLElement && isNative(target.control);
+  }
+  if (target instanceof HTMLButtonElement) {
+    return target.type === "submit";
+  }
+  if (target instanceof HTMLInputElement) {
+    return target.type !== "button" && target.type !== "reset";
+  }
+  return (
+    target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement
+  );
+}
+
+type Held =
+  | { kind: "press"; press: MouseEvent; target: HTMLElement }
+  | { kind: "submit"; form: HTMLFormElement; submitter: HTMLElement | null };
+
 export function intercept(element: Element, onHold: () => void) {
-  let held: { press: MouseEvent; target: HTMLElement } | null = null;
-  const stop = on(
-    element,
-    "click",
-    (event) => {
-      if (!(event instanceof MouseEvent && event.target instanceof Element)) {
-        return;
-      }
-      const target = event.target.closest(ACTIVE);
-      if (
-        target instanceof HTMLElement &&
-        element.contains(target) &&
-        target.closest("a[href]") == null
-      ) {
+  let held: Held | null = null;
+  const stops = [
+    on(
+      element,
+      "click",
+      (event) => {
+        if (!(event instanceof MouseEvent && event.target instanceof Element)) {
+          return;
+        }
+        const target = event.target.closest(ACTIVE);
+        if (
+          target instanceof HTMLElement &&
+          element.contains(target) &&
+          target.closest("a[href]") == null &&
+          !isNative(target)
+        ) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          held = { kind: "press", press: event, target };
+          onHold();
+        }
+      },
+      { capture: true },
+    ),
+    on(
+      element,
+      "submit",
+      (event) => {
+        if (!(event.target instanceof HTMLFormElement)) {
+          return;
+        }
         event.preventDefault();
         event.stopImmediatePropagation();
-        held = { press: event, target };
+        const { submitter } = event as SubmitEvent;
+        held = { kind: "submit", form: event.target, submitter };
         onHold();
-      }
-    },
-    { capture: true },
-  );
+      },
+      { capture: true },
+    ),
+  ];
+  const stop = () => {
+    for (const each of stops.splice(0)) {
+      each();
+    }
+  };
+  const resend = () => {
+    const last = held;
+    held = null;
+    if (last?.kind === "press" && last.target.isConnected) {
+      replay(last.target, last.press);
+    } else if (last?.kind === "submit" && last.form.isConnected) {
+      last.form.requestSubmit(
+        last.submitter?.isConnected === true ? last.submitter : null,
+      );
+    }
+  };
   return {
     isHolding: () => held != null,
     release: () => {
       stop();
-      const last = held;
-      held = null;
-      if (last?.target.isConnected === true) {
-        replay(last.target, last.press);
-      }
+      resend();
     },
-    stop,
+    stop: () => {
+      stop();
+      if (held?.kind === "submit") {
+        resend();
+      }
+      held = null;
+    },
+  };
+}
+
+const FIELDS = "input, textarea, select";
+
+type Field = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+
+function isField(element: Element): element is Field {
+  return (
+    element instanceof HTMLInputElement ||
+    element instanceof HTMLTextAreaElement ||
+    element instanceof HTMLSelectElement
+  );
+}
+
+function isChecked(field: Field): field is HTMLInputElement {
+  return (
+    field instanceof HTMLInputElement &&
+    (field.type === "checkbox" || field.type === "radio")
+  );
+}
+
+function isDirty(field: Field) {
+  if (field instanceof HTMLSelectElement) {
+    return [...field.options].some(
+      (option) => option.selected !== option.defaultSelected,
+    );
+  }
+  return isChecked(field)
+    ? field.checked !== field.defaultChecked
+    : field.value !== field.defaultValue;
+}
+
+function snapshot(field: Field) {
+  if (field instanceof HTMLSelectElement) {
+    const chosen = [...field.options].map((option) => option.selected);
+    return () => {
+      for (const [at, option] of [...field.options].entries()) {
+        option.selected = chosen[at] ?? false;
+      }
+    };
+  }
+  if (isChecked(field)) {
+    const { checked } = field;
+    return () => {
+      field.checked = checked;
+    };
+  }
+  const { value } = field;
+  const isFocused = document.activeElement === field;
+  const range =
+    isFocused && field.selectionStart != null
+      ? [field.selectionStart, field.selectionEnd ?? field.selectionStart]
+      : null;
+  return () => {
+    field.value = value;
+    if (range != null && document.activeElement === field) {
+      field.setSelectionRange(range[0] ?? 0, range[1] ?? 0);
+    }
+  };
+}
+
+export function keepFields(element: Element) {
+  const kept: Array<{ field: Field; restore: () => void }> = [];
+  for (const found of element.querySelectorAll(FIELDS)) {
+    if (isField(found) && isDirty(found)) {
+      kept.push({ field: found, restore: snapshot(found) });
+    }
+  }
+  if (kept.length === 0) {
+    return null;
+  }
+  return () => {
+    for (const { field, restore } of kept) {
+      if (!field.isConnected) {
+        continue;
+      }
+      restore();
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+      field.dispatchEvent(new Event("change", { bubbles: true }));
+    }
   };
 }

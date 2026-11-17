@@ -1,10 +1,10 @@
 <!--
   @component
   Renders a part's value with its own loading and hydration. The server sends
-  HTML, and the browser loads the data and the code only when `when` says so.
+  HTML, and the browser loads the data and the code only when `hydrate` says so.
 
   ```svelte
-  <Island part={data.rows} when="visible">
+  <Island part={data.rows} hydrate="visible">
     {#snippet children(rows)}
       <Rows {rows} />
     {/snippet}
@@ -14,28 +14,19 @@
 <script lang="ts" generics="T">
   import type { Snippet } from "svelte";
   import { dev } from "$app/env";
-  import { invalidateAll } from "$app/navigation";
-  import {
-    flushSync,
-    getAllContexts,
-    hydrate,
-    onMount,
-    unmount,
-    untrack,
-  } from "svelte";
-  import type { Part, Strategy } from "./part.js";
+  import { refreshAll } from "$app/navigation";
+  import { flushSync, getAllContexts, onMount, untrack } from "svelte";
+  import type { Part, Render, Strategy } from "./part.js";
   import type { Claimed } from "./runtime.js";
+  import type { Body, Chunk, Control, Wake } from "./wake.js";
   import Frame from "./frame.svelte";
-  import { emit, isObserved } from "./observe.js";
-  import { quietly, scope } from "./part.js";
+  import { scope as serverScope } from "./part.js";
   import {
     boot,
     capture,
     claim,
     fallback,
     Gone,
-    heightOf,
-    intercept,
     isFirstGone,
     load,
     loadNow,
@@ -47,19 +38,24 @@
     reading,
     schedule,
     skeletonOf,
+    strategiesOf,
     watch,
     whenWanted,
   } from "./runtime.js";
+  import { awaken, codeOf, measurer, reveal as revealMarkup } from "./wake.js";
 
   const {
     part,
     view,
-    when,
-    ssr = true,
-    defer = false,
+    render = "server",
+    reveal = "visible",
+    hydrate,
     margin,
     media,
+    prefetch = true,
     children,
+    code: chunk,
+    scope,
     failed,
     class: className,
     as = "div",
@@ -68,40 +64,51 @@
     part: Part<T>;
     /** Names this island when several share one part, so each has its own skeleton. */
     view?: string;
-    /** When to hydrate. The default is `"interaction"`, or `"visible"` with `ssr={false}`. */
-    when?: Strategy;
-    /** Set to `false` to render only in the browser, with a skeleton until then. */
-    ssr?: boolean;
-    /** Keeps the HTML out of the page and brings it in later, by default when near the viewport. */
-    defer?: boolean | Strategy;
+    /** Where the HTML comes from: `"server"` (the default), `"deferred"`, `"client"`, or `"fresh"`. */
+    render?: Render;
+    /** When deferred or fresh HTML is fetched. The default is `"visible"`. */
+    reveal?: Strategy;
+    /**
+     * When to hydrate: one strategy, or several where the first to fire wins.
+     * The default is `"interaction"`, or `"visible"` for `render="client"`.
+     */
+    hydrate?: Strategy | ReadonlyArray<Strategy>;
     /** How far from the viewport counts as near, as a CSS margin. The default is `"320px"`. */
     margin?: string;
     /** The media query for the `"media"` strategy. */
     media?: string;
+    /** Fetches the data at low priority once the island is near the viewport and the browser is idle. The default is `true`. */
+    prefetch?: boolean;
     /** Renders the value. It also runs on the server, so it can't use `await`. */
     children: Snippet<[T]>;
+    /** The island's code in its own chunk. The Vite plugin sets this. */
+    code?: Chunk;
+    /** The page values the island's code reads. The Vite plugin sets this. */
+    scope?: object;
     /** Shown when a part can't be loaded. Call `retry` to try again. */
     failed?: Snippet<[retry: () => void]>;
     /** A class for the island's wrapper. The wrapper is `display: contents` by default. */
     class?: string;
     /**
      * The wrapper's element. Use `"tbody"` to hydrate a long table a section at a
-     * time. A `tbody` needs its rows in the page, so it rules out `defer` and `ssr={false}`.
+     * time. A `tbody` needs its rows in the page, so it needs `render="server"`.
      */
     as?: "div" | "tbody";
   } = $props();
 
   const context = getAllContexts();
-  const server = scope();
+  const server = serverScope();
   const origin = untrack(() => part);
   const key = $derived(view == null ? part.name : `${part.name}:${view}`);
   const first = untrack(() => key);
-  const plan = untrack(() => ({
-    when: when ?? (ssr ? "interaction" : "visible"),
-    fetch: typeof defer === "string" ? defer : "visible",
-    isDeferred: defer !== false && !part.isPrivate,
-    options: { margin, media },
-  }));
+  const mode = untrack(() => render);
+  const revealOn = untrack(() => reveal);
+  const isDeferred = mode === "deferred" && !origin.isPrivate;
+  const ssr = mode !== "client";
+  const code = codeOf(
+    untrack(() => children as Body | undefined),
+    untrack(() => chunk),
+  );
 
   function shell(skeleton: string | null) {
     return `<div class="island-shell" aria-hidden="true">${skeleton ?? fallback(origin.bytes)}</div>`;
@@ -109,19 +116,19 @@
 
   const adopted = untrack((): (Claimed & { html: string }) | null => {
     if (server == null) {
-      if (origin.loaded != null && ssr && !plan.isDeferred) {
+      if (origin.loaded != null && ssr && !isDeferred) {
         return null;
       }
       const found = claim(origin, first);
       return found == null ? null : { ...found, html: " " };
     }
-    if (as === "tbody" && (!ssr || defer !== false)) {
+    if (as === "tbody" && mode !== "server") {
       throw new Error(
-        `The island "${origin.name}" uses as="tbody", which needs its rows in the page. Remove defer and ssr={false}.`,
+        `The island "${origin.name}" uses as="tbody", which needs its rows in the page. Use render="server".`,
       );
     }
     const { loaded } = origin;
-    if (loaded == null || (origin.isInline && ssr && !plan.isDeferred)) {
+    if (loaded == null || (origin.isInline && ssr && !isDeferred)) {
       return null;
     }
     const prefix = `s${origin.hash.slice(0, 6).replaceAll("-", "_")}`;
@@ -167,7 +174,7 @@
       };
     }
     const needs = needsOf(draw().reads, origin);
-    if (!plan.isDeferred || isSecret()) {
+    if (!isDeferred || isSecret()) {
       return {
         state: "static",
         file: null,
@@ -176,7 +183,7 @@
         html: rendered,
       };
     }
-    const file = server.stash(rendered, plan.fetch === "eager");
+    const file = server.stash(rendered, revealOn === "eager");
     const outlined = server.outline(file, html);
     return {
       state: "deferred",
@@ -187,13 +194,17 @@
     };
   });
 
-  if (adopted?.state === "client") {
-    plan.when = untrack(() => when) ?? "visible";
-  }
+  const strategies = $derived.by((): Array<Strategy> => {
+    if (hydrate != null) {
+      return strategiesOf(hydrate);
+    }
+    return !ssr || adopted?.state === "client" ? ["visible"] : ["interaction"];
+  });
 
   let isLatched = adopted != null;
   let isReleased = $state(false);
   let fetched = $state.raw<{ hash: string; value: T } | null>(null);
+  let body = $state.raw<Body | null>(code.now());
   let failure = $state<string | null>(null);
   let attempt = $state(0);
 
@@ -209,223 +220,88 @@
       (fetched?.hash === part.hash ? { value: fetched.value } : null),
   );
 
-  let rouse = () => {};
-
-  function arm(target: HTMLElement, strategy: Strategy, start: () => void) {
-    const watcher = watch(target, strategy, start, plan.options);
-    rouse = watcher.now;
-    if (untrack(() => when) === "eager") {
-      watcher.now();
-    }
-    return watcher.stop;
-  }
+  const control: Control = { rouse: () => {} };
+  const meter = measurer(origin);
 
   function retry() {
     failure = null;
     attempt++;
   }
 
-  let before: number | null = null;
-
-  function measure(target: HTMLElement | null) {
-    if (target != null && isObserved()) {
-      before = heightOf(target);
-    }
-  }
-
-  function revealed(target: HTMLElement) {
-    if (before != null && isObserved()) {
-      emit({
-        type: "reveal",
-        name: origin.name,
-        hash: origin.hash,
-        from: before,
-        to: heightOf(target),
-      });
-    }
-    before = null;
-  }
-
   function release() {
     isReleased = true;
   }
 
+  function onGone() {
+    void refreshAll();
+  }
+
   function later(run: () => void) {
-    return schedule(
-      () => {
-        run();
-        flushSync();
-      },
-      untrack(() => when) ?? plan.when,
-    );
+    return schedule(() => {
+      run();
+      flushSync();
+    }, untrack(() => strategies));
   }
 
-  function awaken(target: HTMLElement) {
-    const body = untrack(() => children);
-    let job: ReturnType<typeof schedule> | null = null;
-    const held =
-      plan.when === "never"
-        ? null
-        : intercept(target, () => {
-            rouse();
-            job?.hurry();
-          });
-    const stopCapture = capture(first, target);
-    const needs = partsOf(adopted?.needs ?? null);
-    let instance: ReturnType<typeof hydrate> | null = null;
-    let isLive = true;
-    let stopWanting = () => {};
-    const mount = (value: T) => {
-      if (!isLive || instance != null) {
-        return;
-      }
-      stopWanting();
-      const started = performance.now();
-      instance = hydrate(Frame, { target, props: { body, value }, context });
-      target.dataset.islandState = "live";
-      if (isObserved()) {
-        emit({
-          type: "hydrate",
-          name: origin.name,
-          hash: origin.hash,
-          when: plan.when,
-          duration: performance.now() - started,
-        });
-      }
-      if (held?.isHolding() === true) {
-        flushSync();
-      }
-      held?.release();
-    };
-    const stop = arm(target, plan.when, () => {
-      Promise.all([
-        load(origin),
-        ...needs.map(async (need) => load(need)),
-      ]).then(
-        ([value]) => {
-          if (!isLive) {
-            return;
-          }
-          job = schedule(
-            () => {
-              mount(value);
-            },
-            untrack(() => when) ?? plan.when,
-          );
-          if (held?.isHolding() === true) {
-            job.hurry();
-          }
-        },
-        (error: unknown) => {
-          held?.stop();
-          if (isLive && error instanceof Gone && isFirstGone(origin.hash)) {
-            void invalidateAll();
-          }
-        },
-      );
-    });
-    if (plan.when !== "never") {
-      stopWanting = whenWanted((want) => {
-        if (want === "find") {
-          rouse();
-          return;
-        }
-        const found = loadNow(origin);
-        if (found != null && needs.every((need) => loadNow(need) != null)) {
-          stop();
-          job?.cancel();
-          mount(found.value);
-          flushSync();
-        }
-      });
-    }
-    return () => {
-      isLive = false;
-      job?.cancel();
-      stop();
-      stopWanting();
-      stopCapture();
-      held?.stop();
-      if (instance != null) {
-        void unmount(instance);
-      }
-    };
-  }
-
-  function reveal(target: HTMLElement, file: string) {
-    let isLive = true;
-    let rest = () => {};
-    let stopWanting = () => {};
-    const show = (html: string) => {
-      const skeleton = target.querySelector(":scope > .island-shell");
-      if (!isLive || skeleton == null) {
-        return;
-      }
-      stopWanting();
-      measure(target);
-      const template = document.createElement("template");
-      template.innerHTML = html;
-      target.querySelector(":scope > .island-outline")?.remove();
-      skeleton.replaceWith(template.content);
-      target.dataset.islandState = "static";
-      target.removeAttribute("aria-busy");
-      revealed(target);
-      rest = awaken(target);
-    };
-    const stop = arm(target, plan.fetch, () => {
-      const strategy = untrack(() => when) ?? plan.when;
-      if (strategy === "eager" || strategy === "visible") {
-        void quietly(load(origin));
-      }
-      markupOf(file, origin.source, origin).then(show, () => {
-        if (isLive) {
-          release();
-        }
-      });
-    });
-    stopWanting = whenWanted((want) => {
-      if (want === "find") {
-        rouse();
-        return;
-      }
-      const html = markupNow(file, origin.source);
-      if (html != null) {
-        stop();
-        show(html);
-      }
-    });
-    return () => {
-      isLive = false;
-      stop();
-      stopWanting();
-      rest();
+  function wakeOf(): Wake {
+    return {
+      part: origin,
+      key: first,
+      needs: partsOf(adopted?.needs ?? null),
+      hydrate: () => untrack(() => strategies),
+      reveal: revealOn,
+      options: untrack(() => ({ margin, media })),
+      code,
+      scope: untrack(() => scope),
+      context,
+      prefetch: untrack(() => prefetch),
+      onGone,
+      onRelease: release,
     };
   }
 
   function activate(target: HTMLElement) {
+    const wake = wakeOf();
     if (adopted?.state === "static") {
-      return awaken(target);
+      return awaken(target, wake, control);
     }
     if (adopted?.file != null) {
-      return reveal(target, adopted.file);
+      const { file } = adopted;
+      return revealMarkup(
+        target,
+        {
+          fetch: async () => markupOf(file, origin.source, origin),
+          now: () => markupNow(file, origin.source),
+        },
+        wake,
+        control,
+      );
     }
     let job: ReturnType<typeof schedule> | null = null;
-    const stop = arm(target, plan.when, () => {
-      job = later(() => {
-        measure(target);
-        release();
-      });
-    });
+    const watcher = watch(
+      target,
+      wake.hydrate(),
+      () => {
+        job = later(() => {
+          meter.measure(target);
+          release();
+        });
+      },
+      wake.options,
+    );
+    control.rouse = watcher.now;
     const stopWanting =
       adopted?.isBusy === false
         ? whenWanted((want) => {
             if (want === "find") {
-              rouse();
+              control.rouse();
               return;
             }
-            if (loadNow(origin) != null) {
-              stop();
+            const loadedBody = code.now();
+            if (loadedBody != null && loadNow(origin) != null) {
+              watcher.stop();
               job?.cancel();
+              body = loadedBody;
               release();
               flushSync();
             }
@@ -433,7 +309,7 @@
         : () => {};
     return () => {
       job?.cancel();
-      stop();
+      watcher.stop();
       stopWanting();
     };
   }
@@ -441,8 +317,8 @@
   let empty: HTMLElement | null = null;
 
   function learn(target: HTMLElement) {
-    if (current != null) {
-      revealed(target);
+    if (current != null && body != null) {
+      meter.revealed(target);
       return capture(key, target);
     }
     empty = target;
@@ -451,27 +327,28 @@
   onMount(boot);
 
   $effect(() => {
-    if (when === "eager") {
+    if (strategies.includes("eager")) {
       untrack(() => {
-        rouse();
+        control.rouse();
       });
     }
   });
 
   $effect(() => {
-    if (isAdopted || current != null) {
+    if (isAdopted || (current != null && body != null)) {
       return;
     }
     const target = part;
     void attempt;
     let isLive = true;
     let job: ReturnType<typeof schedule> | null = null;
-    load(target).then(
-      (value) => {
+    Promise.all([load(target), code.load()]).then(
+      ([value, loadedBody]) => {
         if (isLive) {
           job = later(() => {
-            measure(empty);
+            meter.measure(empty);
             fetched = { hash: target.hash, value };
+            body = loadedBody;
           });
         }
       },
@@ -480,7 +357,7 @@
           return;
         }
         if (error instanceof Gone && isFirstGone(target.hash)) {
-          void invalidateAll();
+          onGone();
         } else {
           failure = target.hash;
         }
@@ -517,11 +394,11 @@
     data-island={part.hash}
     data-island-name={dev ? part.name : undefined}
     data-island-bytes={dev ? part.bytes : undefined}
-    aria-busy={current == null ? "true" : undefined}
+    aria-busy={current == null || body == null ? "true" : undefined}
     {@attach learn}
   >
-    {#if current != null}
-      <Frame body={children} value={current.value} />
+    {#if current != null && body != null}
+      <Frame {body} value={current.value} {scope} />
     {:else if failure === part.hash}
       {#if failed != null}
         {@render failed(retry)}

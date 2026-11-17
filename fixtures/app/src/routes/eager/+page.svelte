@@ -13,7 +13,7 @@
 
 <h1>Eager</h1>
 
-<Island part={data.eagerRows} when="eager">
+<Island part={data.eagerRows} hydrate="eager">
   {#snippet children(rows)}
     <Rows {rows} label="eager" />
   {/snippet}
