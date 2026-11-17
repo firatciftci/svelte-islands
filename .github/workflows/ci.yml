@@ -83,12 +83,19 @@ jobs:
           - name: oldest supported
             install: svelte@5.57.0 @sveltejs/kit@3.0.0
             async: "0"
+            plugin: "1"
           - name: newest
             install: svelte@latest @sveltejs/kit@latest
             async: "0"
+            plugin: "1"
           - name: async mode
             install: ""
             async: "1"
+            plugin: "1"
+          - name: without the Vite plugin
+            install: ""
+            async: "0"
+            plugin: "0"
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -123,6 +130,7 @@ jobs:
         run: pnpm run test:e2e
         env:
           FIXTURE_ASYNC: ${{ matrix.async }}
+          FIXTURE_PLUGIN: ${{ matrix.plugin }}
 
   workers:
     name: Cloudflare Workers (${{ matrix.name }})

@@ -58,6 +58,10 @@
       "types": "./dist/sw.d.ts",
       "default": "./dist/sw.js"
     },
+    "./vite": {
+      "types": "./dist/vite.d.ts",
+      "default": "./dist/vite.js"
+    },
     "./eslint": {
       "types": "./dist/eslint.d.ts",
       "default": "./dist/eslint.js"
@@ -86,7 +90,8 @@
     "release": "bumpp"
   },
   "dependencies": {
-    "devalue": "^5.9.4"
+    "devalue": "^5.9.4",
+    "magic-string": "^1.4.5"
   },
   "peerDependencies": {
     "@sveltejs/kit": "^3.0.0",

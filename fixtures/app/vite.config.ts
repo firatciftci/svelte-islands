@@ -4,11 +4,13 @@ import adapterStatic from "@sveltejs/adapter-static";
 import { sveltekit } from "@sveltejs/kit/vite";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
+import { islands } from "../../src/lib/vite.ts";
 
 const isStatic = process.env.FIXTURE_ADAPTER === "static";
 const isWorker = process.env.FIXTURE_ADAPTER === "cloudflare";
 const isShared = process.env.FIXTURE_STORE === "r2";
 const isAsync = process.env.FIXTURE_ASYNC === "1";
+const isSplit = process.env.FIXTURE_PLUGIN !== "0";
 
 function library(file: string) {
   return fileURLToPath(new URL(`../../src/lib/${file}`, import.meta.url));
@@ -33,6 +35,7 @@ export default defineConfig({
       compilerOptions: { experimental: { async: isAsync } },
       serviceWorker: { register: false },
     }),
+    isSplit && islands(),
   ],
   resolve: {
     alias: {

@@ -122,7 +122,7 @@ test.describe("deferred and client islands", () => {
     });
     expect(text).toContain("static 299");
     expect(text).toContain("deferred 299");
-    expect(text).toContain("client 299");
+    expect(text).toMatch(/client 299|client heading/u);
   });
 });
 

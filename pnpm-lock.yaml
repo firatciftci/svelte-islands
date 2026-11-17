@@ -169,6 +169,9 @@ importers:
       devalue:
         specifier: ^5.9.4
         version: 5.9.4
+      magic-string:
+        specifier: ^1.4.5
+        version: 1.4.5
     devDependencies:
       '@antfu/eslint-config':
         specifier: ^9.5.1

@@ -55,6 +55,7 @@
     prefetch = true,
     children,
     code: chunk,
+    module: moduleId,
     scope,
     failed,
     class: className,
@@ -83,6 +84,8 @@
     children: Snippet<[T]>;
     /** The island's code in its own chunk. The Vite plugin sets this. */
     code?: Chunk;
+    /** The island's id in the build. The Vite plugin sets this. */
+    module?: string;
     /** The page values the island's code reads. The Vite plugin sets this. */
     scope?: object;
     /** Shown when a part can't be loaded. Call `retry` to try again. */
@@ -376,6 +379,7 @@
     class={["island", className]}
     data-island={origin.hash}
     data-island-name={dev ? origin.name : undefined}
+    data-island-module={moduleId}
     data-island-bytes={dev ? origin.bytes : undefined}
     data-island-state={adopted.state}
     data-island-file={adopted.file}
