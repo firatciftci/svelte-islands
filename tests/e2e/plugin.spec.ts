@@ -85,3 +85,30 @@ test.describe("islands the plugin leaves in the page", () => {
     await expect(button).toHaveCSS("color", "rgb(200, 0, 0)");
   });
 });
+
+test("an island whose part stays in the page hydrates without a mismatch", async ({
+  page,
+}) => {
+  const errors = watchErrors(page);
+  await page.addInitScript(() => {
+    document.addEventListener("DOMContentLoaded", () => {
+      Object.assign(globalThis, {
+        serverSmall: document.querySelector("[data-testid=small]"),
+      });
+    });
+  });
+  await page.goto(seeded("/scope"));
+  await hydrated(page);
+  const small = page.getByTestId("small");
+  await expect(small).toHaveText("3 0");
+  await small.click();
+  await expect(small).toHaveText("3 1");
+  await expect(page.getByTestId("page-state")).toHaveText("1|Ada|1");
+  const isKept = await page.evaluate(
+    () =>
+      (globalThis as unknown as { serverSmall: Element | null }).serverSmall
+        ?.isConnected === true,
+  );
+  expect(isKept).toBe(true);
+  expect(errors).toStrictEqual([]);
+});

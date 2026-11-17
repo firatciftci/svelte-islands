@@ -68,3 +68,17 @@
     {/snippet}
   </Island>
 {/each}
+
+<Island part={data.small}>
+  {#snippet children(words)}
+    <button
+      type="button"
+      data-testid="small"
+      onclick={() => {
+        count += 1;
+      }}
+    >
+      {words.length} {count}
+    </button>
+  {/snippet}
+</Island>

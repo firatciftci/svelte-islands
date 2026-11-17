@@ -119,7 +119,7 @@
 
   const adopted = untrack((): (Claimed & { html: string }) | null => {
     if (server == null) {
-      if (origin.loaded != null && ssr && !isDeferred) {
+      if (origin.loaded != null && ssr && !isDeferred && moduleId == null) {
         return null;
       }
       const found = claim(origin, first);
@@ -131,7 +131,10 @@
       );
     }
     const { loaded } = origin;
-    if (loaded == null || (origin.isInline && ssr && !isDeferred)) {
+    if (
+      loaded == null ||
+      (origin.isInline && ssr && !isDeferred && moduleId == null)
+    ) {
       return null;
     }
     const prefix = `s${origin.hash.slice(0, 6).replaceAll("-", "_")}`;
