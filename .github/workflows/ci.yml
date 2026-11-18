@@ -70,6 +70,9 @@ jobs:
       - name: Check the client size
         run: pnpm run size
 
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
       - name: Build the docs site
         run: pnpm run site
 
