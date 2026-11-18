@@ -8,7 +8,7 @@ Two other projects bring islands to Svelte 5, and each makes a different bet abo
 If you build with SvelteKit, the third bet is usually the right one, for three reasons: an island stays part of your component, your app stays a SvelteKit app, and an island's data gets a URL of its own. Some cases fit one of the others better, and they're [at the end](#when-to-choose-ogygia).
 
 > [!NOTE]
-> This describes ogygia 0.13 and Mochi 0.9 as of November 2026, from their own documentation. All three projects are before 1.0 and change quickly.
+> This describes ogygia 0.14 and Mochi 0.9 as of November 2026, from their own documentation. Both are before 1.0 and change quickly.
 
 ## At a glance
 
@@ -145,13 +145,13 @@ These are the parts of the library that SvelteKit apps tend to need after their 
 
 ## The trade-off
 
-Keeping SvelteKit's client has a cost. A normal page with svelte-islands still loads SvelteKit's runtime and hydrates everything outside its islands, and the library adds about 11 KB of compressed JavaScript. An ogygia page with `csr = false` ships only its islands and a runtime that ogygia puts at about 7.6 KB.
+Keeping SvelteKit's client has a cost. A normal page with svelte-islands still loads SvelteKit's runtime and hydrates everything outside its islands, and the library adds about 11 KB of compressed JavaScript. An ogygia page with `csr = false` ships only its islands and ogygia's runtime, which its README puts at about 8 KB (minified and compressed with brotli) for an app whose islands all wake on load.
 
 You can close some of that gap by wrapping static regions in islands with `hydrate="never"`, which skip hydration and keep their data out of the page (these docs do this with every page's text). Without the Vite plugin, their code still ships with the page. With it, that code is in its own chunk, which the browser never downloads.
 
 ## When to choose ogygia
 
-- if most of your routes are content with little to interact with (a blog or a docs site), and those routes can do without SvelteKit's client, `csr = false` plus a few islands ships the least JavaScript
+- if most of your routes are content pages with little to interact with (a blog or a docs site), and those routes can do without SvelteKit's client, `csr = false` plus a few islands keeps SvelteKit's runtime out of those pages
 - if you want content collections, a docs shell, and versioned or translated sites built in
 - if you want the server to push re-rendered HTML into the page with `query.live`
 
