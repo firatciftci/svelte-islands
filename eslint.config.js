@@ -148,6 +148,7 @@ export default antfu({
       "unicorn/consistent-function-scoping": "off",
       "unicorn/no-await-expression-member": "off",
       "unicorn/prefer-structured-clone": "off",
+      "unicorn/no-incorrect-template-string-interpolation": "off",
     },
   },
   {

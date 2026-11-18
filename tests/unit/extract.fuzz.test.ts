@@ -12,10 +12,6 @@ import { extract } from "#lib/extract.js";
 
 const RUNS = Number(process.env.FUZZ_RUNS ?? 150);
 
-function svelte(strings: TemplateStringsArray, ...values: Array<unknown>) {
-  return String.raw({ raw: strings }, ...values);
-}
-
 const SCRIPT = `<script>
   import { Island } from "svelte-islands";
   import Child from "./Child.svelte";
@@ -157,7 +153,7 @@ function node(
     () => `{@render tag(${expr()})}`,
   ];
   if (isIsland) {
-    leaves.push(() => svelte`<input bind:value={text} />`);
+    leaves.push(() => `<input bind:value={text} />`);
   }
   if (depth <= 0) {
     return pick(draw, leaves)();
@@ -190,7 +186,7 @@ function island(draw: Draw) {
   const isWrapped = draw.bool();
   const outer = isWrapped ? [...PAGE_NAMES, "item"] : PAGE_NAMES;
   const body = nodes(draw, [...outer, "rows"], 2, true);
-  const markup = svelte`<Island part={data.rows}>{#snippet children(rows)}${body}{/snippet}</Island>`;
+  const markup = `<Island part={data.rows}>{#snippet children(rows)}${body}{/snippet}</Island>`;
   return isWrapped ? `{#each list as item}${markup}{/each}` : markup;
 }
 
@@ -210,7 +206,7 @@ const pages = fc.gen().map((generator) => {
     const selector = pick(draw, SELECTORS);
     return selector.includes("{") ? selector : `${selector} { color: red; }`;
   });
-  return svelte`${SCRIPT}
+  return `${SCRIPT}
 {#snippet tag(value)}<em>{value} {label}</em>{/snippet}
 <h1>{${expression(draw, PAGE_NAMES, 1)}}</h1>
 ${sections.join("\n")}

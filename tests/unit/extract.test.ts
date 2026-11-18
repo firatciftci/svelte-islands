@@ -4,10 +4,6 @@ import { extract } from "#lib/extract.js";
 
 const FILE = "/app/src/routes/+page.svelte";
 
-function svelte(strings: TemplateStringsArray, ...values: Array<unknown>) {
-  return String.raw({ raw: strings }, ...values);
-}
-
 function page(script: string, markup: string, style = "") {
   return `<script lang="ts">
   import { Island } from "svelte-islands";
@@ -64,7 +60,7 @@ describe("extract", () => {
       page(
         `  import Rows from "$lib/Rows.svelte";
   const { data } = $props();`,
-        svelte`<Island part={data.rows}>
+        `<Island part={data.rows}>
   {#snippet children(rows)}
     <Rows {rows} />
   {/snippet}
@@ -88,7 +84,7 @@ describe("extract", () => {
       page(
         `  import Rows from "$lib/Rows.svelte";
   const { data } = $props();`,
-        svelte`<Rows rows={[]} />
+        `<Rows rows={[]} />
 <Island part={data.rows}>
   {#snippet children(rows)}<Rows {rows} />{/snippet}
 </Island>`,
@@ -102,7 +98,7 @@ describe("extract", () => {
       page(
         `  import { format, parse as read } from "$lib/text";
   const { data } = $props();`,
-        svelte`<p>{read("x")}</p>
+        `<p>{read("x")}</p>
 <Island part={data.rows}>
   {#snippet children(rows)}<p>{format(rows)}</p>{/snippet}
 </Island>`,
@@ -118,7 +114,7 @@ describe("extract", () => {
         `  const { data } = $props();
   let count = $state(0);
   const label = $derived(count + "!");`,
-        svelte`<Island part={data.rows}>
+        `<Island part={data.rows}>
   {#snippet children(rows)}
     <button onclick={() => (count += rows.length)}>{label}</button>
   {/snippet}
@@ -142,7 +138,7 @@ describe("extract", () => {
   let color = $state("red");
   let title = $state("t");
   function tooltip(node: HTMLElement) {}`,
-        svelte`<Island part={data.rows}>
+        `<Island part={data.rows}>
   {#snippet children(rows)}
     <input bind:value {title} />
     <details bind:open class:open style:color use:tooltip></details>
@@ -166,7 +162,7 @@ describe("extract", () => {
       page(
         `  const { data } = $props();
   const unit = "kg";`,
-        svelte`<Island part={data.rows}>
+        `<Island part={data.rows}>
   {#snippet children(rows)}<p>{JSON.stringify({ unit, rows })}</p>{/snippet}
 </Island>`,
       ),
@@ -183,7 +179,7 @@ describe("extract", () => {
   let total = $state(0);
   let value = $state(0);
   let found = $state(0);`,
-        svelte`<Island part={data.rows}>
+        `<Island part={data.rows}>
   {#snippet children(rows)}
     {#each rows as item, index (item.id)}<p>{item.name} {index}</p>{/each}
     {const total = rows.length}
@@ -206,7 +202,7 @@ describe("extract", () => {
       page(
         `  const { data } = $props();
   const groups = ["a", "b"];`,
-        svelte`{#each groups as group, index (group)}
+        `{#each groups as group, index (group)}
   <Island part={data.rows} view={group}>
     {#snippet children(rows)}<p>{group} {index}</p>{/snippet}
   </Island>
@@ -225,7 +221,7 @@ describe("extract", () => {
   import B from "$lib/B.svelte";
   const { data, wide } = $props();
   const View = $derived(wide ? A : B);`,
-        svelte`<Island part={data.rows}>
+        `<Island part={data.rows}>
   {#snippet children(rows)}<View {rows}>text</View>{/snippet}
 </Island>`,
       ),
@@ -239,7 +235,7 @@ describe("extract", () => {
         `  import { writable } from "svelte/store";
   const { data } = $props();
   const count = writable(0);`,
-        svelte`<Island part={data.rows}>
+        `<Island part={data.rows}>
   {#snippet children(rows)}<button onclick={() => ($count += 1)}>{$count}</button>{/snippet}
 </Island>`,
       ),
@@ -255,7 +251,7 @@ describe("extract", () => {
         `  import Badge from "$lib/Badge.svelte";
   const { data } = $props();
   let tone = $state("calm");`,
-        svelte`{#snippet badge(label: string)}<Badge {label} {tone} />{/snippet}
+        `{#snippet badge(label: string)}<Badge {label} {tone} />{/snippet}
 <Island part={data.rows}>
   {#snippet children(rows)}{@render badge(rows[0])}{/snippet}
 </Island>`,
@@ -273,7 +269,7 @@ describe("extract", () => {
       page(
         `  import Table from "$lib/Table.svelte";
   const { data } = $props();`,
-        svelte`{#snippet table(rows)}<Table {rows} />{/snippet}
+        `{#snippet table(rows)}<Table {rows} />{/snippet}
 <Island part={data.a} children={table} />
 <Island part={data.b} children={table} />`,
       ),
@@ -286,7 +282,7 @@ describe("extract", () => {
   });
 
   it("follows a renamed import", () => {
-    const extracted = client(svelte`<script>
+    const extracted = client(`<script>
   import { Island as Isle } from "svelte-islands";
   import Rows from "$lib/Rows.svelte";
   const { data } = $props();
@@ -303,7 +299,7 @@ describe("extract", () => {
   import { Kind } from "$lib/kind";
   const { data } = $props();
   type Local = { id: number };`,
-        svelte`<Island part={data.rows}>
+        `<Island part={data.rows}>
   {#snippet children(rows: Array<Row>)}<p>{(rows[0] as Local).id} {rows.length satisfies number} {Kind.A}</p>{/snippet}
 </Island>`,
       ),
@@ -318,7 +314,7 @@ describe("extract", () => {
       `  import Rows from "$lib/Rows.svelte";
   const { data } = $props();
   let count = $state(0);`,
-      svelte`<Island part={data.rows}>
+      `<Island part={data.rows}>
   {#snippet children(rows)}<Rows {rows} onpick={() => count++} />{/snippet}
 </Island>`,
     );
@@ -336,38 +332,38 @@ describe("extract", () => {
   it.each([
     [
       "scoped styles",
-      svelte`<Island part={data.rows}>{#snippet children(rows)}<p class="a">{rows}</p>{/snippet}</Island>`,
+      `<Island part={data.rows}>{#snippet children(rows)}<p class="a">{rows}</p>{/snippet}</Island>`,
       "<style>.a { color: red; }</style>",
       "scoped styles",
     ],
     [
       "svelte:self",
-      svelte`<Island part={data.rows}>{#snippet children(rows)}<svelte:self />{/snippet}</Island>`,
+      `<Island part={data.rows}>{#snippet children(rows)}<svelte:self />{/snippet}</Island>`,
       "",
       "<svelte:self>",
     ],
     [
       "$$props",
-      svelte`<Island part={data.rows}>{#snippet children(rows)}{$$props.x}{/snippet}</Island>`,
+      `<Island part={data.rows}>{#snippet children(rows)}{$$props.x}{/snippet}</Island>`,
       "",
       "$$props",
     ],
     [
       "a debug tag",
-      svelte`<Island part={data.rows}>{#snippet children(rows)}{@debug data}{/snippet}</Island>`,
+      `<Island part={data.rows}>{#snippet children(rows)}{@debug data}{/snippet}</Island>`,
       "",
       "{@debug data}",
     ],
     [
       "a name that means something else where the island is",
-      svelte`{#snippet show()}{item}{/snippet}
+      `{#snippet show()}{item}{/snippet}
 {#each [1] as item}<Island part={data.rows}>{#snippet children(rows)}{@render show()}{/snippet}</Island>{/each}`,
       "",
       `"item" means something else`,
     ],
     [
       "children that aren't a snippet",
-      svelte`<Island part={data.rows} children={pick()} />`,
+      `<Island part={data.rows} children={pick()} />`,
       "",
       "aren't a snippet",
     ],
@@ -417,7 +413,7 @@ describe("extract", () => {
       const extracted = extract(
         page(
           `  const { data } = $props();`,
-          svelte`<Island part={data.rows}>{#snippet children(rows)}${open}{rows}</${tag}>{/snippet}</Island>`,
+          `<Island part={data.rows}>{#snippet children(rows)}${open}{rows}</${tag}>{/snippet}</Island>`,
           `<style>${style}</style>`,
         ),
         FILE,
@@ -430,30 +426,26 @@ describe("extract", () => {
   );
 
   it.each([
-    ["another class", svelte`<p class="b">{rows}</p>`, ".a { color: red; }"],
-    ["another tag", svelte`<p>{rows}</p>`, "section span { color: red; }"],
-    ["the root", svelte`<p>{rows}</p>`, ":root { --gap: 1rem; }"],
+    ["another class", `<p class="b">{rows}</p>`, ".a { color: red; }"],
+    ["another tag", `<p>{rows}</p>`, "section span { color: red; }"],
+    ["the root", `<p>{rows}</p>`, ":root { --gap: 1rem; }"],
     [
       "a global block",
-      svelte`<p class="a">{rows}</p>`,
+      `<p class="a">{rows}</p>`,
       ".page :global { .a { color: red; } }",
     ],
     [
       "a global inside a compound selector",
-      svelte`<p class="b">{rows}</p>`,
+      `<p class="b">{rows}</p>`,
       ":global(.b) span { color: red; }",
     ],
-    [
-      "a component",
-      svelte`<Rows {rows} />`,
-      ".a { color: red; } p { color: blue; }",
-    ],
+    ["a component", `<Rows {rows} />`, ".a { color: red; } p { color: blue; }"],
   ])("splits islands whose markup meets only %s", (_, markup, style) => {
     only(
       page(
         `  import Rows from "$lib/Rows.svelte";
   const { data } = $props();`,
-        svelte`<Island part={data.rows}>{#snippet children(rows)}${markup}{/snippet}</Island>`,
+        `<Island part={data.rows}>{#snippet children(rows)}${markup}{/snippet}</Island>`,
         `<style>${style}</style>`,
       ),
     );
@@ -463,7 +455,7 @@ describe("extract", () => {
     only(
       page(
         `  const { data } = $props();`,
-        svelte`<Island part={data.rows}>{#snippet children(rows)}<p class="a">{rows}</p>{/snippet}</Island>`,
+        `<Island part={data.rows}>{#snippet children(rows)}<p class="a">{rows}</p>{/snippet}</Island>`,
         "<style>:global(.a) { color: red; } @keyframes spin { from { opacity: 0; } }</style>",
       ),
     );
@@ -472,7 +464,7 @@ describe("extract", () => {
   it("gives every island a stable id", () => {
     const code = page(
       `  const { data } = $props();`,
-      svelte`<Island part={data.a}>{#snippet children(a)}{a}{/snippet}</Island>
+      `<Island part={data.a}>{#snippet children(a)}{a}{/snippet}</Island>
 <Island part={data.b}>{#snippet children(b)}{b}{/snippet}</Island>`,
     );
     const first = extract(code, FILE, "src/routes/+page.svelte", "client");
