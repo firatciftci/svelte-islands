@@ -21,6 +21,7 @@ import {
 import { gate, REBUILD_DEFAULTS, rebuilds } from "./rebuild.js";
 import { fallback, needsOf, reading } from "./runtime.js";
 import { outline, skeletonize } from "./skeleton.js";
+import { startTracing, traced, tracedAsync } from "./trace.js";
 
 usePacker((value, claims) =>
   isPackable(value, claims) ? JSON.stringify(pack(value)) : null,
@@ -90,6 +91,7 @@ const requests = new WeakMap<
     files: Set<string>;
     early: Set<string>;
     shells: Array<Shell>;
+    islands: number;
     isHeaded: boolean;
     isPersonal: boolean;
     isStreamed: boolean;
@@ -232,6 +234,7 @@ function track(locals: object) {
       files: new Set(),
       early: new Set(),
       shells: [],
+      islands: 0,
       isHeaded: false,
       isPersonal: false,
       isStreamed: false,
@@ -420,7 +423,19 @@ export function part<T>(
 ): Part<T> {
   const event = getRequestEvent();
   const isPrivate = isAskedPrivate || gatheredBy(event) != null;
-  const made = digest(value, isPrivate);
+  const made = traced(
+    event,
+    "part.serialize",
+    { "svelte-islands.part.serialize.name": name },
+    (span) => {
+      const found = digest(value, isPrivate);
+      span?.setAttribute(
+        "svelte-islands.part.serialize.bytes",
+        found.text.length,
+      );
+      return found;
+    },
+  );
   const found = track(event.locals);
   if (!isPrivate) {
     warnPersonal(name, found);
@@ -498,6 +513,7 @@ function adopt(
   island: Island,
 ): Adopted | null {
   const { part: origin, key, render: mode, as, module } = island;
+  track(event.locals).islands++;
   const isDeferred = mode === "deferred" && !origin.isPrivate;
   const isFresh = mode === "fresh";
   const ssr = mode !== "client";
@@ -972,7 +988,36 @@ function inject(html: string, event: RequestEvent) {
   if (found != null) {
     found.isHeaded = true;
   }
-  const isShell = isShellPage(html, event);
+  let inline = 0;
+  let external = 0;
+  for (const sent of found?.parts ?? []) {
+    if (sent.isInline) {
+      inline += sent.bytes;
+    } else {
+      external += sent.bytes;
+    }
+  }
+  return traced(
+    event,
+    "page",
+    {
+      "svelte-islands.page.islands": found?.islands ?? 0,
+      "svelte-islands.page.inline_bytes": inline,
+      "svelte-islands.page.external_bytes": external,
+    },
+    (span) => {
+      const isShell = isShellPage(html, event);
+      span?.setAttribute("svelte-islands.page.shell", isShell);
+      return injected(html, isShell, found);
+    },
+  );
+}
+
+function injected(
+  html: string,
+  isShell: boolean,
+  found: ReturnType<typeof requests.get>,
+) {
   const shell = isShell && found != null ? shellOf(found.shells) : null;
   const head = [
     ...(config.viewTransitions ? [VIEW_TRANSITIONS] : []),
@@ -1046,14 +1091,26 @@ async function recover(file: string, event: RequestEvent) {
   }
   const isMarkup = file.endsWith(".html");
   const language = event.request.headers.get("accept-language") ?? "";
-  const outcome = await rebuild(
-    [
-      isMarkup ? "html" : "data",
-      config.vary(event),
-      language,
-      `${target.pathname}${target.search}`,
-    ].join("\n"),
-    async () => rerun(isMarkup, target, event),
+  const outcome = await tracedAsync(
+    event,
+    "rebuild",
+    {
+      "svelte-islands.rebuild.page": target.pathname,
+      "svelte-islands.rebuild.queue": rebuild.queued(),
+    },
+    async (span) => {
+      const result = await rebuild(
+        [
+          isMarkup ? "html" : "data",
+          config.vary(event),
+          language,
+          `${target.pathname}${target.search}`,
+        ].join("\n"),
+        async () => rerun(isMarkup, target, event),
+      );
+      span?.setAttribute("svelte-islands.rebuild.outcome", result.status);
+      return result;
+    },
   );
   if (outcome.status === "busy") {
     throw new Error("busy");
@@ -1182,13 +1239,37 @@ async function freshen(event: RequestEvent) {
     return privately(404);
   }
   const page = target.pathname;
+  return tracedAsync(
+    event,
+    "fresh",
+    {
+      "svelte-islands.fresh.page": page,
+      "svelte-islands.fresh.queue": freshTurns.queued(),
+    },
+    async (span) => {
+      const outcome = (status: string) =>
+        span?.setAttribute("svelte-islands.fresh.outcome", status);
+      return gatherFor(target, event, outcome);
+    },
+  );
+}
+
+async function gatherFor(
+  target: URL,
+  event: RequestEvent,
+  outcome: (status: "ran" | "barren" | "busy") => void,
+) {
+  const page = target.pathname;
   const isKnown = freshPages.has(page);
   if (!isKnown && (barren.get(page) ?? 0) > Date.now()) {
+    outcome("barren");
     return privately(404);
   }
   if (!isKnown && freshTurns.isFull()) {
+    outcome("busy");
     return privately(503);
   }
+  outcome("ran");
   const work = async () => gatherFresh(target, event);
   const { status, found } = isKnown
     ? await work()
@@ -1315,6 +1396,7 @@ function watchCookies(event: RequestEvent) {
 }
 
 const handler: Handle = async ({ event, resolve }) => {
+  await startTracing(event);
   if (event.url.pathname.startsWith(settings.prefix)) {
     return respond(event);
   }

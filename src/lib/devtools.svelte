@@ -167,6 +167,9 @@
           event.parts.filter((part) => part.outcome === outcome).length;
         return `prefetch: ${count("used")} used, ${count("late")} late, ${count("wasted")} wasted`;
       }
+      case "frame": {
+        return `long frame: ${ms(event.duration)}, ${ms(event.blocking)} blocking, in ${event.islands.map((island) => island.name).join(", ")}`;
+      }
       default: {
         return `fail ${event.name}: ${event.message}`;
       }
@@ -175,7 +178,7 @@
 
   function record(event: Observation) {
     log = [event, ...log].slice(0, LOG);
-    if (event.type === "prefetch") {
+    if (event.type === "prefetch" || event.type === "frame") {
       return;
     }
     const stats = seen.get(event.hash) ?? {};

@@ -3,7 +3,7 @@ import { flushSync, hydrate, mount, unmount } from "svelte";
 import type { Fresh, Part, Strategy } from "./part.js";
 import type { Options } from "./runtime.js";
 import Frame from "./frame.svelte";
-import { emit, isObserved } from "./observe.js";
+import { emit, isObserved, worked } from "./observe.js";
 import { quietly } from "./part.js";
 import {
   capture,
@@ -204,6 +204,7 @@ function reportHydrate(
   if (!isObserved()) {
     return;
   }
+  worked(wake.part.name, wake.part.hash, started);
   const now = performance.now();
   emit({
     type: "hydrate",

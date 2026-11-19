@@ -40,6 +40,7 @@ function eventFor(
   return {
     url,
     locals: {},
+    tracing: { enabled: false },
     route: { id: url.pathname },
     isDataRequest: false,
     request: new Request(url, { method, headers }),
@@ -1192,5 +1193,136 @@ describe("pages without SvelteKit's client", () => {
     });
     expect(response.status).toBe(404);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
+  });
+});
+
+describe("tracing", () => {
+  type Recorded = {
+    name: string;
+    attributes: Record<string, unknown>;
+    parent: unknown;
+    isEnded: boolean;
+  };
+  const PARENT = { name: "sveltekit.handle" };
+  let spans: Array<Recorded>;
+  let isLoaded: boolean;
+  let server: Server;
+  let enter: (event: RequestEvent) => void;
+
+  beforeEach(async () => {
+    spans = [];
+    isLoaded = false;
+    vi.resetModules();
+    vi.doMock("$app/env", () => ({ dev: false, building: false }));
+    vi.doMock("@opentelemetry/api", () => {
+      isLoaded = true;
+      return {
+        SpanStatusCode: { ERROR: 2 },
+        context: {
+          active: () => null,
+          with: (_: unknown, run: () => unknown) => run(),
+        },
+        trace: {
+          setSpan: (_: unknown, span: unknown) => span,
+          getTracer: () => ({
+            startSpan(
+              name: string,
+              { attributes }: { attributes: Record<string, unknown> },
+              parent: unknown,
+            ) {
+              const span: Recorded = {
+                name,
+                attributes: { ...attributes },
+                parent,
+                isEnded: false,
+              };
+              spans.push(span);
+              return {
+                setAttribute(key: string, value: unknown) {
+                  span.attributes[key] = value;
+                },
+                end() {
+                  span.isEnded = true;
+                },
+                recordException() {},
+                setStatus() {},
+              };
+            },
+          }),
+        },
+      };
+    });
+    server = await import("#lib/server.js");
+    ({ enter } = await import("../stubs/server.js"));
+  });
+
+  function traced(path: string, options?: Parameters<typeof eventFor>[1]) {
+    return {
+      ...eventFor(path, options),
+      tracing: { enabled: true, root: PARENT, current: PARENT },
+    } as unknown as RequestEvent;
+  }
+
+  it("records the page and each part under SvelteKit's span", async () => {
+    const handler = server.handle();
+    const event = traced("/page");
+    await handler({
+      event,
+      resolve: async (_, options) => {
+        enter(event);
+        server.part("rows", { rows: "x".repeat(100) });
+        return new Response(
+          await options?.transformPageChunk?.({
+            html: "<head></head><body></body>",
+            done: true,
+          }),
+        );
+      },
+    });
+    expect(spans.map((span) => span.name)).toStrictEqual([
+      "svelte-islands.part.serialize",
+      "svelte-islands.page",
+    ]);
+    expect(spans.every((span) => span.parent === PARENT && span.isEnded)).toBe(
+      true,
+    );
+    expect(spans[0]?.attributes).toMatchObject({
+      "svelte-islands.part.serialize.name": "rows",
+      "svelte-islands.part.serialize.bytes": expect.any(Number),
+    });
+    expect(spans[1]?.attributes).toMatchObject({
+      "svelte-islands.page.islands": 0,
+      "svelte-islands.page.external_bytes": expect.any(Number),
+      "svelte-islands.page.shell": true,
+    });
+  });
+
+  it("records each fresh request with its outcome", async () => {
+    const handler = server.handle();
+    for (let turn = 0; turn < 2; turn++) {
+      await handler({
+        event: traced("/_parts/fresh?u=/empty"),
+        resolve: async () => new Response("page"),
+      });
+    }
+    expect(
+      spans.map((span) => span.attributes["svelte-islands.fresh.outcome"]),
+    ).toStrictEqual(["ran", "barren"]);
+    expect(spans[0]?.attributes["svelte-islands.fresh.page"]).toBe("/empty");
+  });
+
+  it("loads nothing when SvelteKit's tracing is off", async () => {
+    const handler = server.handle();
+    const event = eventFor("/page");
+    await handler({
+      event,
+      resolve: async () => {
+        enter(event);
+        server.part("rows", { rows: "x".repeat(100) });
+        return new Response("page");
+      },
+    });
+    expect(isLoaded).toBe(false);
+    expect(spans).toStrictEqual([]);
   });
 });

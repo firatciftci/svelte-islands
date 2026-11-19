@@ -20,6 +20,11 @@ import type { Strategy } from "./part.js";
  *   page, for each part fetched early: `used` if an island read it after it
  *   arrived, `late` if an island needed it before it arrived, and `wasted` if
  *   no island read it.
+ * - `frame`: a long animation frame (over 50 ms) that an island's hydration,
+ *   or the click it replayed, ran in. `duration` is the frame's length,
+ *   `blocking` is how long it kept the page from responding, and `islands`
+ *   names each island that hydrated in it. Only browsers with the Long
+ *   Animation Frames API (Chromium) send it.
  */
 export type Observation =
   | {
@@ -58,9 +63,57 @@ export type Observation =
         hash: string;
         outcome: "used" | "late" | "wasted";
       }>;
+    }
+  | {
+      type: "frame";
+      duration: number;
+      blocking: number;
+      islands: Array<{ name: string; hash: string }>;
     };
 
 const listeners = new Set<(observation: Observation) => void>();
+const FRAME = "long-animation-frame";
+const WINDOWS = 32;
+let windows: Array<{ name: string; hash: string; start: number; end: number }> =
+  [];
+let frames: PerformanceObserver | null = null;
+
+function watchFrames() {
+  if (
+    frames != null ||
+    globalThis.PerformanceObserver?.supportedEntryTypes.includes(FRAME) !== true
+  ) {
+    return;
+  }
+  frames = new PerformanceObserver((list) => {
+    for (const entry of list.getEntries()) {
+      const end = entry.startTime + entry.duration;
+      const islands = windows
+        .filter((made) => made.start < end && made.end > entry.startTime)
+        .map(({ name, hash }) => ({ name, hash }));
+      if (islands.length > 0) {
+        emit({
+          type: "frame",
+          duration: entry.duration,
+          blocking:
+            "blockingDuration" in entry ? Number(entry.blockingDuration) : 0,
+          islands,
+        });
+      }
+    }
+  });
+  frames.observe({ type: FRAME, buffered: true });
+}
+
+export function worked(name: string, hash: string, start: number) {
+  if (frames == null) {
+    return;
+  }
+  windows.push({ name, hash, start, end: performance.now() });
+  if (windows.length > WINDOWS) {
+    windows.shift();
+  }
+}
 
 /**
  * Calls `listener` with each observation in this browser tab. The library only
@@ -84,8 +137,14 @@ export function observe(
   listener: (observation: Observation) => void,
 ): () => void {
   listeners.add(listener);
+  watchFrames();
   return () => {
     listeners.delete(listener);
+    if (listeners.size === 0) {
+      frames?.disconnect();
+      frames = null;
+      windows = [];
+    }
   };
 }
 

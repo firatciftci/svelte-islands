@@ -581,3 +581,29 @@ test.describe("inferred never islands", () => {
     await expect(page.getByText("inferred 299", { exact: true })).toBeVisible();
   });
 });
+
+test("observe names the island behind a long frame", async ({
+  page,
+  browserName,
+}) => {
+  test.skip(
+    browserName !== "chromium",
+    "Only Chromium has the Long Animation Frames API.",
+  );
+  await page.goto("/slow");
+  await hydrated(page);
+  const button = page.getByTestId("slow");
+  await button.click();
+  await expect(button).toHaveText(/pressed 1/u);
+  await expect
+    .poll(async () => observed(page))
+    .toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "frame",
+          duration: expect.any(Number),
+          islands: [expect.objectContaining({ name: "slow.rows" })],
+        }),
+      ]),
+    );
+});

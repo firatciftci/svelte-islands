@@ -100,11 +100,15 @@
     "magic-string": "^1.4.5"
   },
   "peerDependencies": {
+    "@opentelemetry/api": "^1.0.0",
     "@sveltejs/kit": "^3.0.0",
     "eslint": "^9.0.0 || ^10.0.0",
     "svelte": "^5.57.0"
   },
   "peerDependenciesMeta": {
+    "@opentelemetry/api": {
+      "optional": true
+    },
     "eslint": {
       "optional": true
     }
@@ -115,6 +119,7 @@
     "@fontsource-variable/atkinson-hyperlegible-mono": "5.3.0",
     "@fontsource-variable/atkinson-hyperlegible-next": "5.3.0",
     "@fontsource-variable/newsreader": "5.3.0",
+    "@opentelemetry/api": "1.10.0",
     "@playwright/test": "^1.64.1",
     "@sveltejs/adapter-cloudflare": "8.0.2",
     "@sveltejs/adapter-node": "^6.0.1",

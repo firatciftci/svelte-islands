@@ -40,6 +40,7 @@ export function gate(limits: () => { concurrency: number; queue: number }) {
   return {
     isFull: () =>
       running >= limits().concurrency && line.length >= limits().queue,
+    queued: () => line.length,
     async pass<T>(run: () => Promise<T>) {
       if (running < limits().concurrency) {
         running++;
@@ -109,7 +110,7 @@ export function rebuilds<T>(
     }
   }
 
-  return async function rebuild(
+  async function rebuild(
     key: string,
     run: () => Promise<T>,
   ): Promise<
@@ -128,5 +129,7 @@ export function rebuilds<T>(
     const flight = fly(key, run);
     flights.set(key, flight);
     return { status: "ran", found: await flight };
-  };
+  }
+
+  return Object.assign(rebuild, { queued: turns.queued });
 }
