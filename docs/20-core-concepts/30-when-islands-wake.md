@@ -108,7 +108,7 @@ You can change `hydrate` after the island has mounted. The usual reason is a con
 
 ## Prefetching
 
-An island doesn't always have to wait for its data to arrive. With `prefetch` on, which is the default, an island whose part isn't in memory fetches it at low priority once the island comes near the viewport and the browser is idle. The data is often there by the time the island wakes. Set `prefetch={false}` to turn this off for one island.
+An island doesn't always have to wait for its data and code to arrive. With `prefetch` on, which is the default, an island fetches its code at low priority once it comes near the viewport and the browser is idle, along with its part if that isn't in memory already. Both are often there by the time the island wakes. Set `prefetch={false}` to turn this off for one island.
 
 Prefetching doesn't happen in a few cases:
 
