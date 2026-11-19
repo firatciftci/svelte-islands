@@ -32,3 +32,6 @@ vite.config.ts.timestamp-*
 /site/build
 /test-results
 /playwright-report
+
+# Benchmark traces, published as a release asset
+/docs/benchmark-raw/*.gz

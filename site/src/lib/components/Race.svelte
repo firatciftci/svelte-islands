@@ -28,7 +28,7 @@
     { key: "html", label: "HTML", unit: "kb" },
     { key: "total", label: "Total downloaded", unit: "kb" },
     { key: "tasks", label: "Long tasks", unit: "count" },
-    { key: "blocking", label: "Blocking time", unit: "ms" },
+    { key: "blocking", label: "Long-task time above 50 ms", unit: "ms" },
   ];
 
   const PANES = [

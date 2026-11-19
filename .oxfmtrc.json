@@ -11,6 +11,7 @@
     ".svelte-kit",
     "build",
     "dist",
-    "site/static/google*.html"
+    "site/static/google*.html",
+    "docs/benchmark-raw"
   ]
 }
