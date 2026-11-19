@@ -5,7 +5,7 @@ import { asset } from "$app/paths";
 import { getRequestEvent } from "$app/server";
 import { createHash, randomUUID } from "node:crypto";
 import { render } from "svelte/server";
-import type { Fetch, Fresh, Shell } from "./part.js";
+import type { Adopted, Fetch, Fresh, Island, Scope, Shell } from "./part.js";
 import type { RebuildOptions } from "./rebuild.js";
 import type { Store } from "./stores.js";
 import Frame from "./frame.svelte";
@@ -19,6 +19,7 @@ import {
   usePacker,
 } from "./part.js";
 import { gate, REBUILD_DEFAULTS, rebuilds } from "./rebuild.js";
+import { fallback, needsOf, reading } from "./runtime.js";
 import { outline, skeletonize } from "./skeleton.js";
 
 usePacker((value, claims) =>
@@ -431,12 +432,202 @@ export async function fresh<T>(
     : part(name, await read(), { private: true });
 }
 
+function shellHtml(skeleton: string | null, bytes: number) {
+  return `<div class="island-shell" aria-hidden="true">${skeleton ?? fallback(bytes)}</div>`;
+}
+
+function attribute(name: string, value: string | number | null) {
+  return value == null
+    ? ""
+    : ` ${name}="${String(value).replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;")}"`;
+}
+
+function wrap(island: Island, made: Omit<Adopted, "html">, inner: string) {
+  const { part: origin, as } = island;
+  const attributes = [
+    attribute(
+      "class",
+      island.className == null ? "island" : `island ${island.className}`,
+    ),
+    attribute("data-island", origin.hash),
+    attribute("data-island-name", dev ? origin.name : null),
+    attribute("data-island-module", island.module),
+    attribute("data-island-bytes", dev ? origin.bytes : null),
+    attribute("data-island-state", made.state),
+    attribute("data-island-file", made.file),
+    attribute("data-island-needs", made.needs),
+    attribute("aria-busy", made.isBusy ? "true" : null),
+  ].join("");
+  return `<${as}${attributes}>${inner}</${as}>`;
+}
+
+function adopt(
+  event: RequestEvent,
+  scope: Scope,
+  island: Island,
+): Adopted | null {
+  const { part: origin, key, render: mode, as, module } = island;
+  const isDeferred = mode === "deferred" && !origin.isPrivate;
+  const isFresh = mode === "fresh";
+  const ssr = mode !== "client";
+  if (as === "tbody" && mode !== "server") {
+    throw new Error(
+      `The island "${origin.name}" uses as="tbody", which needs its rows in the page. Use render="server".`,
+    );
+  }
+  const { loaded } = origin;
+  if (
+    loaded == null ||
+    (origin.isInline && ssr && !isDeferred && !isFresh && module == null)
+  ) {
+    return null;
+  }
+  const prefix = `s${origin.hash.slice(0, 6).replaceAll("-", "_")}`;
+  let drawn: { result: string; reads: Set<Part> } | null = null;
+  const draw = () =>
+    (drawn ??= reading(() =>
+      scope.render(island.body, loaded.value, island.context, prefix),
+    ));
+  const isSecret = () =>
+    origin.isPrivate ||
+    draw()
+      .reads.values()
+      .some((read) => read.isPrivate);
+  const html = () => {
+    if (isSecret()) {
+      throw new Error("private");
+    }
+    return draw().result;
+  };
+  const shell = () =>
+    shellHtml(scope.skeleton(origin.name, key, html), origin.bytes);
+  const made = ((): Adopted => {
+    if (isFresh) {
+      const collect = collector(event);
+      if (collect != null) {
+        try {
+          collect({
+            key,
+            html: draw().result,
+            part: origin,
+            needs: needsOf(draw().reads, origin),
+          });
+        } catch (error) {
+          if (!awaited(error, origin.name)) {
+            throw error;
+          }
+        }
+      }
+      return {
+        state: "fresh",
+        file: null,
+        needs: null,
+        isBusy: true,
+        html: shell(),
+      };
+    }
+    if (!ssr) {
+      const outlined = outlineFor(event, `${origin.hash}:${key}`, html, key);
+      return {
+        state: "client",
+        file: null,
+        needs: null,
+        isBusy: outlined === "",
+        html: `${outlined}${shell()}`,
+      };
+    }
+    let rendered: string;
+    try {
+      rendered = draw().result;
+    } catch (error) {
+      if (!awaited(error, origin.name)) {
+        throw error;
+      }
+      return {
+        state: "client",
+        file: null,
+        needs: null,
+        isBusy: true,
+        html: shell(),
+      };
+    }
+    const needs = needsOf(draw().reads, origin);
+    if (!isDeferred || isSecret()) {
+      return {
+        state: "static",
+        file: null,
+        needs,
+        isBusy: false,
+        html: rendered,
+      };
+    }
+    const file = stash(event, rendered, island.reveal === "eager");
+    const outlined = outlineFor(event, file, html);
+    return {
+      state: "deferred",
+      file,
+      needs,
+      isBusy: outlined === "",
+      html: `${outlined}${shell()}`,
+    };
+  })();
+  if (module != null) {
+    track(event.locals).shells.push({
+      part: origin,
+      key,
+      state: made.state,
+      file: made.file,
+      needs: made.needs,
+      module,
+      hydrate: island.hydrate,
+      reveal: island.reveal,
+      margin: island.margin,
+      media: island.media,
+      prefetch: island.prefetch,
+      scope: island.scope,
+      context: island.context,
+    });
+  }
+  return { ...made, html: wrap(island, made, made.html) };
+}
+
+function stash(event: RequestEvent, html: string, isEarly: boolean) {
+  const made = { text: html, hash: `${hashOf(html)}.html` };
+  keep(made, event);
+  const found = track(event.locals);
+  found.files.add(made.hash);
+  if (isEarly) {
+    found.early.add(made.hash);
+  }
+  return made.hash;
+}
+
+function outlineFor(
+  event: RequestEvent,
+  identity: string,
+  html: () => string,
+  view?: string,
+) {
+  return outlined(`${config.vary(event)}:${identity}`, html, view);
+}
+
+function awaited(error: unknown, name: string) {
+  const isAwait =
+    error instanceof Error && error.message.includes("await_invalid");
+  if (isAwait && dev) {
+    console.warn(
+      `svelte-islands: the island for part("${name}") uses await while rendering, so it renders in the browser instead of the server HTML. To keep it in the server HTML, load that data into the part.`,
+    );
+  }
+  return isAwait;
+}
+
 provide(() => {
   const event = current();
   if (event == null) {
     return null;
   }
-  return {
+  const scope: Scope = {
     render: (body, value, context, prefix) =>
       render(Frame, { props: { body, value }, context, idPrefix: prefix }).body,
     skeleton: (name, key, html) => {
@@ -447,33 +638,9 @@ provide(() => {
       void recall(name);
       return exemplars.get(name)?.get(name)?.html ?? null;
     },
-    stash: (html, isEarly) => {
-      const made = { text: html, hash: `${hashOf(html)}.html` };
-      keep(made, event);
-      const found = track(event.locals);
-      found.files.add(made.hash);
-      if (isEarly) {
-        found.early.add(made.hash);
-      }
-      return made.hash;
-    },
-    outline: (identity, html, view) =>
-      outlined(`${config.vary(event)}:${identity}`, html, view),
-    awaited: (error, name) => {
-      const isAwait =
-        error instanceof Error && error.message.includes("await_invalid");
-      if (isAwait && dev) {
-        console.warn(
-          `svelte-islands: the island for part("${name}") uses await while rendering, so it renders in the browser instead of the server HTML. To keep it in the server HTML, load that data into the part.`,
-        );
-      }
-      return isAwait;
-    },
-    record: (island) => {
-      track(event.locals).shells.push(island);
-    },
-    collect: collector(event),
+    adopt: (island) => adopt(event, scope, island),
   };
+  return scope;
 });
 
 function gatheredBy(event: RequestEvent) {

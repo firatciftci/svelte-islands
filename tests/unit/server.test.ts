@@ -1,9 +1,15 @@
 import type { RequestEvent } from "@sveltejs/kit";
 import { brotliDecompressSync } from "node:zlib";
+import type { Snippet } from "svelte";
+import { createRawSnippet } from "svelte";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type * as PartModule from "#lib/part.js";
 import type * as ServerModule from "#lib/server.js";
 import type { Store } from "#lib/server.js";
+
+function raw(html: string): Snippet<[never]> {
+  return createRawSnippet(() => ({ render: () => html }));
+}
 
 type Server = typeof ServerModule;
 
@@ -788,12 +794,13 @@ describe("pages without SvelteKit's client", () => {
     const made = server.part("shell", { rows: "x".repeat(8000) });
     part
       .scope()
-      ?.record({
+      ?.adopt({
         part: made,
         key: "shell",
-        state: "static",
-        file: null,
-        needs: null,
+        render: "server",
+        as: "div",
+        body: raw("<p>shell</p>"),
+        className: null,
         module: "abc123",
         hydrate: null,
         reveal: "visible",
@@ -980,11 +987,21 @@ describe("pages without SvelteKit's client", () => {
       for (let index = 0; index < islands; index++) {
         part
           .scope()
-          ?.collect?.({
-            key: `cart-${index}`,
-            html: "<p>2 items</p>",
+          ?.adopt({
             part: server.part("cart", { items: 2 }),
-            needs: null,
+            key: `cart-${index}`,
+            render: "fresh",
+            as: "div",
+            body: raw("<p>2 items</p>"),
+            className: null,
+            module: null,
+            hydrate: null,
+            reveal: "visible",
+            margin: null,
+            media: null,
+            prefetch: true,
+            scope: null,
+            context: new Map(),
           });
       }
       return new Response("page");

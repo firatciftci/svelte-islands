@@ -4,6 +4,8 @@ const config: KnipConfig = {
   entry: [
     "fixtures/app/vite.config.ts",
     "fixtures/app/src/**/*",
+    "fixtures/size-kit/vite.config.ts",
+    "fixtures/size-kit/src/**/*",
     "site/vite.config.ts",
     "site/src/**/*",
     "site/bench/*.ts",

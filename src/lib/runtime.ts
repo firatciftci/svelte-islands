@@ -1,8 +1,8 @@
 import type { Attachment } from "svelte/attachments";
 import { untrack } from "svelte";
 import { on } from "svelte/events";
-import { SvelteSet } from "svelte/reactivity";
 import type { Fresh, Strategy } from "./part.js";
+import { arrivals } from "./arrivals.svelte.js";
 import { emit, isObserved } from "./observe.js";
 import { deserialize, onArrival, Part, quietly, settings } from "./part.js";
 
@@ -30,7 +30,6 @@ const RANKS: Record<Strategy, number> = {
 export class Gone extends Error {}
 
 const values = new Map<string, { value: unknown; bytes: number }>();
-const arrived = new SvelteSet<string>();
 const pending = new Map<string, Promise<unknown>>();
 const skeletons = new Map<string, string>();
 const saved = new Map<string, string>();
@@ -76,20 +75,20 @@ export type Claimed = {
   file: string | null;
   needs: string | null;
   isBusy: boolean;
+  element: HTMLElement;
 };
 
 function nothing() {}
 
 function keep(hash: string, value: unknown, bytes: number) {
   values.set(hash, { value, bytes });
-  arrived.add(hash);
+  arrivals.bump();
   state.held += bytes;
   for (const [oldest, kept] of values) {
     if (oldest === hash || state.held <= BUDGET) {
       break;
     }
     values.delete(oldest);
-    arrived.delete(oldest);
     state.held -= kept.bytes;
   }
 }
@@ -138,7 +137,8 @@ export function peek<T>(part: Part<T>): { value: T } | null {
   if (part.loaded != null) {
     return part.loaded;
   }
-  const found = arrived.has(part.hash) ? values.get(part.hash) : null;
+  void arrivals.version;
+  const found = values.get(part.hash);
   if (found == null) {
     return null;
   }
@@ -568,6 +568,7 @@ export function claim(part: Part, key: string): Claimed | null {
         file: element.dataset.islandFile ?? null,
         needs: element.dataset.islandNeeds ?? null,
         isBusy: element.getAttribute("aria-busy") === "true",
+        element,
       };
     }
   }

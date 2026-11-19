@@ -27,6 +27,7 @@ vite.config.ts.timestamp-*
 /fixtures/app/.svelte-kit
 /fixtures/app/build
 /fixtures/app/build-static
+/fixtures/size-kit/.svelte-kit
 /site/.svelte-kit
 /site/build
 /test-results

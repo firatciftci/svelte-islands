@@ -130,6 +130,19 @@ export type Fresh<T = unknown> = {
   needs: string | null;
 };
 
+export type Island = Omit<Shell, "state" | "file" | "needs" | "module"> & {
+  module: string | null;
+  className: string | null;
+  render: Render;
+  as: "div" | "tbody";
+  body: Snippet<[never]>;
+};
+
+export type Adopted = Pick<Shell, "state" | "file" | "needs"> & {
+  isBusy: boolean;
+  html: string;
+};
+
 export type Scope = {
   render: (
     body: Snippet<[never]>,
@@ -139,11 +152,7 @@ export type Scope = {
   ) => string;
   skeleton: (name: string, key: string, html: () => string) => string | null;
   shape: (name: string) => string | null;
-  stash: (html: string, isEarly: boolean) => string;
-  outline: (identity: string, html: () => string, view?: string) => string;
-  awaited: (error: unknown, name: string) => boolean;
-  record: (island: Shell) => void;
-  collect: ((island: Fresh) => void) | null;
+  adopt: (island: Island) => Adopted | null;
 };
 
 const state: {

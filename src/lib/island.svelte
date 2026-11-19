@@ -16,8 +16,7 @@
   import { dev } from "$app/env";
   import { refreshAll } from "$app/navigation";
   import { flushSync, getAllContexts, onMount, untrack } from "svelte";
-  import type { Part, Render, Strategy } from "./part.js";
-  import type { Claimed } from "./runtime.js";
+  import type { Adopted, Part, Render, Strategy } from "./part.js";
   import type { Body, Chunk, Control, Wake } from "./wake.js";
   import Frame from "./frame.svelte";
   import { scope as serverScope } from "./part.js";
@@ -33,10 +32,8 @@
     loadNow,
     markupNow,
     markupOf,
-    needsOf,
     partsOf,
     peek,
-    reading,
     schedule,
     skeletonOf,
     strategiesOf,
@@ -121,11 +118,7 @@
     untrack(() => chunk),
   );
 
-  function shell(skeleton: string | null) {
-    return `<div class="island-shell" aria-hidden="true">${skeleton ?? fallback(origin.bytes)}</div>`;
-  }
-
-  const adopted = untrack((): (Claimed & { html: string }) | null => {
+  const adopted = untrack((): (Adopted & { element?: HTMLElement }) | null => {
     if (server == null) {
       if (
         origin.loaded != null &&
@@ -139,122 +132,22 @@
       const found = claim(origin, first);
       return found == null ? null : { ...found, html: " " };
     }
-    if (as === "tbody" && mode !== "server") {
-      throw new Error(
-        `The island "${origin.name}" uses as="tbody", which needs its rows in the page. Use render="server".`,
-      );
-    }
-    const { loaded } = origin;
-    if (
-      loaded == null ||
-      (origin.isInline && ssr && !isDeferred && !isFresh && moduleId == null)
-    ) {
-      return null;
-    }
-    const prefix = `s${origin.hash.slice(0, 6).replaceAll("-", "_")}`;
-    let drawn: { result: string; reads: Set<Part> } | null = null;
-    const draw = () =>
-      (drawn ??= reading(() =>
-        server.render(children, loaded.value, context, prefix),
-      ));
-    const isSecret = () =>
-      origin.isPrivate ||
-      draw()
-        .reads.values()
-        .some((read) => read.isPrivate);
-    const html = () => {
-      if (isSecret()) {
-        throw new Error("private");
-      }
-      return draw().result;
-    };
-    if (isFresh) {
-      if (server.collect != null) {
-        try {
-          server.collect({
-            key: first,
-            html: draw().result,
-            part: origin,
-            needs: needsOf(draw().reads, origin),
-          });
-        } catch (error) {
-          if (!server.awaited(error, origin.name)) {
-            throw error;
-          }
-        }
-      }
-      return {
-        state: "fresh",
-        file: null,
-        needs: null,
-        isBusy: true,
-        html: shell(server.skeleton(origin.name, first, html)),
-      };
-    }
-    if (!ssr) {
-      const outlined = server.outline(`${origin.hash}:${first}`, html, first);
-      return {
-        state: "client",
-        file: null,
-        needs: null,
-        isBusy: outlined === "",
-        html: `${outlined}${shell(server.skeleton(origin.name, first, html))}`,
-      };
-    }
-    let rendered: string;
-    try {
-      rendered = draw().result;
-    } catch (error) {
-      if (!server.awaited(error, origin.name)) {
-        throw error;
-      }
-      return {
-        state: "client",
-        file: null,
-        needs: null,
-        isBusy: true,
-        html: shell(server.skeleton(origin.name, first, html)),
-      };
-    }
-    const needs = needsOf(draw().reads, origin);
-    if (!isDeferred || isSecret()) {
-      return {
-        state: "static",
-        file: null,
-        needs,
-        isBusy: false,
-        html: rendered,
-      };
-    }
-    const file = server.stash(rendered, revealOn === "eager");
-    const outlined = server.outline(file, html);
-    return {
-      state: "deferred",
-      file,
-      needs,
-      isBusy: outlined === "",
-      html: `${outlined}${shell(server.skeleton(origin.name, first, html))}`,
-    };
-  });
-
-  untrack(() => {
-    if (server != null && moduleId != null && adopted != null) {
-      server.record({
-        part: origin,
-        key: first,
-        state: adopted.state,
-        file: adopted.file,
-        needs: adopted.needs,
-        module: moduleId,
-        hydrate: hydrate == null ? null : strategiesOf(hydrate),
-        reveal: revealOn,
-        margin: margin ?? null,
-        media: media ?? null,
-        prefetch,
-        scope: scope ?? null,
-        context,
-      });
-    }
+    return server.adopt({
+      part: origin,
+      key: first,
+      render: mode,
+      reveal: revealOn,
+      as,
+      module: moduleId ?? null,
+      className: className ?? null,
+      body: children,
+      context,
+      hydrate: hydrate == null ? null : strategiesOf(hydrate),
+      margin: margin ?? null,
+      media: media ?? null,
+      prefetch,
+      scope: scope ?? null,
+    });
   });
 
   const strategies = $derived.by((): Array<Strategy> => {
@@ -283,6 +176,9 @@
     return isFresh && !isReleased ? own : (peek(part) ?? own);
   });
 
+  const classes = $derived(
+    className == null ? "island" : `island ${className}`,
+  );
   const control: Control = { rouse: () => {} };
   const meter = measurer(origin);
 
@@ -393,6 +289,13 @@
     empty = target;
   }
 
+  $effect(() => {
+    const element = isAdopted ? adopted?.element : null;
+    if (element != null) {
+      return untrack(() => activate(element));
+    }
+  });
+
   onMount(boot);
 
   $effect(() => {
@@ -446,48 +349,47 @@
   });
 </script>
 
+{#snippet liveBody()}
+  {#if current != null && body != null}
+    <Frame {body} value={current.value} {scope} />
+  {:else if failure === part.hash}
+    {#if failed != null}
+      {@render failed(retry)}
+    {:else}
+      <button class="island-retry" type="button" onclick={retry}>Retry</button>
+    {/if}
+  {:else}
+    <div class="island-shell" aria-hidden="true">
+      <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+      {@html skeletonOf(key) ?? fallback(part.bytes)}
+    </div>
+  {/if}
+{/snippet}
+
 {#if isAdopted && adopted != null}
-  <svelte:element
-    this={as}
-    class={["island", className]}
-    data-island={origin.hash}
-    data-island-name={dev ? origin.name : undefined}
-    data-island-module={moduleId}
-    data-island-bytes={dev ? origin.bytes : undefined}
-    data-island-state={adopted.state}
-    data-island-file={adopted.file}
-    data-island-needs={adopted.needs}
-    aria-busy={adopted.isBusy ? "true" : undefined}
-    {@attach activate}
-  >
-    <!-- svelte-ignore hydration_html_changed -->
-    <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-    {@html adopted.html}
-  </svelte:element>
-{:else}
-  <svelte:element
-    this={as}
-    class={["island", className]}
+  <!-- svelte-ignore hydration_html_changed -->
+  <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+  {@html adopted.html}
+{:else if as === "tbody"}
+  <tbody
+    class={classes}
     data-island={part.hash}
     data-island-name={dev ? part.name : undefined}
     data-island-bytes={dev ? part.bytes : undefined}
     aria-busy={current == null || body == null ? "true" : undefined}
     {@attach learn}
   >
-    {#if current != null && body != null}
-      <Frame {body} value={current.value} {scope} />
-    {:else if failure === part.hash}
-      {#if failed != null}
-        {@render failed(retry)}
-      {:else}
-        <button class="island-retry" type="button" onclick={retry}>Retry</button
-        >
-      {/if}
-    {:else}
-      <div class="island-shell" aria-hidden="true">
-        <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-        {@html skeletonOf(key) ?? fallback(part.bytes)}
-      </div>
-    {/if}
-  </svelte:element>
+    {@render liveBody()}
+  </tbody>
+{:else}
+  <div
+    class={classes}
+    data-island={part.hash}
+    data-island-name={dev ? part.name : undefined}
+    data-island-bytes={dev ? part.bytes : undefined}
+    aria-busy={current == null || body == null ? "true" : undefined}
+    {@attach learn}
+  >
+    {@render liveBody()}
+  </div>
 {/if}
