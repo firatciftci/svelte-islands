@@ -183,7 +183,7 @@ const METHOD = {
     "Each visit ends 5 s after the last sort's visible change. Long-task time covers navigation through that end point, so the sorts count as work in the window.",
   overrun:
     "Sum of (duration - 50 ms) over every long task in the window. Previously called blocking time.",
-  tbt: "Sum of (duration - 50 ms) over long tasks that start at or after First Contentful Paint and before the first sort's pointerdown, so it measures the load and not the sorts. There's no TTI to end the window, because the visits don't idle for 5 s before sorting (Lighthouse dropped TTI in version 10).",
+  tbt: "Sum of (duration - 50 ms) over long tasks that start at or after First Contentful Paint and before the first sort's pointerdown, so it measures the load and not the sorts. There's no TTI to end the window, because the visits don't idle for 5 s before sorting (Lighthouse dropped TTI in version 10). This window leans toward islands, which put off their work until the first interaction, so compare pages by long-task time and the sort timings, and read TBT as the cost of the load alone.",
   visible:
     "Time from pointerdown to the first frame after aria-sort changes on the target header, as before.",
   event:
