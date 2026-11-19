@@ -8,6 +8,7 @@ import type {
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { coded } from "./errors.js";
 import { extract } from "./extract.js";
 import { csrRoutes } from "./routes.js";
 
@@ -72,6 +73,14 @@ function staticImports(bundle: Rollup.OutputBundle, entry: string) {
  *
  * @returns The plugins.
  */
+
+function missing(id: string) {
+  const [before = "", after = ""] = coded(
+    "islands_missing_code",
+    "There's no code for the island %s in this build. The page may come from an older build, so reload it.",
+  ).split("%s");
+  return `${JSON.stringify(before)} + ${id} + ${JSON.stringify(after)}`;
+}
 export function islands(): Array<Plugin> {
   const modules = new Map<string, string>();
   const pages = new Map<string, string>();
@@ -129,7 +138,7 @@ export function islands(): Array<Plugin> {
     );
     lines.push(
       `const registry = { ${entries.join(", ")} };`,
-      `start((id) => registry[id]?.() ?? Promise.reject(new Error("svelte-islands: no code for the island " + id)));`,
+      `start((id) => registry[id]?.() ?? Promise.reject(new Error(${missing("id")})));`,
     );
     return lines.join("\n");
   }
@@ -184,7 +193,10 @@ export function islands(): Array<Plugin> {
         const [output] = [config.build.rolldownOptions.output ?? {}].flat();
         if (output?.codeSplitting === false) {
           this.warn(
-            "the build doesn't split code, so each island's code stays in the main bundle, and islands on pages with csr = false stay as server HTML. Use the default output.bundleStrategy, \"split\".",
+            coded(
+              "islands_no_code_splitting",
+              "The build doesn't split code, so each island's code stays in the main bundle, and islands on pages with csr = false stay as server HTML. Use the default output.bundleStrategy, \"split\".",
+            ),
           );
           return;
         }
@@ -211,7 +223,7 @@ export function islands(): Array<Plugin> {
           );
           const file = bodies.get(island);
           return file == null
-            ? `throw new Error("svelte-islands: no code for the island ${island}");`
+            ? `throw new Error(${missing(JSON.stringify(island))});`
             : `export { body, url } from ${JSON.stringify(file)};`;
         }
         const file = own(id);

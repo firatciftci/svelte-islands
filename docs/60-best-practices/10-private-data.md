@@ -58,7 +58,9 @@ Private content still teaches the visitor's _own_ browser, which saves the skele
 In dev, the library warns when a public part is made during a request that has read cookies:
 
 ```
-svelte-islands: part("account") was made during a request that read cookies. Parts are served from a public, immutable URL. If this value differs per visitor, pass { private: true }. If it doesn't, pass warnOnCookies: false to handle().
+islands_part_after_cookies
+part("account") was made during a request that read cookies. Parts are served from a public, immutable URL. If this value differs per visitor, pass { private: true }. If it doesn't, pass warnOnCookies: false to handle().
+https://firatciftci.github.io/svelte-islands/docs/appendix/errors#islands_part_after_cookies
 ```
 
 You can turn this off with `handle({ warnOnCookies: false })`, and the [`no-public-per-visitor-part`](../50-tooling/20-eslint.md) ESLint rule catches common cases as you write.

@@ -7,7 +7,7 @@ If you can, render the [overlay](../50-tooling/30-overlay.md) first. It lists ev
 
 ## An island stays static and its controls don't respond
 
-The island's data probably failed to load. Look in the console for `svelte-islands: could not load the part "name"`, followed by the error, and look at the request to `/_parts/<hash>.json` in the network panel:
+The island's data probably failed to load. Look in the console for an `islands_part_failed` warning followed by the error, and look at the request to `/_parts/<hash>.json` in the network panel:
 
 - if the response looks like binary garbage and its `content-encoding` is `br`, something compressed it twice — your proxy or CDN may be compressing a response the library had already compressed, so pass `handle({ compress: false })`
 - if the request goes to the wrong path, your app probably sets `paths.base`, and the prefix has to include it: `islands({ prefix: "/docs/_parts/" })`
@@ -19,7 +19,9 @@ The island's data probably failed to load. Look in the console for `svelte-islan
 The plugin moves an island's code into its own chunk only when it can make a copy of the island's snippet and the values the snippet reads. When it can't, the island stays in the page and the build warns with a line like this:
 
 ```
+islands_island_kept
 src/routes/products/+page.svelte:12: the island stays in the page, because "label" means something else where the island is
+https://firatciftci.github.io/svelte-islands/docs/appendix/errors#islands_island_kept
 ```
 
 The reasons are:
@@ -36,7 +38,9 @@ The island still works, but its code stays in the page's JavaScript instead of i
 On a page with `csr = false`, an island gets a copy of each page value it reads, and the copy has to survive serialization. In development, an island that reads a function, or a value that can't be serialized, throws an error like this:
 
 ```
-svelte-islands: the island for part("products") reads `formatPrice` from the page, and it holds a function. On a page with csr = false, an island gets a copy of each page value it reads, so `formatPrice` can't reach it. Define it in a module the island imports, or move it inside the island's snippet.
+islands_shell_value
+The island for part("products") reads `formatPrice` from the page, and it holds a function. On a page with csr = false, an island gets a copy of each page value it reads, so `formatPrice` can't reach it. Define it in a module the island imports, or move it inside the island's snippet.
+https://firatciftci.github.io/svelte-islands/docs/appendix/errors#islands_shell_value
 ```
 
 Define the function in a module that the island imports, or move it inside the island's snippet. In production, the library logs the same message and leaves that island as server HTML. Contexts have a similar limit on these pages: an island gets a context only if its key is a string or a `Symbol.for()` key, and its value can be serialized. Use `context()` from `svelte-islands` to make a key that reaches the island.
@@ -46,7 +50,9 @@ Define the function in a module that the island imports, or move it inside the i
 Pages with `csr = false` need the build to split code, so the plugin can boot their islands there. If the build has code splitting turned off, the plugin warns:
 
 ```
-the build doesn't split code, so each island's code stays in the main bundle, and islands on pages with csr = false stay as server HTML. Use the default output.bundleStrategy, "split".
+islands_no_code_splitting
+The build doesn't split code, so each island's code stays in the main bundle, and islands on pages with csr = false stay as server HTML. Use the default output.bundleStrategy, "split".
+https://firatciftci.github.io/svelte-islands/docs/appendix/errors#islands_no_code_splitting
 ```
 
 Remove the output setting that turned splitting off, so that the build uses the default.
@@ -56,7 +62,9 @@ Remove the output setting that turned splitting off, so that the build uses the 
 A `render="fresh"` island asks the server to render its page again for the visitor. On a prerendered page, the server can't do that, so the request fails. If you run a server, it logs:
 
 ```
-svelte-islands: the server couldn't render /products/shirt for its fresh islands, so they show the page's own values. The server can't render a prerendered page again, so render the page on the server and cache it with cache-control instead.
+islands_fresh_failed
+The server couldn't render /products/shirt for its fresh islands, so they show the page's own values. The server can't render a prerendered page again, so render the page on the server and cache it with cache-control instead.
+https://firatciftci.github.io/svelte-islands/docs/appendix/errors#islands_fresh_failed
 ```
 
 The island shows the value the page was built with, which is the fallback. That's expected on a prerendered page or a static host. To get per-visitor values, render the page on the server, and cache it with a `cache-control` header instead. [Fresh islands](../20-core-concepts/90-fresh-islands.md) explains the request.

@@ -2,6 +2,7 @@ import type { AST } from "svelte/compiler";
 import MagicString from "magic-string";
 import { createHash } from "node:crypto";
 import { parse } from "svelte/compiler";
+import { coded } from "./errors.js";
 
 type Node = { type: string; start: number; end: number } & Record<
   string,
@@ -1741,7 +1742,10 @@ export function extract(
     const line = code.slice(0, island.start).split("\n").length;
     if (located == null) {
       warnings.push(
-        `${name}:${line}: the island stays in the page, because its children aren't a snippet the plugin can find`,
+        coded(
+          "islands_island_kept",
+          `${name}:${line}: the island stays in the page, because its children aren't a snippet the plugin can find`,
+        ),
       );
       return false;
     }
@@ -1754,7 +1758,10 @@ export function extract(
     );
     if (analysis.problems.length > 0) {
       warnings.push(
-        `${name}:${line}: the island stays in the page, because ${[...new Set(analysis.problems)].join(", ")}`,
+        coded(
+          "islands_island_kept",
+          `${name}:${line}: the island stays in the page, because ${[...new Set(analysis.problems)].join(", ")}`,
+        ),
       );
       return false;
     }

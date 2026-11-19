@@ -39,7 +39,9 @@ In `vite dev`, the same split happens, and Vite transforms each island's module 
 The plugin leaves an island in the page when it can't move the island's snippet safely. The island still works, but its code stays in the page's chunk. The plugin logs a warning for each one, with the file, the line, and the reason:
 
 ```
+islands_island_kept
 src/routes/+page.svelte:5: the island stays in the page, because its <p> matches a selector in the page's scoped styles; move the markup into a component, or make the selector :global
+https://firatciftci.github.io/svelte-islands/docs/appendix/errors#islands_island_kept
 ```
 
 These are the reasons it gives:

@@ -1,6 +1,7 @@
 import type { Transport } from "@sveltejs/kit/hooks";
 import type { Snippet } from "svelte";
 import { parse, stringify } from "devalue";
+import { coded } from "./errors.js";
 import { unpack } from "./unpack.js";
 
 /**
@@ -151,7 +152,11 @@ export type Scope = {
     context: Map<unknown, unknown>,
     prefix: string,
   ) => string;
-  skeleton: (name: string, key: string, html: () => string) => string | null;
+  skeleton: (
+    name: string,
+    key: string,
+    html: () => string | null,
+  ) => string | null;
   shape: (name: string) => string | null;
   adopt: (island: Island) => Adopted | null;
 };
@@ -286,7 +291,10 @@ function index(codecs: Transport) {
     part: (value: unknown): unknown => {
       if (value instanceof Part && value.isPrivate) {
         throw new Error(
-          `svelte-islands: the private part "${value.name}" is inside a public part, which would publish it. Make the outer part private too.`,
+          coded(
+            "islands_private_in_public",
+            `The private part "${value.name}" is inside a public part, which would publish it. Make the outer part private too.`,
+          ),
         );
       }
       return nested.encode(value);

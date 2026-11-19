@@ -10,10 +10,10 @@ import { build, createBuilder } from "vite";
 const INDEX = path.resolve("src/lib/index.ts");
 const KIT = path.resolve("fixtures/size-kit");
 const LIMITS = {
-  "<Island> alone": 11.1,
-  "every client export": 12.7,
+  "<Island> alone": 11.2,
+  "every client export": 12.8,
   "Kit marginal, one island": 10.6,
-  "transport per page": 1.35,
+  "transport per page": 1.4,
   "plugin on plain pages": 0.6,
 };
 

@@ -85,7 +85,9 @@ Functions can't cross. A page value that holds a function can't reach an island,
 In development, the page fails with this message:
 
 ```
-svelte-islands: the island for part("shell.function") reads `shout` from the page, and it holds a function. On a page with csr = false, an island gets a copy of each page value it reads, so `shout` can't reach it. Define it in a module the island imports, or move it inside the island's snippet.
+islands_shell_value
+The island for part("shell.function") reads `shout` from the page, and it holds a function. On a page with csr = false, an island gets a copy of each page value it reads, so `shout` can't reach it. Define it in a module the island imports, or move it inside the island's snippet.
+https://firatciftci.github.io/svelte-islands/docs/appendix/errors#islands_shell_value
 ```
 
 Move the function into a module the island imports, so the island's code has its own copy:

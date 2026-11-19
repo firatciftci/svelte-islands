@@ -117,7 +117,9 @@ If some of the catalog really does differ per visitor, split it: keep the shared
 In development, the library also warns at runtime when a public part is made during a request that has read cookies:
 
 ```
-svelte-islands: part("store.catalog") was made during a request that read cookies. Parts are served from a public, immutable URL. If this value differs per visitor, pass { private: true }. If it doesn't, pass warnOnCookies: false to handle().
+islands_part_after_cookies
+part("store.catalog") was made during a request that read cookies. Parts are served from a public, immutable URL. If this value differs per visitor, pass { private: true }. If it doesn't, pass warnOnCookies: false to handle().
+https://firatciftci.github.io/svelte-islands/docs/appendix/errors#islands_part_after_cookies
 ```
 
 The account page triggers it, because the check works per request and cannot tell that `store.catalog` is the same for everyone. Once you have confirmed that every public part made on your cookie-reading pages is shared, you can turn the warning off and rely on the ESLint rule from then on:
@@ -144,7 +146,9 @@ Since the server never learns a skeleton for it, `reserve` is what holds the spa
 You might think about bundling the whole account into one part, with the orders nested inside. If the outer part is public, that throws:
 
 ```
-svelte-islands: the private part "account.orders" is inside a public part, which would publish it. Make the outer part private too.
+islands_private_in_public
+The private part "account.orders" is inside a public part, which would publish it. Make the outer part private too.
+https://firatciftci.github.io/svelte-islands/docs/appendix/errors#islands_private_in_public
 ```
 
 The outer part would carry the inner one's contents to a public URL, so the library refuses to make it. Keep per-visitor values as separate parts, or make the outer part private too.

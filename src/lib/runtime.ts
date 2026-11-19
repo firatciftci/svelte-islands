@@ -3,6 +3,7 @@ import { untrack } from "svelte";
 import { on } from "svelte/events";
 import type { Fresh, Strategy } from "./part.js";
 import { arrivals } from "./arrivals.svelte.js";
+import { coded } from "./errors.js";
 import { emit, isObserved } from "./observe.js";
 import { deserialize, onArrival, Part, quietly, settings } from "./part.js";
 
@@ -305,7 +306,10 @@ export async function markupOf(
 }
 
 function report(name: string, hash: string, error: unknown) {
-  console.warn(`svelte-islands: could not load the part "${name}".`, error);
+  console.warn(
+    coded("islands_part_failed", `Couldn't load the part "${name}".`),
+    error,
+  );
   if (isObserved()) {
     emit({ type: "fail", name, hash, message: String(error) });
   }

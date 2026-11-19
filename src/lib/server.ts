@@ -10,6 +10,7 @@ import type { RebuildOptions } from "./rebuild.js";
 import type { Store } from "./stores.js";
 import Frame from "./frame.svelte";
 import { isPackable, pack } from "./pack.js";
+import { coded } from "./errors.js";
 import {
   Part,
   provide,
@@ -68,7 +69,10 @@ function isShellPage(html: string, event: RequestEvent) {
   if (dev && csr !== isNative) {
     warnOnce(`csr:${event.route.id ?? ""}`, () => {
       console.warn(
-        `svelte-islands: the route ${event.route.id ?? ""} sets csr = ${String(csr)}, but its HTML says otherwise. Islands follow csr = ${String(csr)}. If you changed SvelteKit, please report this.`,
+        coded(
+          "islands_csr_mismatch",
+          `The route ${event.route.id ?? ""} sets csr = ${String(csr)}, but its HTML says otherwise. Islands follow csr = ${String(csr)}. If you changed SvelteKit, please report this.`,
+        ),
       );
     });
   }
@@ -269,16 +273,18 @@ function examplesOf(name: string) {
   return known;
 }
 
-function attempt(html: () => string) {
+function attempt(html: () => string | null) {
   try {
     const rendered = html();
-    return rendered.includes("island-fallback") ? null : skeletonize(rendered);
+    return rendered == null || rendered.includes("island-fallback")
+      ? null
+      : skeletonize(rendered);
   } catch {
     return null;
   }
 }
 
-function outlined(identity: string, html: () => string, view?: string) {
+function outlined(identity: string, html: () => string | null, view?: string) {
   const found = outlines.get(identity);
   if (found != null) {
     return found;
@@ -289,7 +295,7 @@ function outlined(identity: string, html: () => string, view?: string) {
   }
   let made = "";
   try {
-    made = outline(html());
+    made = outline(html() ?? "");
   } catch {
     made = "";
   }
@@ -341,7 +347,7 @@ function current() {
   }
 }
 
-function learn(name: string, key: string, html: () => string) {
+function learn(name: string, key: string, html: () => string | null) {
   const known = examplesOf(name);
   const found = known.get(key);
   if (found != null && Date.now() - found.at < RELEARN) {
@@ -391,7 +397,10 @@ function warnPersonal(name: string, found: { isPersonal: boolean }) {
   }
   warnOnce(name, () =>
     console.warn(
-      `svelte-islands: part("${name}") was made during a request that read cookies. Parts are served from a public, immutable URL. If this value differs per visitor, pass { private: true }. If it doesn't, pass warnOnCookies: false to handle().`,
+      coded(
+        "islands_part_after_cookies",
+        `part("${name}") was made during a request that read cookies. Parts are served from a public, immutable URL. If this value differs per visitor, pass { private: true }. If it doesn't, pass warnOnCookies: false to handle().`,
+      ),
     ),
   );
 }
@@ -519,7 +528,10 @@ function adopt(
   const ssr = mode !== "client";
   if (as === "tbody" && mode !== "server") {
     throw new Error(
-      `The island "${origin.name}" uses as="tbody", which needs its rows in the page. Use render="server".`,
+      coded(
+        "islands_tbody_needs_server",
+        `The island for part("${origin.name}") uses as="tbody", which needs its rows in the page. Use render="server".`,
+      ),
     );
   }
   const { loaded } = origin;
@@ -540,12 +552,7 @@ function adopt(
     draw()
       .reads.values()
       .some((read) => read.isPrivate);
-  const html = () => {
-    if (isSecret()) {
-      throw new Error("private");
-    }
-    return draw().result;
-  };
+  const html = () => (isSecret() ? null : draw().result);
   const shell = () =>
     shellHtml(scope.skeleton(origin.name, key, html), origin.bytes);
   const made = ((): Adopted => {
@@ -652,18 +659,26 @@ function stash(event: RequestEvent, html: string, isEarly: boolean) {
 function outlineFor(
   event: RequestEvent,
   identity: string,
-  html: () => string,
+  html: () => string | null,
   view?: string,
 ) {
   return outlined(`${config.vary(event)}:${identity}`, html, view);
 }
 
 function awaited(error: unknown, name: string) {
-  const isAwait =
-    error instanceof Error && error.message.includes("await_invalid");
+  const code =
+    error instanceof Error
+      ? "code" in error && typeof error.code === "string"
+        ? error.code
+        : error.message.split("\n", 1)[0]
+      : null;
+  const isAwait = code === "await_invalid";
   if (isAwait && dev) {
     console.warn(
-      `svelte-islands: the island for part("${name}") uses await while rendering, so it renders in the browser instead of the server HTML. To keep it in the server HTML, load that data into the part.`,
+      coded(
+        "islands_await_while_rendering",
+        `The island for part("${name}") uses await while rendering, so it renders in the browser instead of the server HTML. To keep it in the server HTML, load that data into the part.`,
+      ),
     );
   }
   return isAwait;
@@ -860,7 +875,10 @@ function valuesOf(island: Shell, checked: Map<unknown, boolean>) {
           ? "a function"
           : "a value that can't be serialized";
       throw new Error(
-        `svelte-islands: the island for part("${island.part.name}") reads \`${name}\` from the page, and it holds ${held}. On a page with csr = false, an island gets a copy of each page value it reads, so \`${name}\` can't reach it. Define it in a module the island imports, or move it inside the island's snippet.`,
+        coded(
+          "islands_shell_value",
+          `The island for part("${island.part.name}") reads \`${name}\` from the page, and it holds ${held}. On a page with csr = false, an island gets a copy of each page value it reads, so \`${name}\` can't reach it. Define it in a module the island imports, or move it inside the island's snippet.`,
+        ),
       );
     }
     values[name] = value;
@@ -894,7 +912,10 @@ function contextsOf(island: Shell, checked: Map<unknown, boolean>) {
   if (dev && dropped.length > 0) {
     warnOnce(`contexts:${dropped.join(", ")}`, () =>
       console.warn(
-        `svelte-islands: on a page with csr = false, an island only gets contexts whose keys are strings or Symbol.for() keys and whose values can be serialized, so the island for part("${island.part.name}") won't get ${dropped.join(", ")}. Use context() from svelte-islands for a key that reaches it.`,
+        coded(
+          "islands_shell_context",
+          `On a page with csr = false, an island only gets contexts whose keys are strings or Symbol.for() keys and whose values can be serialized, so the island for part("${island.part.name}") won't get ${dropped.join(", ")}. Use context() from svelte-islands for a key that reaches it.`,
+        ),
       ),
     );
   }
@@ -1285,7 +1306,10 @@ async function gatherFor(
   if (status !== 200 && status !== 404) {
     warnOnce(dev ? `fresh:${page}` : "fresh", () =>
       console.warn(
-        `svelte-islands: the server couldn't render ${page} for its fresh islands, so they show the page's own values. The server can't render a prerendered page again, so render the page on the server and cache it with cache-control instead.`,
+        coded(
+          "islands_fresh_failed",
+          `The server couldn't render ${page} for its fresh islands, so they show the page's own values. The server can't render a prerendered page again, so render the page on the server and cache it with cache-control instead.`,
+        ),
       ),
     );
   }

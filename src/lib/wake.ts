@@ -4,6 +4,7 @@ import type { Fresh, Part, Strategy } from "./part.js";
 import type { Options } from "./runtime.js";
 import Frame from "./frame.svelte";
 import { emit, isObserved, worked } from "./observe.js";
+import { coded } from "./errors.js";
 import { quietly } from "./part.js";
 import {
   capture,
@@ -75,7 +76,10 @@ export function codeOf(body: Body | undefined, chunk: Chunk | undefined): Code {
   if (chunk == null) {
     if (body == null) {
       throw new Error(
-        "svelte-islands: an island needs a children snippet, or code from the Vite plugin.",
+        coded(
+          "islands_missing_children",
+          "An island needs a children snippet, or code from the Vite plugin.",
+        ),
       );
     }
     return { now: () => body, load: async () => body, bytes: () => null };
