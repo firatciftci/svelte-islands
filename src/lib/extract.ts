@@ -1503,14 +1503,22 @@ function rewrite(
 function scopeObject(
   captures: Analysis["captures"],
   value: string,
-  isServer: boolean,
+  instance: string | null,
 ) {
   const members: Array<string> = [];
   for (const [name, capture] of captures) {
     members.push(`get ${name}() { return ${name}; }`);
-    if (!isServer && capture.isWritten) {
+    if (instance == null && capture.isWritten) {
       members.push(`set ${name}(${value}) { ${name} = ${value}; }`);
     }
+  }
+  if (instance != null) {
+    const own = [...captures.values()]
+      .filter((capture) => capture.kind === "template")
+      .map((capture) => capture.name);
+    members.push(
+      `[Symbol.for("svelte-islands:scope")]: { instance: ${instance}, own: ${JSON.stringify(own)} }`,
+    );
   }
   return `{ ${members.join(", ")} }`;
 }
@@ -1718,6 +1726,9 @@ export function extract(
   const moduleText = new MagicString(code);
   const scopeName = fresh("scope", code);
   const valueName = fresh("value", code);
+  const instanceName =
+    isServer && root.instance != null ? fresh("instance", code) : null;
+  let isInstanced = false;
   const modules: Extracted["modules"] = [];
   const warnings: Array<string> = [];
   const rewritten = new Set<number>();
@@ -1751,7 +1762,8 @@ export function extract(
     const scope =
       analysis.captures.size === 0
         ? ""
-        : ` scope={${scopeObject(analysis.captures, valueName, isServer)}}`;
+        : ` scope={${scopeObject(analysis.captures, valueName, instanceName)}}`;
+    isInstanced ||= instanceName != null && analysis.captures.size > 0;
     const nameEnd = island.start + 1 + island.name.length;
     if (isInferable(island)) {
       const why = whyLive(located.snippet, analysis);
@@ -1824,6 +1836,12 @@ export function extract(
   if (!isServer) {
     pruneSnippets(prunable, root, page, removed);
     pruneImports(moved, root, code, page, removed);
+  }
+  if (isInstanced && root.instance != null) {
+    page.appendLeft(
+      asNode(root.instance.content).end,
+      `\nconst ${instanceName} = {};\n`,
+    );
   }
   return {
     code: page.toString(),

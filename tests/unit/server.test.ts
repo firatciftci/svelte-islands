@@ -839,14 +839,62 @@ describe("pages without SvelteKit's client", () => {
       /<script type="application\/json" id="svelte-islands">(.*?)<\/script>/u.exec(
         html,
       )?.[1];
-    return text == null
-      ? null
-      : (part.deserialize(text) as Array<{
-          module: string;
-          scope: Record<string, unknown> | null;
-          context: Array<[boolean, string, unknown]>;
-        }>);
+    if (text == null) {
+      return null;
+    }
+    const payload = part.deserialize(text) as {
+      scopes: Array<Record<string, unknown>>;
+      islands: Array<{
+        module: string;
+        scope: {
+          at: number | null;
+          names: Array<string>;
+          own: Record<string, unknown>;
+        } | null;
+        context: Array<[boolean, string, unknown]>;
+      }>;
+    };
+    return payload.islands.map((island) => ({
+      ...island,
+      scope:
+        island.scope == null
+          ? null
+          : {
+              ...Object.fromEntries(
+                island.scope.names.map((name) => [
+                  name,
+                  payload.scopes[island.scope?.at ?? -1]?.[name],
+                ]),
+              ),
+              ...island.scope.own,
+            },
+      payload,
+    }));
   }
+
+  it("send each page value once per component, and keep values from around an island apart", async () => {
+    const handler = server.handle();
+    const instance = {};
+    const marked = (values: object, own: Array<string> = []) => ({
+      ...values,
+      [Symbol.for("svelte-islands:scope")]: { instance, own },
+    });
+    const html = await page(handler, "<head></head><body></body>", () => {
+      record(marked({ count: 2, item: "a" }, ["item"]));
+      record(marked({ count: 2, item: "b" }, ["item"]));
+      record({ count: 3 });
+    });
+    const islands = sent(html) ?? [];
+    expect(islands[0]?.payload.scopes).toStrictEqual([{ count: 2 }]);
+    expect(islands.map((island) => island.scope)).toStrictEqual([
+      { count: 2, item: "a" },
+      { count: 2, item: "b" },
+      { count: 3 },
+    ]);
+    expect(islands.map((island) => island.scope?.count)).toStrictEqual([
+      2, 2, 3,
+    ]);
+  });
 
   it("get the boot script, each island's values, and its named contexts but not SvelteKit's", async () => {
     const handler = server.handle();

@@ -764,9 +764,27 @@ function rulesFor(mode: "prefetch" | "prerender") {
 }
 
 type Sent = Omit<Shell, "scope" | "context"> & {
-  scope: Record<string, unknown> | null;
+  scope: {
+    at: number | null;
+    names: Array<string>;
+    own: Record<string, unknown>;
+  } | null;
   context: Array<[isSymbol: boolean, name: string, value: unknown]>;
 };
+
+const SCOPE = Symbol.for("svelte-islands:scope");
+
+function isMarked(
+  value: unknown,
+): value is { instance: object; own: ReadonlyArray<string> } {
+  return (
+    typeof value === "object" &&
+    value != null &&
+    "instance" in value &&
+    "own" in value &&
+    Array.isArray(value.own)
+  );
+}
 
 function sendable(value: unknown, checked: Map<unknown, boolean>) {
   const known = checked.get(value);
@@ -844,6 +862,37 @@ function shellOf(shells: ReadonlyArray<Shell>) {
   }
   const checked = new Map<unknown, boolean>();
   const islands: Array<Sent> = [];
+  const instances = new Map<object, number>();
+  const scopes: Array<Record<string, unknown>> = [];
+  const scopeFor = (
+    island: Shell,
+    values: Record<string, unknown> | null,
+  ): Sent["scope"] => {
+    if (values == null) {
+      return null;
+    }
+    const marked =
+      island.scope == null ? null : Reflect.get(island.scope, SCOPE);
+    const sent: NonNullable<Sent["scope"]> = { at: null, names: [], own: {} };
+    let shared: Record<string, unknown> | null = null;
+    if (isMarked(marked)) {
+      sent.at = instances.get(marked.instance) ?? scopes.length;
+      if (sent.at === scopes.length) {
+        instances.set(marked.instance, sent.at);
+        scopes.push({});
+      }
+      shared = scopes[sent.at] ?? null;
+    }
+    for (const [name, value] of Object.entries(values)) {
+      if (shared == null || (isMarked(marked) && marked.own.includes(name))) {
+        sent.own[name] = value;
+      } else {
+        shared[name] = value;
+        sent.names.push(name);
+      }
+    }
+    return sent;
+  };
   for (const island of shells) {
     let values: Record<string, unknown> | null;
     try {
@@ -858,7 +907,7 @@ function shellOf(shells: ReadonlyArray<Shell>) {
     }
     islands.push({
       ...island,
-      scope: values,
+      scope: scopeFor(island, values),
       context: contextsOf(island, checked),
     });
   }
@@ -866,7 +915,10 @@ function shellOf(shells: ReadonlyArray<Shell>) {
     return null;
   }
   const [entry = ""] = files;
-  const data = serialize(islands, true).replaceAll("<", String.raw`\u003c`);
+  const data = serialize({ scopes, islands }, true).replaceAll(
+    "<",
+    String.raw`\u003c`,
+  );
   return {
     head: files.map(
       (file) => `<link rel="modulepreload" href="${urlOf(file)}">`,

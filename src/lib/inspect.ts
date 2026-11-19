@@ -38,7 +38,7 @@ const ENTITIES: Record<string, string> = {
 type Fetcher = (url: string, init: RequestInit) => Promise<Response>;
 type Output = { out: (line: string) => void; err: (line: string) => void };
 type Sent = Omit<Shell, "scope" | "context"> & {
-  scope: Record<string, unknown> | null;
+  scope: { names: Array<string>; own: Record<string, unknown> } | null;
   context: Array<[isSymbol: boolean, name: string, value: unknown]>;
 };
 
@@ -94,7 +94,7 @@ function sentOf(html: string) {
     return [];
   }
   try {
-    return deserialize(decoded(text)) as Array<Sent>;
+    return (deserialize(decoded(text)) as { islands: Array<Sent> }).islands;
   } catch {
     return [];
   }
@@ -167,7 +167,10 @@ function islandOf(
             record.state === "client" ? "visible" : "interaction",
           ]),
     why: attributes.get("data-island-why") ?? null,
-    scope: record?.scope == null ? null : Object.keys(record.scope),
+    scope:
+      record?.scope == null
+        ? null
+        : [...record.scope.names, ...Object.keys(record.scope.own)],
     context:
       record == null
         ? null

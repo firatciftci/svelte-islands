@@ -41,7 +41,7 @@ Shell pages need the [Vite plugin](70-vite-plugin.md). The plugin gives each isl
 
 An island's value comes from its part, the same as on any page.
 
-For the page values it reads, the server takes a snapshot when it renders the page and sends that snapshot with the page. The page doesn't run again, so those values never change on the server's side. Each island gets its own copy of that snapshot, objects included, so a change one island makes stays in that island. Two islands that read `count` each start from the same number, and pressing a button in one doesn't move the other.
+For the page values it reads, the server takes a snapshot when it renders the page and sends that snapshot with the page, once for each component. The page doesn't run again, so those values never change on the server's side. In the browser, the islands of a component share one live copy of the snapshot, as islands on a SvelteKit page share the page's state. Two islands that read `count` start from the same number, and pressing a button in one moves the other as well. A value from around an island, such as an item of an `{#each}` block, stays with that island. An island that still shows server-rendered HTML picks up the new value once it wakes.
 
 ## Contexts that cross
 

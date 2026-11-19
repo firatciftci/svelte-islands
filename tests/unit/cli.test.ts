@@ -84,23 +84,26 @@ describe("inspect", () => {
       isPrivate: true,
     });
     const data = serialize(
-      [
-        {
-          part,
-          key: "profile",
-          state: "static",
-          file: null,
-          needs: null,
-          module: "m1",
-          hydrate: ["idle", "interaction"],
-          reveal: "visible",
-          margin: null,
-          media: null,
-          prefetch: true,
-          scope: { count: 1, label: "a" },
-          context: [[true, "tone", "warm"]],
-        },
-      ],
+      {
+        scopes: [{ count: 1 }],
+        islands: [
+          {
+            part,
+            key: "profile",
+            state: "static",
+            file: null,
+            needs: null,
+            module: "m1",
+            hydrate: ["idle", "interaction"],
+            reveal: "visible",
+            margin: null,
+            media: null,
+            prefetch: true,
+            scope: { at: 0, names: ["count"], own: { label: "a" } },
+            context: [[true, "tone", "warm"]],
+          },
+        ],
+      },
       true,
     );
     const html = `<head><script type="speculationrules">{"prerender":[]}</script></head><body><div data-island="dddddddddddddddddddddd" data-island-module="m1" data-island-state="static" data-island-why="it reads count, which can change"></div><div data-island="eeeeeeeeeeeeeeeeeeeeee" data-island-module="m2" data-island-state="static" data-island-why="inferred"></div><script type="application/json" id="svelte-islands">${data}</script></body>`;

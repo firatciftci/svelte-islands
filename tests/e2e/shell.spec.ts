@@ -43,13 +43,16 @@ test.describe("pages with csr = false", () => {
     expect(errors).toStrictEqual([]);
   });
 
-  test("each island gets its own copy of the page values", async ({ page }) => {
+  test("islands share the page's values", async ({ page }) => {
     await page.goto(seeded("/shell"));
+    await page.getByTestId("shell-bump").click();
+    await expect(page.getByTestId("shell-scope")).toHaveText("hello 6");
     const small = page.getByTestId("shell-small");
     await expect(small).toHaveText("3 5");
     await small.click();
-    await expect(small).toHaveText("3 6");
-    await expect(page.getByTestId("shell-scope")).toHaveText("hello 5");
+    await expect(small).toHaveText("3 7");
+    await expect(page.getByTestId("shell-scope")).toHaveText("hello 7");
+    await expect(page.getByTestId("shell-bump")).toHaveText("bump 7");
   });
 
   test("a held press reaches the island after it hydrates", async ({

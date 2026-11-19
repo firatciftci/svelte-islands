@@ -5,7 +5,11 @@ import { freshOf, holdSwaps, markupNow, markupOf, partsOf } from "./runtime.js";
 import { awaken, codeOf, freshen, render, reveal } from "./wake.js";
 
 type Sent = Omit<Shell, "scope" | "context"> & {
-  scope: Record<string, unknown> | null;
+  scope: {
+    at: number | null;
+    names: Array<string>;
+    own: Record<string, unknown>;
+  } | null;
   context: Array<[isSymbol: boolean, name: string, value: unknown]>;
 };
 
@@ -26,17 +30,42 @@ function reload(part: Part) {
   location.reload();
 }
 
-function scopeOf(values: Record<string, unknown> | null) {
-  if (values == null) {
+function scopeOf(
+  sent: Sent["scope"],
+  shared: ReadonlyArray<Record<string, unknown>>,
+) {
+  if (sent == null) {
     return;
   }
-  const scope = $state(values);
+  const own = $state(sent.own);
+  const page = sent.at == null ? null : (shared[sent.at] ?? null);
+  if (page == null) {
+    return own;
+  }
+  const scope = {};
+  for (const name of sent.names) {
+    Object.defineProperty(scope, name, {
+      get: () => page[name],
+      set: (value: unknown) => {
+        page[name] = value;
+      },
+    });
+  }
+  for (const name of Object.keys(sent.own)) {
+    Object.defineProperty(scope, name, {
+      get: () => own[name],
+      set: (value: unknown) => {
+        own[name] = value;
+      },
+    });
+  }
   return scope;
 }
 
 function activate(
   target: HTMLElement,
   island: Sent,
+  shared: ReadonlyArray<Record<string, unknown>>,
   load: (id: string) => Promise<Module>,
 ) {
   const control: Control = { rouse: () => {} };
@@ -54,7 +83,7 @@ function activate(
       media: island.media ?? undefined,
     },
     code: codeOf(undefined, async () => load(island.module)),
-    scope: scopeOf(island.scope),
+    scope: scopeOf(island.scope, shared),
     context: new Map(
       island.context.map(([isSymbol, name, value]) => [
         isSymbol ? Symbol.for(name) : name,
@@ -96,16 +125,21 @@ export function start(load: (id: string) => Promise<Module>) {
     return;
   }
   holdSwaps();
-  const queued = Map.groupBy(
-    deserialize(text) as Array<Sent>,
-    (island) => island.part.hash,
-  );
+  const sent = deserialize(text) as {
+    scopes: Array<Record<string, unknown>>;
+    islands: Array<Sent>;
+  };
+  const shared = sent.scopes.map((values) => {
+    const scope = $state(values);
+    return scope;
+  });
+  const queued = Map.groupBy(sent.islands, (island) => island.part.hash);
   for (const target of document.querySelectorAll<HTMLElement>(
     "[data-island-module]",
   )) {
     const island = queued.get(target.dataset.island ?? "")?.shift();
     if (island != null && island.module === target.dataset.islandModule) {
-      activate(target, island, load);
+      activate(target, island, shared, load);
     }
   }
 }
