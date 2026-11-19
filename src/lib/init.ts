@@ -2,13 +2,21 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
+import { parseArgs } from "node:util";
 
-const USAGE = `Usage: svelte-islands init [<directory>]
+const USAGE = `Usage: svelte-islands init [<directory>] [--store redis|r2|none]
 
 Sets up svelte-islands in a SvelteKit app: the transport in src/hooks,
 the handle in src/hooks.server, the stylesheet in the root layout, and
 the Vite plugin in the Vite config. It changes only what's missing, so
-it's safe to run again.
+it's safe to run again. When the app sets paths.base, the transport
+gets the matching prefix.
+
+Options:
+  --store <kind>  Where parts are kept: redis (with ioredis and
+                  REDIS_URL), r2 (with an R2 binding named PARTS), or
+                  none, the default, which keeps them in memory
+  -h, --help      Prints this text
 `;
 
 type Output = { out: (line: string) => void; err: (line: string) => void };
@@ -40,62 +48,193 @@ function closing(text: string, open: number) {
   return -1;
 }
 
+function appended(text: string, block: string) {
+  return `${text.trimEnd()}\n\n${block}\n`;
+}
+
 function afterImports(text: string, line: string) {
   const imports = text.matchAll(/^import\b[^;]*(?:;[^\S\n]*)?$/gmu).toArray();
   const last = imports.at(-1);
   if (last == null) {
-    return `${line}\n${text}`;
+    return `${line}\n\n${text}`;
   }
   const end = last.index + last[0].length;
   return `${text.slice(0, end)}\n${line}${text.slice(end)}`;
 }
 
-export function transport(text: string | null) {
-  if (text == null) {
-    return `import { islands } from "svelte-islands";\n\nexport const transport = islands();\n`;
+type Store = "redis" | "r2" | "none";
+
+const STORES: ReadonlyArray<Store> = ["redis", "r2", "none"];
+
+function fresh(text: string, name: string) {
+  let candidate = name;
+  for (
+    let count = 2;
+    new RegExp(`\\b${candidate}\\b`, "u").test(text);
+    count++
+  ) {
+    candidate = `${name}${count}`;
   }
-  if (text.includes("svelte-islands")) {
-    return null;
-  }
-  if (/export\s+const\s+transport\b/u.test(text)) {
-    const renamed = text.replace(
-      /export\s+const\s+transport\b/u,
-      "const codecs",
-    );
-    return `${afterImports(renamed, `import { islands } from "svelte-islands";`)}\nexport const transport = islands({ codecs });\n`;
-  }
-  return `${afterImports(text, `import { islands } from "svelte-islands";`)}\nexport const transport = islands();\n`;
+  return candidate;
 }
 
-export function handle(text: string | null) {
-  const line = `import { handle as islands } from "svelte-islands/server";`;
-  if (text == null) {
-    return `${line}\n\nexport const handle = islands();\n`;
+function listed(text: string, name: string) {
+  for (const found of text.matchAll(/export\s*\{([^}]*)\}/gu)) {
+    const inner = found[1] ?? "";
+    for (const entry of inner.split(",")) {
+      const named = /^\s*([\w$]+)(?:\s+as\s+([\w$]+))?\s*$/u.exec(entry);
+      if (named?.[1] != null && (named[2] ?? named[1]) === name) {
+        const at = found.index + found[0].indexOf(inner);
+        return { local: named[1], start: at + inner.indexOf(entry), entry };
+      }
+    }
+  }
+  return null;
+}
+
+function exported(
+  text: string,
+  name: string,
+  line: string,
+  wrap: (local: string) => string,
+) {
+  const declared = new RegExp(
+    `export\\s+(const\\s+${name}\\b|(async\\s+)?function\\s+${name}\\b)`,
+    "u",
+  );
+  const found = declared.exec(text);
+  if (found != null) {
+    const local = fresh(text, name === "handle" ? "app" : "codecs");
+    const replacement =
+      found[1]?.startsWith("const") === true
+        ? `const ${local}`
+        : `${found[2] ?? ""}function ${local}`;
+    const renamed = text.replace(declared, () => replacement);
+    return appended(
+      afterImports(renamed, line),
+      `export const ${name} = ${wrap(local)};`,
+    );
+  }
+  const entry = listed(text, name);
+  if (entry != null) {
+    const local = fresh(text, `${name}WithIslands`);
+    const replaced = `${text.slice(0, entry.start)}${entry.entry.replace(/\S.*\S|\S/u, `${local} as ${name}`)}${text.slice(entry.start + entry.entry.length)}`;
+    return appended(
+      afterImports(replaced, line),
+      `const ${local} = ${wrap(entry.local)};`,
+    );
+  }
+  return null;
+}
+
+export function transport(text: string | null, prefix: string | null = null) {
+  const line = `import { islands } from "svelte-islands";`;
+  const options = (codecs: string | null) => {
+    const entries = [
+      ...(codecs == null
+        ? []
+        : [codecs === "codecs" ? "codecs" : `codecs: ${codecs}`]),
+      ...(prefix == null ? [] : [`prefix: ${JSON.stringify(prefix)}`]),
+    ];
+    return entries.length === 0 ? "" : `{ ${entries.join(", ")} }`;
+  };
+  const made = `export const transport = islands(${options(null)});`;
+  if (text == null || text.trim() === "") {
+    return appended(line, made);
   }
   if (text.includes("svelte-islands")) {
     return null;
   }
-  const declared =
-    /export\s+(const\s+handle\b|(async\s+)?function\s+handle\b)/u;
-  const found = declared.exec(text);
-  if (found == null) {
-    return `${afterImports(text, line)}\nexport const handle = islands();\n`;
+  return (
+    exported(
+      text,
+      "transport",
+      line,
+      (local) => `islands(${options(local)})`,
+    ) ?? appended(afterImports(text, line), made)
+  );
+}
+
+function storeSetup(store: Store, text: string) {
+  switch (store) {
+    case "redis": {
+      const client = fresh(text, "client");
+      return {
+        imports: [
+          `import { REDIS_URL } from "$app/env/private";`,
+          `import { Redis } from "ioredis";`,
+          `import { compressed, redisStore } from "svelte-islands/stores";`,
+        ],
+        before: `const ${client} = new Redis(REDIS_URL);`,
+        options: `{ store: compressed(redisStore(${client}, { ttl: 60 * 60 * 24 * 30 })) }`,
+      };
+    }
+    case "r2": {
+      return {
+        imports: [
+          `import { env } from "cloudflare:workers";`,
+          `import { r2Store } from "svelte-islands/stores";`,
+        ],
+        before: null,
+        options:
+          "{ store: r2Store(() => env.PARTS), memory: 16 * 1024 * 1024 }",
+      };
+    }
+    default: {
+      return { imports: [], before: null, options: "" };
+    }
   }
-  const replacement =
-    found[1]?.startsWith("const") === true
-      ? "const app"
-      : `${found[2] ?? ""}function app`;
-  const renamed = text.replace(declared, () => replacement);
-  const sequenced =
+}
+
+export function handle(text: string | null, store: Store = "none") {
+  const setup = storeSetup(store, text ?? "");
+  const line = [
+    ...setup.imports,
+    `import { handle as islands } from "svelte-islands/server";`,
+  ].join("\n");
+  const made = `islands(${setup.options})`;
+  const withBefore = (code: string) =>
+    setup.before == null ? code : afterImports(code, `\n${setup.before}`);
+  if (text == null || text.trim() === "") {
+    return appended(withBefore(line), `export const handle = ${made};`);
+  }
+  if (text.includes("svelte-islands")) {
+    return null;
+  }
+  const hasSequence =
     /import\s*\{[^}]*\bsequence\b[^}]*\}\s*from\s*["']@sveltejs\/kit\/hooks["']/u.test(
       text,
-    )
-      ? renamed
-      : afterImports(
-          renamed,
-          `import { sequence } from "@sveltejs/kit/hooks";`,
-        );
-  return `${afterImports(sequenced, line)}\nexport const handle = sequence(islands(), app);\n`;
+    );
+  const withSequence = hasSequence
+    ? line
+    : `import { sequence } from "@sveltejs/kit/hooks";\n${line}`;
+  const wrapped = exported(
+    text,
+    "handle",
+    withSequence,
+    (local) => `sequence(${made}, ${local})`,
+  );
+  return wrapped == null
+    ? appended(
+        withBefore(afterImports(text, line)),
+        `export const handle = ${made};`,
+      )
+    : withBefore(wrapped);
+}
+
+const BASE = /\bpaths\s*:\s*\{[^}]*?\bbase\s*:\s*([^,}\n]+)/u;
+
+export function baseOf(texts: ReadonlyArray<string | null>) {
+  for (const text of texts) {
+    const value = text == null ? undefined : BASE.exec(text)?.[1]?.trim();
+    if (value != null) {
+      const literal = /^(["'`])(\/[^"'`$]*)\1$/u.exec(value)?.[2];
+      return literal == null
+        ? { base: null, isUnread: true }
+        : { base: literal.replace(/\/$/u, ""), isUnread: false };
+    }
+  }
+  return { base: null, isUnread: false };
 }
 
 export function vite(text: string | null) {
@@ -139,7 +278,17 @@ function pick(root: string, names: ReadonlyArray<string>) {
   return found ?? names[0] ?? "";
 }
 
-function stepsFor(root: string): Array<Step> {
+const VITE_CONFIGS = [
+  "vite.config.ts",
+  "vite.config.js",
+  "vite.config.mts",
+  "vite.config.mjs",
+];
+
+function stepsFor(
+  root: string,
+  { prefix, store }: { prefix: string | null; store: Store },
+): Array<Step> {
   const extension = existsSync(path.join(root, "tsconfig.json")) ? "ts" : "js";
   return [
     {
@@ -148,7 +297,7 @@ function stepsFor(root: string): Array<Step> {
         "src/hooks.ts",
         "src/hooks.js",
       ]),
-      change: transport,
+      change: (text) => transport(text, prefix),
     },
     {
       file: pick(root, [
@@ -156,18 +305,10 @@ function stepsFor(root: string): Array<Step> {
         "src/hooks.server.ts",
         "src/hooks.server.js",
       ]),
-      change: handle,
+      change: (text) => handle(text, store),
     },
     { file: "src/routes/+layout.svelte", change: layout },
-    {
-      file: pick(root, [
-        "vite.config.ts",
-        "vite.config.js",
-        "vite.config.mts",
-        "vite.config.mjs",
-      ]),
-      change: vite,
-    },
+    { file: pick(root, VITE_CONFIGS), change: vite },
   ];
 }
 
@@ -179,22 +320,51 @@ async function contents(file: string) {
   }
 }
 
+const NOTES: Record<Store, string | null> = {
+  redis:
+    "note: the store needs ioredis, so install it, and set REDIS_URL in your environment",
+  r2: "note: the store needs an R2 bucket bound as PARTS in your Wrangler config",
+  none: null,
+};
+
 export async function run(
   args: Array<string>,
   { out, err }: Output = TERMINAL,
 ) {
-  if (args.includes("-h") || args.includes("--help")) {
+  let parsed: ReturnType<typeof parse>;
+  try {
+    parsed = parse(args);
+  } catch (error) {
+    err(error instanceof Error ? error.message : String(error));
+    err(USAGE);
+    return 2;
+  }
+  const { positionals, values } = parsed;
+  if (values.help === true) {
     out(USAGE);
     return 0;
   }
-  const root = path.resolve(args[0] ?? ".");
+  const store = STORES.find((kind) => kind === (values.store ?? "none"));
+  if (store == null) {
+    err(`--store takes redis, r2, or none, not ${values.store ?? ""}.`);
+    err(USAGE);
+    return 2;
+  }
+  const root = path.resolve(positionals[0] ?? ".");
   if (!existsSync(path.join(root, "package.json"))) {
     err(`There's no package.json in ${root}.`);
     err(USAGE);
     return 2;
   }
+  const configs = await Promise.all(
+    [...VITE_CONFIGS, "svelte.config.js", "svelte.config.ts"].map(
+      async (name) => contents(path.join(root, name)),
+    ),
+  );
+  const { base, isUnread } = baseOf(configs);
+  const prefix = base == null || base === "" ? null : `${base}/_parts/`;
   let isClean = true;
-  for (const step of stepsFor(root)) {
+  for (const step of stepsFor(root, { prefix, store })) {
     const file = path.join(root, step.file);
     const before = await contents(file);
     try {
@@ -213,5 +383,25 @@ export async function run(
       );
     }
   }
+  if (isUnread) {
+    out(
+      'note: paths.base isn\'t a plain string, so pass its prefix to islands() in src/hooks yourself, as in islands({ prefix: "/base/_parts/" })',
+    );
+  }
+  const note = NOTES[store];
+  if (note != null) {
+    out(note);
+  }
   return isClean ? 0 : 1;
+}
+
+function parse(args: Array<string>) {
+  return parseArgs({
+    args,
+    allowPositionals: true,
+    options: {
+      store: { type: "string" },
+      help: { type: "boolean", short: "h" },
+    },
+  });
 }

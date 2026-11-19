@@ -1,0 +1,187 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`init's handle > handles a Redis store and an existing handle 1`] = `
+"import { sequence } from "@sveltejs/kit/hooks";
+import { REDIS_URL } from "$app/env/private";
+import { Redis } from "ioredis";
+import { compressed, redisStore } from "svelte-islands/stores";
+import { handle as islands } from "svelte-islands/server";
+
+const client = new Redis(REDIS_URL);
+
+const app = async ({ event, resolve }) => resolve(event);
+
+export const handle = sequence(islands({ store: compressed(redisStore(client, { ttl: 60 * 60 * 24 * 30 })) }), app);
+"
+`;
+
+exports[`init's handle > handles a local handle in an export list 1`] = `
+"import { sequence } from "@sveltejs/kit/hooks";
+import { handle as islands } from "svelte-islands/server";
+
+const handle = async ({ event, resolve }) => resolve(event);
+
+export { handleWithIslands as handle };
+
+const handleWithIslands = sequence(islands(), handle);
+"
+`;
+
+exports[`init's handle > handles a missing file 1`] = `
+"import { handle as islands } from "svelte-islands/server";
+
+export const handle = islands();
+"
+`;
+
+exports[`init's handle > handles a name the rename would take 1`] = `
+"import { createApp } from "$lib/server/app";
+import { sequence } from "@sveltejs/kit/hooks";
+import { handle as islands } from "svelte-islands/server";
+
+const app = createApp();
+
+const app2 = async ({ event, resolve }) => app.run(event, resolve);
+
+export const handle = sequence(islands(), app2);
+"
+`;
+
+exports[`init's handle > handles a plain function 1`] = `
+"import { sequence } from "@sveltejs/kit/hooks";
+import { handle as islands } from "svelte-islands/server";
+
+function app({ event, resolve }) {
+  return resolve(event);
+}
+
+export const handle = sequence(islands(), app);
+"
+`;
+
+exports[`init's handle > handles a renamed handle in an export list 1`] = `
+"import { auth } from "$lib/server/auth";
+import { sequence } from "@sveltejs/kit/hooks";
+import { handle as islands } from "svelte-islands/server";
+
+export const handleError = () => {};
+export { handleWithIslands as handle };
+
+const handleWithIslands = sequence(islands(), auth);
+"
+`;
+
+exports[`init's handle > handles a typed const 1`] = `
+"import type { Handle } from "@sveltejs/kit";
+import { sequence } from "@sveltejs/kit/hooks";
+import { handle as islands } from "svelte-islands/server";
+
+const app: Handle = async ({ event, resolve }) => resolve(event);
+
+export const handle = sequence(islands(), app);
+"
+`;
+
+exports[`init's handle > handles an R2 store in a new file 1`] = `
+"import { env } from "cloudflare:workers";
+import { r2Store } from "svelte-islands/stores";
+import { handle as islands } from "svelte-islands/server";
+
+export const handle = islands({ store: r2Store(() => env.PARTS), memory: 16 * 1024 * 1024 });
+"
+`;
+
+exports[`init's handle > handles an arrow function 1`] = `
+"import { sequence } from "@sveltejs/kit/hooks";
+import { handle as islands } from "svelte-islands/server";
+
+const app = async ({ event, resolve }) => resolve(event);
+
+export const handle = sequence(islands(), app);
+"
+`;
+
+exports[`init's handle > handles an async function 1`] = `
+"import { sequence } from "@sveltejs/kit/hooks";
+import { handle as islands } from "svelte-islands/server";
+
+async function app({ event, resolve }) {
+  return resolve(event);
+}
+
+export const handle = sequence(islands(), app);
+"
+`;
+
+exports[`init's handle > handles an empty file 1`] = `
+"import { handle as islands } from "svelte-islands/server";
+
+export const handle = islands();
+"
+`;
+
+exports[`init's handle > handles an existing sequence 1`] = `
+"import { sequence } from '@sveltejs/kit/hooks';
+import { auth, i18n } from "$lib/server/hooks";
+import { handle as islands } from "svelte-islands/server";
+
+const app = sequence(auth, i18n);
+
+export const handle = sequence(islands(), app);
+"
+`;
+
+exports[`init's handle > handles other hooks but no handle 1`] = `
+"import { handle as islands } from "svelte-islands/server";
+
+export const handleError = ({ error }) => console.error(error);
+
+export const handle = islands();
+"
+`;
+
+exports[`init's transport > handles a missing file 1`] = `
+"import { islands } from "svelte-islands";
+
+export const transport = islands();
+"
+`;
+
+exports[`init's transport > handles a missing file under a base path 1`] = `
+"import { islands } from "svelte-islands";
+
+export const transport = islands({ prefix: "/docs/_parts/" });
+"
+`;
+
+exports[`init's transport > handles a name the rename would take 1`] = `
+"import { codecs } from "$lib/codecs";
+import { islands } from "svelte-islands";
+
+const codecs2 = codecs;
+
+export const transport = islands({ codecs: codecs2 });
+"
+`;
+
+exports[`init's transport > handles a transport in an export list 1`] = `
+"import { islands } from "svelte-islands";
+
+const transport = {};
+
+export { transportWithIslands as transport };
+
+const transportWithIslands = islands({ codecs: transport });
+"
+`;
+
+exports[`init's transport > handles an app's own transport under a base path 1`] = `
+"import { islands } from "svelte-islands";
+
+const codecs = {
+  Vector: { encode: () => false, decode: () => null },
+};
+
+export const transport = islands({ codecs, prefix: "/docs/_parts/" });
+"
+`;

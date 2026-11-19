@@ -20,15 +20,20 @@ It makes four changes:
 - `src/routes/+layout.svelte` imports the stylesheet, `svelte-islands/styles.css`
 - the Vite config adds `islands()` from `svelte-islands/vite` next to `sveltekit()`
 
-Each change happens only when it's missing. A file that already has the change is left alone, so running `init` again is safe. If your hooks file already has a `handle`, `init` renames it to `app` and runs it after the islands' handle:
+Each change happens only when it's missing. A file that already has the change is left alone, so running `init` again is safe. If your hooks file already has a `handle`, `init` renames it to `app` (or `app2`, if `app` is taken) and runs it after the islands' handle:
 
 ```ts
 import { sequence } from "@sveltejs/kit/hooks";
 import { handle as islands } from "svelte-islands/server";
+
 const app = async ({ event, resolve }) => resolve(event);
 
 export const handle = sequence(islands(), app);
 ```
+
+A `handle` exported from a list, as in `export { auth as handle }`, gets the same treatment under a new name, so the list exports `handleWithIslands as handle`. An existing `transport` becomes the `codecs` that `islands()` keeps alongside its own.
+
+If your app sets `paths.base` in its Vite or Svelte config, `init` gives the transport the matching prefix, such as `islands({ prefix: "/docs/_parts/" })`, so that the browser asks for parts under your base path. It can only read a plain string. When the base comes from somewhere else (`process.env.BASE_PATH`, for example), `init` prints a note, and you'll need to pass the prefix yourself.
 
 Each step prints one line, which starts with one of four words:
 
@@ -46,9 +51,21 @@ created: src/routes/+layout.svelte
 updated: vite.config.ts
 ```
 
-A second run prints `unchanged` for all four. The exit code is 0 when no step was skipped, 1 when a step was skipped, and 2 when the directory has no `package.json`. Pass a directory as the argument to run `init` somewhere other than the current one.
+A second run prints `unchanged` for all four. The exit code is 0 when no step was skipped, 1 when a step was skipped, and 2 when the directory has no `package.json`, or when `--store` names a store `init` doesn't know. Pass a directory as the argument to run `init` somewhere other than the current one.
 
-`init` creates `src` and `src/routes` if they're missing, but it doesn't create a Vite config, since every SvelteKit app already has one. If there isn't one, or if the config has no `sveltekit()` call, it skips that file with a line that says why and exits with 1, so add `islands()` to your config yourself.
+### Choosing a store
+
+By default the handle keeps parts in memory. Pass `--store` to set up a [store](../40-build-and-deploy/20-stores.md) instead:
+
+```sh
+npx svelte-islands init --store redis
+```
+
+- `redis` uses `redisStore` with a client from `ioredis` and the `REDIS_URL` environment variable, so install `ioredis` and set the variable
+- `r2` uses `r2Store` with an R2 bucket bound as `PARTS`, and lowers `memory` to fit a Worker, as [Cloudflare Workers](../40-build-and-deploy/40-cloudflare-workers.md) explains
+- `none` keeps parts in memory, which is the default
+
+The store only goes in when `init` writes the handle. If your hooks already use svelte-islands, add the store yourself.
 
 ## inspect
 
