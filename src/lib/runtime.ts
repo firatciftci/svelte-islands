@@ -1053,9 +1053,12 @@ function isNative(target: HTMLElement): boolean {
     return target.control instanceof HTMLElement && isNative(target.control);
   }
   if (target instanceof HTMLButtonElement) {
-    return target.type === "submit";
+    return target.type === "submit" && target.form != null;
   }
   if (target instanceof HTMLInputElement) {
+    if (target.type === "submit" || target.type === "image") {
+      return target.form != null;
+    }
     return target.type !== "button" && target.type !== "reset";
   }
   return (

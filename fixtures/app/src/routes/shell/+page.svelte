@@ -12,6 +12,7 @@
   setTone("warm");
 
   let count = $state(5);
+  let untyped = $state(0);
   const greeting = "hello";
 </script>
 
@@ -50,6 +51,20 @@
     >
       {words.length}
       {count}
+    </button>
+  {/snippet}
+</Island>
+
+<Island part={data.small} view="untyped">
+  {#snippet children(words)}
+    <button
+      data-testid="shell-untyped"
+      onclick={() => {
+        untyped += 1;
+      }}
+    >
+      untyped {words.length}
+      {untyped}
     </button>
   {/snippet}
 </Island>

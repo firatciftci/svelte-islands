@@ -65,6 +65,14 @@ test.describe("pages with csr = false", () => {
     );
   });
 
+  test("a held press on a button with no type reaches the island", async ({
+    page,
+  }) => {
+    await page.goto(seeded("/shell"));
+    await page.getByTestId("shell-untyped").click();
+    await expect(page.getByTestId("shell-untyped")).toHaveText("untyped 3 1");
+  });
+
   test("deferred and client islands arrive and hydrate", async ({ page }) => {
     const errors = watchErrors(page);
     await page.goto(seeded("/shell"));
