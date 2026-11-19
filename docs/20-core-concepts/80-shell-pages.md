@@ -37,6 +37,8 @@ export const load = async () => ({
 
 Shell pages need the [Vite plugin](70-vite-plugin.md). The plugin gives each island code that the boot can load. Without it, the page sends no boot at all, and its islands stay as server HTML.
 
+The plugin finds shell pages by reading `csr` from each route's `+page` and `+layout` files when it starts, and again when they change. It follows the same rules as SvelteKit: a `+page.ts` wins over a `+page.server.ts`, and a page inherits from its layouts. When the value isn't a plain `true` or `false` (`export const csr = dev`, for example), or the route uses a [layout reset](https://svelte.dev/docs/kit/advanced-routing#Advanced-layouts-@page), the server looks at the page's HTML instead. It treats the page as a shell page if SvelteKit's client script is missing.
+
 ## What an island gets
 
 An island's value comes from its part, the same as on any page.

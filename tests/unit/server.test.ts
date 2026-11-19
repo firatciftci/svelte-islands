@@ -2,7 +2,7 @@ import type { RequestEvent } from "@sveltejs/kit";
 import { brotliDecompressSync } from "node:zlib";
 import type { Snippet } from "svelte";
 import { createRawSnippet } from "svelte";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type * as PartModule from "#lib/part.js";
 import type * as ServerModule from "#lib/server.js";
 import type { Store } from "#lib/server.js";
@@ -40,6 +40,7 @@ function eventFor(
   return {
     url,
     locals: {},
+    route: { id: url.pathname },
     isDataRequest: false,
     request: new Request(url, { method, headers }),
     fetch: async (target: URL, init: RequestInit) => fetcher(target, init),
@@ -871,6 +872,58 @@ describe("pages without SvelteKit's client", () => {
       payload,
     }));
   }
+
+  describe("the route map", () => {
+    const routes = globalThis as {
+      __svelteIslandsCsr?: Record<string, boolean | null>;
+    };
+
+    afterEach(() => {
+      delete routes.__svelteIslandsCsr;
+    });
+
+    it("decides a shell page from the route's csr, not the HTML", async () => {
+      routes.__svelteIslandsCsr = { "/page": false };
+      const html = await page(
+        server.handle(),
+        `<head></head><body>${KIT}</body>`,
+        () => {
+          record(null);
+        },
+      );
+      expect(sent(html)).toHaveLength(1);
+    });
+
+    it("falls back to the HTML for a route it couldn't read", async () => {
+      routes.__svelteIslandsCsr = { "/page": null };
+      const html = await page(
+        server.handle(),
+        `<head></head><body>${KIT}</body>`,
+        () => {
+          record(null);
+        },
+      );
+      expect(sent(html)).toBeNull();
+    });
+
+    it("warns once in dev when the HTML disagrees", async () => {
+      await load(true);
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      routes.__svelteIslandsCsr = { "/page": true };
+      const handler = server.handle();
+      for (const _ of [1, 2]) {
+        const html = await page(handler, "<head></head><body></body>", () => {
+          record(null);
+        });
+        expect(sent(html)).toBeNull();
+      }
+      const calls = warn.mock.calls.filter(([text]) =>
+        String(text).includes("csr"),
+      );
+      expect(calls).toHaveLength(1);
+      expect(calls[0]?.[0]).toContain("/page sets csr = true");
+    });
+  });
 
   it("send each page value once per component, and keep values from around an island apart", async () => {
     const handler = server.handle();

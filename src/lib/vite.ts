@@ -9,6 +9,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { extract } from "./extract.js";
+import { csrRoutes } from "./routes.js";
 
 const ISLAND = /\.__island-[\w-]+\.svelte$/u;
 const BOOT = "virtual:svelte-islands/boot";
@@ -16,6 +17,7 @@ const BOOT_ID = "\0svelte-islands:boot";
 const ALIAS = "virtual:svelte-islands/island/";
 const ALIAS_ID = "\0svelte-islands:island:";
 const SENTINEL = "__svelte_islands_boot__";
+const ROUTE_FILE = /[/\\]\+(?:page|layout)[^/\\]*$/u;
 const HOOKS = [
   "src/hooks.ts",
   "src/hooks.js",
@@ -137,6 +139,27 @@ export function islands(): Array<Plugin> {
       name: "svelte-islands",
       enforce: "pre",
       sharedDuringBuild: true,
+      config(config, { command }) {
+        if (command === "serve") {
+          return;
+        }
+        const routes = path.join(config.root ?? process.cwd(), "src/routes");
+        return {
+          define: { __SVELTE_ISLANDS_CSR__: JSON.stringify(csrRoutes(routes)) },
+        };
+      },
+      configureServer(server) {
+        const routes = path.join(server.config.root, "src/routes");
+        const refresh = () => {
+          Object.assign(globalThis, { __svelteIslandsCsr: csrRoutes(routes) });
+        };
+        refresh();
+        server.watcher.on("all", (_event, file) => {
+          if (ROUTE_FILE.test(file)) {
+            refresh();
+          }
+        });
+      },
       configResolved(config) {
         root = config.root;
         isServe = config.command === "serve";

@@ -43,6 +43,36 @@ const MIN_COMPRESSED = 1024;
 const SETTLE = 1000;
 const BOOT = "__svelte_islands_boot__";
 const NATIVE = /__sveltekit_\w+\s*=\s*\{/u;
+
+declare const __SVELTE_ISLANDS_CSR__:
+  | Record<string, boolean | null>
+  | undefined;
+
+function csrOf(id: string | null) {
+  const routes =
+    (globalThis as { __svelteIslandsCsr?: Record<string, boolean | null> })
+      .__svelteIslandsCsr ??
+    (typeof __SVELTE_ISLANDS_CSR__ === "undefined"
+      ? null
+      : __SVELTE_ISLANDS_CSR__);
+  return id == null ? null : (routes?.[id] ?? null);
+}
+
+function isShellPage(html: string, event: RequestEvent) {
+  const isNative = NATIVE.test(html);
+  const csr = csrOf(event.route.id);
+  if (csr == null) {
+    return !isNative;
+  }
+  if (dev && csr !== isNative) {
+    warnOnce(`csr:${event.route.id ?? ""}`, () => {
+      console.warn(
+        `svelte-islands: the route ${event.route.id ?? ""} sets csr = ${String(csr)}, but its HTML says otherwise. Islands follow csr = ${String(csr)}. If you changed SvelteKit, please report this.`,
+      );
+    });
+  }
+  return !csr;
+}
 const VIEW_TRANSITIONS = "<style>@view-transition{navigation:auto}</style>";
 
 type Digest = { text: string; hash: string };
@@ -942,7 +972,7 @@ function inject(html: string, event: RequestEvent) {
   if (found != null) {
     found.isHeaded = true;
   }
-  const isShell = !NATIVE.test(html);
+  const isShell = isShellPage(html, event);
   const shell = isShell && found != null ? shellOf(found.shells) : null;
   const head = [
     ...(config.viewTransitions ? [VIEW_TRANSITIONS] : []),
