@@ -1804,7 +1804,8 @@ export function extract(
       { scope: scopeName, value: valueName },
       isTypeScript,
     );
-    const file = `${filename}.__island-${digest(source, 10)}.svelte`;
+    const slash = filename.lastIndexOf("/") + 1;
+    const file = `${filename.slice(0, slash)}__island-${digest(source, 10)}-${filename.slice(slash)}`;
     modules.push({ id, file, source });
     for (const copy of analysis.copies) {
       prunable.add(copy);

@@ -69,7 +69,7 @@ describe("extract", () => {
     );
     expect(rewritten).not.toContain("Rows");
     expect(rewritten).toMatch(
-      /code=\{\(\) => import\("\/app\/src\/routes\/\+page\.svelte\.__island-[\w-]+\.svelte"\)\}/u,
+      /code=\{\(\) => import\("\/app\/src\/routes\/__island-[\w-]{10}-\+page\.svelte"\)\}/u,
     );
     expect(rewritten).toMatch(/module="[\w-]{12}"/u);
     expect(rewritten).not.toContain("scope=");
