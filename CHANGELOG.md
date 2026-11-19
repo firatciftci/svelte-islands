@@ -24,6 +24,13 @@
 - the Vite plugin decides which pages are shell pages from each route's `csr` export, and falls back to the page's HTML only when it can't read the value; in development, it warns when the two disagree
 - the prefetch docs now say that the 1 MiB budget is per page
 
+### Fixed
+
+- an app where every page has `csr = false` now gets the island boot; SvelteKit skips its client build in that case, so those pages shipped no script, fresh islands stayed as skeletons, and nothing hydrated
+- a click on a `<button>` with no `type` outside a form now reaches the island it wakes; the button counted as a submit button with a native action, so the click was lost while the island's code loaded
+- an island in `+layout.svelte` no longer makes SvelteKit warn that the layout doesn't render its children
+- the browser learns an island's skeleton in a fraction of the time on long pages, because it stops drawing a skeleton as soon as it's too big to keep, instead of finishing it four times and throwing every copy away
+
 ## 1.0.1
 
 ### Fixed
