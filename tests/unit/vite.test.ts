@@ -49,7 +49,13 @@ function named(plugins: Array<Plugin>, name: string) {
 
 function call(
   plugin: Plugin,
-  hook: "configResolved" | "buildStart" | "load" | "transform" | "writeBundle",
+  hook:
+    | "configResolved"
+    | "buildStart"
+    | "buildApp"
+    | "load"
+    | "transform"
+    | "writeBundle",
   context: object,
   ...args: Array<unknown>
 ): unknown {
@@ -235,6 +241,39 @@ describe("the Vite plugin", () => {
     expect(info.mock.calls.map(([line]) => line)).toStrictEqual([
       "svelte-islands: src/routes/+page.svelte:7: the island never hydrates, because nothing in it can change",
     ]);
+  });
+
+  it("builds the boot on its own when SvelteKit skips the client build", async () => {
+    const root = scratch();
+    const plugins = islands();
+    const main = named(plugins, "svelte-islands");
+    const shellBuild = named(plugins, "svelte-islands:shell-build");
+    call(main, "configResolved", {}, { root, command: "build", plugins });
+    const client = {
+      config: { build: { rolldownOptions: { input: { bundle: "a.js" } } } },
+    };
+    const build = vi.fn(async () => {});
+    const builder = { environments: { client }, build };
+    await call(shellBuild, "buildApp", {}, builder);
+    expect(build).not.toHaveBeenCalled();
+    call(
+      main,
+      "transform",
+      { environment: environment("server"), warn: vi.fn() },
+      PAGE,
+      path.join(root, "src/routes/+page.svelte"),
+    );
+    await call(shellBuild, "buildApp", {}, builder);
+    expect(build).toHaveBeenCalledWith(client);
+    expect(client.config.build.rolldownOptions.input).toStrictEqual([]);
+    build.mockClear();
+    call(main, "buildStart", {
+      environment: environment("client"),
+      warn: vi.fn(),
+      emitFile: vi.fn(() => "boot-ref"),
+    });
+    await call(shellBuild, "buildApp", {}, builder);
+    expect(build).not.toHaveBeenCalled();
   });
 
   it("answers an island it has no code for with a coded error", async () => {

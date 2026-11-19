@@ -12,7 +12,7 @@ import { coded } from "./errors.js";
 import { extract } from "./extract.js";
 import { csrRoutes } from "./routes.js";
 
-const ISLAND = /\.__island-[\w-]+\.svelte$/u;
+const ISLAND = /[/\\]__island-[\w-]{10}-[^/\\]+\.svelte$/u;
 const BOOT = "virtual:svelte-islands/boot";
 const BOOT_ID = "\0svelte-islands:boot";
 const ALIAS = "virtual:svelte-islands/island/";
@@ -90,6 +90,7 @@ export function islands(): Array<Plugin> {
   let root = process.cwd();
   let isServe = false;
   let boot: string | null = null;
+  let isClientBuilt = false;
 
   function own(id: string) {
     if (modules.has(id)) {
@@ -188,7 +189,11 @@ export function islands(): Array<Plugin> {
       },
       buildStart(this: Context<"buildStart">) {
         const { config, name } = this.environment;
-        if (isServe || name !== "client" || pages.size === 0) {
+        if (isServe || name !== "client") {
+          return;
+        }
+        isClientBuilt = true;
+        if (pages.size === 0) {
           return;
         }
         const [output] = [config.build.rolldownOptions.output ?? {}].flat();
@@ -288,6 +293,18 @@ export function islands(): Array<Plugin> {
         for (const file of patched) {
           writeFileSync(file, withBoot(readFileSync(file, "utf8"), files));
         }
+      },
+    },
+    {
+      name: "svelte-islands:shell-build",
+      apply: "build",
+      async buildApp(builder) {
+        const { client } = builder.environments;
+        if (isClientBuilt || pages.size === 0 || client == null) {
+          return;
+        }
+        client.config.build.rolldownOptions.input = [];
+        await builder.build(client);
       },
     },
     {
