@@ -31,6 +31,7 @@ const RESAMPLES = 2000;
 const SETTLE = 1500;
 const TAIL = 5000;
 const LONG_TASK = 50;
+const ATTEMPTS = 3;
 const TRACE_CATEGORIES = [
   "devtools.timeline",
   "disabled-by-default-devtools.timeline",
@@ -80,8 +81,8 @@ const COPY = {
   metricHarborEvent: "First harbor sort, Event Timing",
   metricBerthVisible: "First berth sort, visible",
   metricBerthEvent: "First berth sort, Event Timing",
-  metricCargoVisible: "Second berth sort, visible",
-  metricCargoEvent: "Second berth sort, Event Timing",
+  metricSecondVisible: "Second berth sort, visible",
+  metricSecondEvent: "Second berth sort, Event Timing",
 };
 
 const MODES = ["cold", "settled"] as const;
@@ -171,8 +172,8 @@ const METRICS = [
   { key: "harborEvent", label: COPY.metricHarborEvent, unit: "ms" },
   { key: "berthVisible", label: COPY.metricBerthVisible, unit: "ms" },
   { key: "berthEvent", label: COPY.metricBerthEvent, unit: "ms" },
-  { key: "cargoVisible", label: COPY.metricCargoVisible, unit: "ms" },
-  { key: "cargoEvent", label: COPY.metricCargoEvent, unit: "ms" },
+  { key: "secondVisible", label: COPY.metricSecondVisible, unit: "ms" },
+  { key: "secondEvent", label: COPY.metricSecondEvent, unit: "ms" },
 ] as const;
 
 const METHOD = {
@@ -492,10 +493,63 @@ function overrun(tasks: Array<[number, number]>, from: number, to: number) {
   return total;
 }
 
+type Plan = {
+  condition: Condition;
+  mode: Mode;
+  variant: Variant;
+  origin: string;
+};
+
+async function walk(page: Page, meter: Meter, plan: Plan) {
+  await page.goto(`${plan.origin}${PATHS[plan.variant]}`, {
+    waitUntil: plan.mode === "cold" ? "load" : "networkidle",
+  });
+  if (plan.mode === "settled") {
+    await page.waitForTimeout(SETTLE);
+  }
+  const atLoad = await meter.read();
+  const nodesAtLoad = await page.evaluate(
+    () => document.getElementsByTagName("*").length,
+  );
+
+  const settle = async () => {
+    if (plan.mode === "settled") {
+      await page.waitForLoadState("networkidle");
+      await page.waitForTimeout(SETTLE);
+    }
+  };
+  const harbor = await sortColumn(page, "harbors", "On time");
+  await page.locator('[data-demo="berths"]').scrollIntoViewIfNeeded();
+  await settle();
+  const berth = await sortColumn(page, "berths", "On time");
+  await settle();
+  const second = await sortColumn(page, "berths", "Arrivals");
+  await page.waitForTimeout(TAIL);
+
+  const atEnd = await meter.read();
+  const reading = await page.evaluate(() => {
+    const requests: Array<[number, number]> = [];
+    for (const entry of performance.getEntriesByType("resource")) {
+      if (entry instanceof PerformanceResourceTiming) {
+        requests.push([entry.startTime, entry.responseEnd]);
+      }
+    }
+    return {
+      now: performance.now(),
+      fcp:
+        performance.getEntriesByName("first-contentful-paint")[0]?.startTime ??
+        null,
+      longTasks: window.bench.longTasks,
+      requests,
+    };
+  });
+  return { atLoad, nodesAtLoad, harbor, berth, second, atEnd, reading };
+}
+
 async function visit(
   browser: Browser,
   engine: Engine,
-  plan: { condition: Condition; mode: Mode; variant: Variant; origin: string },
+  plan: Plan,
 ) {
   const profile = CONDITIONS[plan.condition];
   const context = await browser.newContext({
@@ -516,50 +570,16 @@ async function visit(
     });
   }
 
-  await page.goto(`${plan.origin}${PATHS[plan.variant]}`, {
-    waitUntil: plan.mode === "cold" ? "load" : "networkidle",
-  });
-  if (plan.mode === "settled") {
-    await page.waitForTimeout(SETTLE);
+  let walked: Awaited<ReturnType<typeof walk>>;
+  let trace: Buffer | null;
+  try {
+    walked = await walk(page, meter, plan);
+  } finally {
+    trace = chromiumRun ? await browser.stopTracing() : null;
+    await context.close();
   }
-  const atLoad = await meter.read();
-  const nodesAtLoad = await page.evaluate(
-    () => document.getElementsByTagName("*").length,
-  );
-
-  const settle = async () => {
-    if (plan.mode === "settled") {
-      await page.waitForLoadState("networkidle");
-      await page.waitForTimeout(SETTLE);
-    }
-  };
-  const harbor = await sortColumn(page, "harbors", "Departures");
-  await page.locator('[data-demo="berths"]').scrollIntoViewIfNeeded();
-  await settle();
-  const berth = await sortColumn(page, "berths", "Departures");
-  await settle();
-  const cargo = await sortColumn(page, "berths", "Cargo (kt)");
-  await page.waitForTimeout(TAIL);
-
-  const atEnd = await meter.read();
-  const reading = await page.evaluate(() => {
-    const requests: Array<[number, number]> = [];
-    for (const entry of performance.getEntriesByType("resource")) {
-      if (entry instanceof PerformanceResourceTiming) {
-        requests.push([entry.startTime, entry.responseEnd]);
-      }
-    }
-    return {
-      now: performance.now(),
-      fcp:
-        performance.getEntriesByName("first-contentful-paint")[0]?.startTime ??
-        null,
-      longTasks: window.bench.longTasks,
-      requests,
-    };
-  });
-  const trace = chromiumRun ? await browser.stopTracing() : null;
-  await context.close();
+  const { atLoad, nodesAtLoad, harbor, berth, second, atEnd, reading } =
+    walked;
 
   const tasks = chromiumRun ? reading.longTasks : null;
   const fcp = reading.fcp;
@@ -578,8 +598,8 @@ async function visit(
     harborEvent: chromiumRun ? harbor.event : null,
     berthVisible: berth.visible,
     berthEvent: chromiumRun ? berth.event : null,
-    cargoVisible: cargo.visible,
-    cargoEvent: chromiumRun ? cargo.event : null,
+    secondVisible: second.visible,
+    secondEvent: chromiumRun ? second.event : null,
   };
   const bytesMethod: BytesMethod = chromiumRun
     ? "cdp-network-loadingFinished"
@@ -596,6 +616,19 @@ async function visit(
       requests: reading.requests,
     },
   };
+}
+
+async function attempt<T>(name: string, run: () => Promise<T>) {
+  for (let tries = 1; ; tries += 1) {
+    try {
+      return await run();
+    } catch (error) {
+      if (tries === ATTEMPTS) {
+        throw error;
+      }
+      console.warn(`${name} failed, trying again: ${String(error)}`);
+    }
+  }
 }
 
 function mulberry32(seed: number) {
@@ -817,14 +850,11 @@ for (const { engine, launcher, conditions } of ENGINES) {
     for (let index = 0; index < RUNS; index += 1) {
       for (const mode of rotate(MODES, index)) {
         for (const variant of rotate(VARIANTS, index)) {
-          const result = await visit(browser, engine, {
-            condition,
-            mode,
-            variant,
-            origin,
-          });
           const run = index + 1;
           const name = `${engine}-${condition}-${mode}-${variant}-${String(run).padStart(2, "0")}`;
+          const result = await attempt(name, () =>
+            visit(browser, engine, { condition, mode, variant, origin }),
+          );
           if (result.trace != null) {
             await writeFile(
               join(RAW, `${name}.trace.json.gz`),
