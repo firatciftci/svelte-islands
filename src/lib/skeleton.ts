@@ -90,6 +90,8 @@ const OUTLINE_LIMIT = 32;
 
 const BUDGET = 12 * 1024;
 
+const SLACK = 64;
+
 const SHOWN = "svg, canvas, math, video, iframe, picture, img";
 
 const ENTITIES: Record<string, string> = {
@@ -242,16 +244,29 @@ function open(element: Branch, tag: string, extra: Array<string> = []) {
   return `<${parts.join(" ")}>`;
 }
 
-function text(node: string, out: Array<string>) {
+type Out = { parts: Array<string>; size: number; cap: number };
+
+function put(out: Out, html: string) {
+  out.parts.push(html);
+  out.size += html.length;
+}
+
+function isFull(out: Out) {
+  return out.size > out.cap;
+}
+
+function text(node: string, out: Out) {
   const spaced = node.replaceAll(/\s+/gu, " ");
   const trimmed = spaced.trim();
   if (trimmed === "") {
     if (spaced !== "") {
-      out.push(" ");
+      put(out, " ");
     }
     return;
   }
-  out.push(
+  put(
+    out,
+    
     `${spaced.startsWith(" ") ? " " : ""}<span class="island-bone" style="--n:${Math.min(trimmed.length, 48)}"></span>${spaced.endsWith(" ") ? " " : ""}`,
   );
 }
@@ -288,11 +303,14 @@ function isOutline(element: Branch) {
   return read(element, "class")?.split(/\s+/u).includes(OUTLINE) === true;
 }
 
-function emitChildren(node: Branch, limit: number, out: Array<string>) {
+function emitChildren(node: Branch, limit: number, out: Out) {
   const seen = new Map<string, number>();
   let isSkipping = false;
   let rows = 0;
   for (const child of node.children) {
+    if (isFull(out)) {
+      return;
+    }
     if (typeof child === "string") {
       if (!isSkipping) {
         text(child, out);
@@ -310,13 +328,14 @@ function emitChildren(node: Branch, limit: number, out: Array<string>) {
     }
   }
   if (rows > 0) {
-    out.push(
+    put(
+      out,
       `<tr class="island-rest" style="--island-rest:${rows}"><td></td></tr>`,
     );
   }
 }
 
-function emit(node: Twig, limit: number, out: Array<string>) {
+function emit(node: Twig, limit: number, out: Out) {
   if (typeof node === "string") {
     text(node, out);
     return;
@@ -325,21 +344,21 @@ function emit(node: Twig, limit: number, out: Array<string>) {
     return;
   }
   if (MEDIA.has(node.tag) || node.tag === "img") {
-    out.push(media(node));
+    put(out, media(node));
     return;
   }
   const isLink = node.tag === "a";
   const tag = isLink ? "span" : node.tag;
-  out.push(open(node, tag, isLink ? ["island-link"] : []));
+  put(out, open(node, tag, isLink ? ["island-link"] : []));
   if (VOID.has(node.tag)) {
     return;
   }
   if (!node.isFilled) {
-    out.push(`</${tag}>`);
+    put(out, `</${tag}>`);
     return;
   }
   emitChildren(node, limit, out);
-  out.push(`</${tag}>`);
+  put(out, `</${tag}>`);
 }
 
 function grow(element: Element): Branch {
@@ -350,8 +369,12 @@ function grow(element: Element): Branch {
       value,
     ]),
     children: twigs(element),
-    isFilled:
-      element.textContent.trim() !== "" || element.querySelector(SHOWN) != null,
+    get isFilled() {
+      return (
+        element.textContent.trim() !== "" ||
+        element.querySelector(SHOWN) != null
+      );
+    },
   };
 }
 
@@ -370,18 +393,26 @@ function twigs(element: Element): Iterable<Twig> {
 }
 
 function trim(children: Iterable<Twig>) {
-  let shaped = "";
+  let shaped: string | null = null;
   for (const limit of LIMITS) {
-    const out: Array<string> = [];
+    const isLast = limit === LIMITS.at(-1);
+    const out: Out = {
+      parts: [],
+      size: 0,
+      cap: (isLast ? BUDGET * 2 : BUDGET) + SLACK,
+    };
     for (const child of children) {
+      if (isFull(out)) {
+        break;
+      }
       emit(child, limit, out);
     }
-    shaped = out.join("").trim();
-    if (shaped.length <= BUDGET) {
+    shaped = isFull(out) ? null : out.parts.join("").trim();
+    if (shaped != null && shaped.length <= BUDGET) {
       return shaped;
     }
   }
-  return shaped.length <= BUDGET * 2 ? shaped : null;
+  return shaped != null && shaped.length <= BUDGET * 2 ? shaped : null;
 }
 
 export function skeletonize(html: string) {
