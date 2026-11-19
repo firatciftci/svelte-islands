@@ -56,6 +56,7 @@ export type Inspected = {
     needs: number;
     part: { raw: number; gzip: number } | null;
     hydrate: Array<string> | null;
+    why: string | null;
     scope: Array<string> | null;
     context: Array<string> | null;
   }>;
@@ -165,6 +166,7 @@ function islandOf(
         : (record.hydrate ?? [
             record.state === "client" ? "visible" : "interaction",
           ]),
+    why: attributes.get("data-island-why") ?? null,
     scope: record?.scope == null ? null : Object.keys(record.scope),
     context:
       record == null
@@ -270,6 +272,11 @@ function cellsOf(island: Island, client: Inspected["client"]) {
   }
   if (island.scope != null && island.scope.length > 0) {
     cells.push(`gets ${island.scope.join(", ")}`);
+  }
+  if (island.why === "inferred") {
+    cells.push("never hydrates, because nothing in it can change");
+  } else if (island.why != null) {
+    cells.push(`hydrates because ${island.why}`);
   }
   return cells;
 }

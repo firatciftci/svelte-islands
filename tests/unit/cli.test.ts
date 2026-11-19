@@ -103,7 +103,7 @@ describe("inspect", () => {
       ],
       true,
     );
-    const html = `<head><script type="speculationrules">{"prerender":[]}</script></head><body><div data-island="dddddddddddddddddddddd" data-island-module="m1" data-island-state="static"></div><div data-island="eeeeeeeeeeeeeeeeeeeeee" data-island-module="m2" data-island-state="static"></div><script type="application/json" id="svelte-islands">${data}</script></body>`;
+    const html = `<head><script type="speculationrules">{"prerender":[]}</script></head><body><div data-island="dddddddddddddddddddddd" data-island-module="m1" data-island-state="static" data-island-why="it reads count, which can change"></div><div data-island="eeeeeeeeeeeeeeeeeeeeee" data-island-module="m2" data-island-state="static" data-island-why="inferred"></div><script type="application/json" id="svelte-islands">${data}</script></body>`;
     const found = await inspect(
       "https://site.test/",
       "/_parts/",
@@ -123,6 +123,12 @@ describe("inspect", () => {
     );
     expect(summary(found)).toContain(
       "code in its own chunk, not sent by the boot, so it stays as server HTML",
+    );
+    expect(summary(found)).toContain(
+      "hydrates because it reads count, which can change",
+    );
+    expect(summary(found)).toContain(
+      "never hydrates, because nothing in it can change",
     );
   });
 

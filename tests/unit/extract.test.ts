@@ -475,3 +475,212 @@ describe("extract", () => {
     expect(new Set(first?.modules.map((made) => made.id)).size).toBe(2);
   });
 });
+
+describe('inferring hydrate="never"', () => {
+  function inferred(
+    script: string,
+    markup: string,
+    attributes = "",
+    target: "client" | "server" = "client",
+  ) {
+    const extracted = extract(
+      page(
+        `  const { data } = $props();\n${script}`,
+        `<Island part={data.rows}${attributes}>{#snippet children(rows)}${markup}{/snippet}</Island>`,
+      ),
+      FILE,
+      "src/routes/+page.svelte",
+      target,
+      true,
+    );
+    if (extracted == null || extracted.modules.length !== 1) {
+      throw new Error("expected one island");
+    }
+    const why = /why=\{"([^"]*)"\}/u.exec(extracted.code)?.[1] ?? null;
+    return { isNever: extracted.code.includes(`hydrate="never"`), why };
+  }
+
+  it.each([
+    ["text and expressions", "", "<p>{rows.length} rows</p>"],
+    [
+      "blocks, @const, and @html",
+      "",
+      "{#each rows as row (row.id)}{@const label = row.label}{#if label}<p>{@html label}</p>{:else}<hr />{/if}{/each}{#key rows}<i>key</i>{/key}",
+    ],
+    [
+      "class and style directives",
+      "",
+      `<p class:wide={rows.length > 2} style:color="red">x</p>`,
+    ],
+    [
+      "a page snippet that is static",
+      "",
+      "{#snippet row(r)}<li>{r}</li>{/snippet}<ul>{#each rows as r}{@render row(r)}{/each}</ul>",
+    ],
+    ["a constant from the script", `  const LABEL = "rows";`, "<p>{LABEL}</p>"],
+    [
+      "a constant object from the script",
+      `  const format = new Intl.NumberFormat("en");`,
+      "<p>{format.format(rows.length)}</p>",
+    ],
+    [
+      "a function from a module",
+      `  import { label } from "./label.ts";`,
+      "<p>{label(rows)}</p>",
+    ],
+    [
+      "a plain form and link",
+      "",
+      `<form method="post"><button>Go</button></form><a href="/x">x</a><details><summary>s</summary>d</details>`,
+    ],
+  ])("never hydrates %s", (_name, script, markup) => {
+    expect(inferred(script, markup)).toStrictEqual({
+      isNever: true,
+      why: "inferred",
+    });
+  });
+
+  it.each([
+    [
+      "state",
+      `  let count = $state(0);`,
+      "<p>{count}</p>",
+      "it reads count, which can change",
+    ],
+    ["props", "", "<p>{data.title}</p>", "it reads data, which can change"],
+    [
+      "a let",
+      `  let label = "x";`,
+      "<p>{label}</p>",
+      "it reads label, which can change",
+    ],
+    [
+      "a function from the script",
+      `  function label() { return "x"; }`,
+      "<p>{label()}</p>",
+      "it reads label, which can change",
+    ],
+    [
+      "a constant with a getter",
+      `  const box = { get value() { return 1; } };`,
+      "<p>{box.value}</p>",
+      "it reads box, which can change",
+    ],
+    [
+      "a store",
+      `  import { writable } from "./stores.ts";\n  const count = writable(0);`,
+      "<p>{$count}</p>",
+      "it reads $count, which can change",
+    ],
+    [
+      "page state",
+      `  import { page as current } from "$app/state";`,
+      "<p>{current.url}</p>",
+      "it uses current from $app/state",
+    ],
+    [
+      "a state module",
+      `  import { counter } from "./counter.svelte.ts";`,
+      "<p>{counter.value}</p>",
+      "it uses counter from ./counter.svelte.ts",
+    ],
+    ["the time", "", "<p>{Date.now()}</p>", "it reads Date"],
+    ["randomness", "", "<p>{Math.random()}</p>", "it reads Math"],
+    [
+      "a click handler",
+      "",
+      `<button onclick={() => {}}>x</button>`,
+      "it has an onclick handler",
+    ],
+    [
+      "a binding",
+      "",
+      `<input bind:value={rows.length} />`,
+      "it uses a binding",
+    ],
+    [
+      "an action",
+      `  import { tip } from "./tip.ts";`,
+      `<p use:tip>x</p>`,
+      "it uses an action",
+    ],
+    [
+      "an attachment",
+      `  import { tip } from "./tip.ts";`,
+      `<p {@attach tip}>x</p>`,
+      "it uses an attachment",
+    ],
+    [
+      "a transition",
+      `  import { fade } from "./fade.ts";`,
+      `<p transition:fade>x</p>`,
+      "it uses a transition",
+    ],
+    [
+      "an await block",
+      "",
+      `{#await Promise.resolve(rows) then done}<p>{done}</p>{/await}`,
+      "it uses {#await}",
+    ],
+    [
+      "a component",
+      `  import Row from "./row.svelte";`,
+      `<Row {rows} />`,
+      "it uses Row from ./row.svelte",
+    ],
+    [
+      "a boundary",
+      "",
+      `<svelte:boundary><p>x</p></svelte:boundary>`,
+      "it uses <svelte:boundary>",
+    ],
+    [
+      "a changing element",
+      "",
+      `<svelte:element this={rows.tag}>x</svelte:element>`,
+      "it uses <svelte:element> with a this that can change",
+    ],
+  ])("hydrates when it reads or uses %s", (_name, script, markup, why) => {
+    expect(inferred(script, markup)).toStrictEqual({ isNever: false, why });
+  });
+
+  it("leaves an island alone when it sets its own hydration or rendering", () => {
+    expect(inferred("", "<p>x</p>", ` hydrate="visible"`)).toStrictEqual({
+      isNever: false,
+      why: null,
+    });
+    expect(inferred("", "<p>x</p>", ` render="deferred"`)).toStrictEqual({
+      isNever: false,
+      why: null,
+    });
+    expect(inferred("", "<p>x</p>", ` {...{}}`)).toStrictEqual({
+      isNever: false,
+      why: null,
+    });
+    expect(inferred("", "<p>x</p>", ` render="server"`)).toStrictEqual({
+      isNever: true,
+      why: "inferred",
+    });
+  });
+
+  it("marks the server output the same way", () => {
+    expect(inferred("", "<p>x</p>", "", "server")).toStrictEqual({
+      isNever: true,
+      why: "inferred",
+    });
+  });
+
+  it("explains nothing outside dev", () => {
+    const extracted = extract(
+      page(
+        `  const { data } = $props();`,
+        `<Island part={data.rows}>{#snippet children(rows)}<p>{rows}</p>{/snippet}</Island>`,
+      ),
+      FILE,
+      "src/routes/+page.svelte",
+      "client",
+    );
+    expect(extracted?.code).toContain(`hydrate="never"`);
+    expect(extracted?.code).not.toContain("why=");
+  });
+});

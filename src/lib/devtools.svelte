@@ -51,6 +51,7 @@
       name: string;
       state: string;
       bytes: number;
+      why: string | null;
       isPlain: boolean;
     }>
   >([]);
@@ -197,6 +198,7 @@
           element.dataset.islandState ??
           (element.hasAttribute("aria-busy") ? "waiting" : "live"),
         bytes: Number(element.dataset.islandBytes ?? 0),
+        why: element.dataset.islandWhy ?? null,
         isPlain:
           element.querySelector(":scope > .island-shell > .island-fallback") !=
           null,
@@ -325,7 +327,16 @@
                       <p class="issue">{issue}</p>
                     {/each}
                   </td>
-                  <td>{row.state}</td>
+                  <td>
+                    {row.state}
+                    {#if row.why === "inferred"}
+                      <p class="note">
+                        Never hydrates, because nothing in it can change.
+                      </p>
+                    {:else if row.why != null}
+                      <p class="note">Hydrates because {row.why}.</p>
+                    {/if}
+                  </td>
                   <td class="number">{kib(row.bytes)}</td>
                   <td class="number">{sized(row.code)}</td>
                   <td class="number">{sized(row.html)}</td>

@@ -545,3 +545,39 @@ test.describe("rendering that waits", () => {
     expect(errors).toStrictEqual([]);
   });
 });
+
+test.describe("inferred never islands", () => {
+  test("an island that can't change downloads nothing, and renders after a navigation", async ({
+    page,
+  }) => {
+    const parts = partRequests(page);
+    const scripts: Array<string> = [];
+    page.on("response", async (response) => {
+      if (response.url().endsWith(".js")) {
+        const text = await response.text().catch(() => "");
+        if (text.includes("inferred-rows")) {
+          scripts.push(response.url());
+        }
+      }
+    });
+    await page.goto("/inferred");
+    await hydrated(page);
+    const island = page
+      .locator("[data-island]")
+      .filter({ has: page.getByTestId("inferred") });
+    await expect(island).toHaveAttribute("data-island-state", "static");
+    await page.evaluate(
+      () => new Promise((resolve) => setTimeout(resolve, 300)),
+    );
+    expect(
+      parts.filter((url) => !url.endsWith("/skeletons.json")),
+    ).toStrictEqual([]);
+    expect(scripts).toStrictEqual([]);
+    await page.getByRole("link", { name: "Home" }).click();
+    await page.getByRole("link", { name: "Inferred" }).click();
+    await expect(page.getByText("inferred 299", { exact: true })).toBeVisible();
+    await page.goBack();
+    await page.goForward();
+    await expect(page.getByText("inferred 299", { exact: true })).toBeVisible();
+  });
+});

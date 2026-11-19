@@ -70,6 +70,39 @@ The plugin checks each element's tag, its classes, its id, and its attributes ag
 
 Moving the markup into a component fixes it, because the component carries its own styles. Making the selector `:global` works too, if the rule is meant to reach the island.
 
+## Islands that never hydrate
+
+When an island has no `hydrate` prop and renders on the server (`render` is absent or `"server"`), the plugin checks whether its snippet can ever change. If it can't, the plugin gives the island `hydrate="never"`, so the browser downloads neither its code nor its data on the first load:
+
+```svelte
+<Island part={data.posts}>
+  {#snippet children(posts)}
+    <ul>
+      {#each posts as post (post.slug)}
+        <li><a href="/blog/{post.slug}">{post.title}</a></li>
+      {/each}
+    </ul>
+  {/snippet}
+</Island>
+```
+
+The snippet's own value is fine to read, because a new value has a new hash, and the island renders again when the hash changes. So are constants from the page's script (`const LABEL = "Posts"`, or `const format = new Intl.NumberFormat()`) and functions imported from plain modules.
+
+An island keeps hydrating when its snippet:
+
+- reads a value that can change: `$state`, `$derived`, props such as `data`, a `let`, a function declared in the page, a store, or a value from an `{#each}` around the island
+- imports from `$app/*`, `svelte`, `svelte-islands`, or a `.svelte`, `.svelte.js`, or `.svelte.ts` file (components and shared state included)
+- reads `Date`, `Math`, `crypto`, `performance`, `window`, `document`, `navigator`, `localStorage`, `sessionStorage`, or `location`
+- has an event handler (`onclick` and the like), a binding, an action, an attachment, a transition, or an animation
+- uses `{#await}`, `{@debug}`, `<svelte:boundary>`, `<svelte:element>` with a `this` that can change, or another special element
+- renders a component
+
+Plain forms, links, `<details>`, and `<dialog>` with `commandfor` buttons all work without Svelte, so they don't keep an island hydrating.
+
+In `vite dev`, each island the plugin checked carries a `data-island-why` attribute: `inferred` when it never hydrates, or the first reason it found otherwise. [`inspect`](../50-tooling/05-init-and-inspect.md) and the [overlay](../50-tooling/30-overlay.md) show it too. To choose for yourself, set `hydrate`, and the plugin leaves the island alone.
+
+The inference covers the first load only. After a client-side navigation, there's no server HTML to adopt, so the island renders in the browser from its snippet, and downloads its code to do it.
+
 ## Bundle strategy
 
 The plugin needs SvelteKit to split code, so keep `kit.output.bundleStrategy` at its default, `"split"`. With `"single"` or `"inline"`, SvelteKit turns code splitting off, and there is no separate chunk for an island to load. The plugin then warns once per build, if the app has islands, and it stops emitting the island boot. Islands on a page with `csr = false` stay as server HTML and never hydrate. Islands on other pages keep their code in the one bundle.

@@ -19,6 +19,7 @@ type Declaration = {
   name: string;
   scope: Scope;
   kind: "template" | "snippet" | "local" | "import" | "store";
+  isMutable?: boolean;
   snippet?: { node: AST.SnippetBlock; scope: Scope };
   imported?: Imported;
 };
@@ -879,6 +880,29 @@ function declareImports(declaration: Node, scope: Scope, islands: Set<string>) {
   }
 }
 
+function isLive(node: Node | null | undefined): boolean {
+  if (node == null) {
+    return false;
+  }
+  if (
+    isFunction(node) ||
+    (node.type === "Property" && (node.kind !== "init" || node.method === true))
+  ) {
+    return true;
+  }
+  if (node.type === "CallExpression") {
+    const callee = node.callee as Node;
+    const name =
+      callee.type === "MemberExpression"
+        ? (callee.object as Node).name
+        : callee.name;
+    if (typeof name === "string" && RUNES.has(name)) {
+      return true;
+    }
+  }
+  return children(node).some((child) => isLive(child));
+}
+
 function declareStatement(statement: Node, scope: Scope, islands: Set<string>) {
   const declared =
     statement.type === "ExportNamedDeclaration" && isNode(statement.declaration)
@@ -891,8 +915,10 @@ function declareStatement(statement: Node, scope: Scope, islands: Set<string>) {
     }
     case "VariableDeclaration": {
       for (const declarator of declared.declarations as Array<Node>) {
+        const isMutable =
+          declared.kind !== "const" || isLive(declarator.init as Node | null);
         for (const name of namesOf(declarator.id as Node)) {
-          scope.declare(name, { kind: "local" });
+          scope.declare(name, { kind: "local", isMutable });
         }
       }
       break;
@@ -901,7 +927,10 @@ function declareStatement(statement: Node, scope: Scope, islands: Set<string>) {
     case "ClassDeclaration":
     case "TSEnumDeclaration": {
       if (isNode(declared.id)) {
-        scope.declare(declared.id.name as string, { kind: "local" });
+        scope.declare(declared.id.name as string, {
+          kind: "local",
+          isMutable: true,
+        });
       }
       break;
     }
@@ -1195,6 +1224,7 @@ function importLine(
 type Analysis = {
   captures: Map<string, Declaration & { isWritten: boolean }>;
   imports: Map<string, Imported>;
+  globals: Set<string>;
   copies: Array<AST.SnippetBlock>;
   references: Array<Reference>;
   problems: Array<string>;
@@ -1207,7 +1237,11 @@ function record(
   result: Analysis,
 ): NonNullable<Declaration["snippet"]> | null {
   const { declaration, name } = reference;
-  if (declaration == null || inner.has(declaration.scope)) {
+  if (declaration == null) {
+    result.globals.add(name);
+    return null;
+  }
+  if (inner.has(declaration.scope)) {
     return null;
   }
   if (declaration.kind !== "store" && at.lookup(name) !== declaration) {
@@ -1248,6 +1282,7 @@ function analyze(
   const result: Analysis = {
     captures: new Map(),
     imports: new Map(),
+    globals: new Set(),
     copies: [],
     references: [],
     problems: [],
@@ -1279,6 +1314,111 @@ function analyze(
   };
   visit(snippet, declared, false);
   return result;
+}
+
+const CHANGING_GLOBALS = new Set([
+  "Date",
+  "Math",
+  "crypto",
+  "performance",
+  "window",
+  "document",
+  "navigator",
+  "localStorage",
+  "sessionStorage",
+  "location",
+  ...RUNES,
+]);
+
+const LIVE_NODES: Record<string, string> = {
+  OnDirective: "an on: directive",
+  BindDirective: "a binding",
+  UseDirective: "an action",
+  AttachTag: "an attachment",
+  TransitionDirective: "a transition",
+  AnimateDirective: "an animation",
+  LetDirective: "let:",
+  AwaitBlock: "{#await}",
+  DebugTag: "{@debug}",
+  SvelteComponent: "<svelte:component>",
+  SvelteSelf: "<svelte:self>",
+  SlotElement: "<slot>",
+  SvelteBoundary: "<svelte:boundary>",
+  SvelteHead: "<svelte:head>",
+  TitleElement: "<title>",
+  SvelteWindow: "<svelte:window>",
+  SvelteDocument: "<svelte:document>",
+  SvelteBody: "<svelte:body>",
+  SvelteFragment: "<svelte:fragment>",
+};
+
+const LIVE_SOURCE =
+  /^(?:\$app\/|svelte(?:-islands)?(?:\/|$))|\.svelte(?:\.[jt]s)?$/u;
+
+function liveMarkup(node: Node): string | null {
+  const known = LIVE_NODES[node.type];
+  if (known != null) {
+    return `it uses ${known}`;
+  }
+  if (isComponent(node)) {
+    return `it renders <${node.name}>`;
+  }
+  if (node.type === "SvelteElement" && (node.tag as Node).type !== "Literal") {
+    return "it uses <svelte:element> with a this that can change";
+  }
+  if (node.type === "Attribute" && /^on/iu.test(node.name as string)) {
+    return `it has an ${node.name as string} handler`;
+  }
+  for (const child of children(node)) {
+    const found = liveMarkup(child);
+    if (found != null) {
+      return found;
+    }
+  }
+  return null;
+}
+
+function whyLive(snippet: AST.SnippetBlock, analysis: Analysis) {
+  for (const capture of analysis.captures.values()) {
+    if (capture.kind !== "local" || capture.isMutable !== false) {
+      return `it reads ${capture.name}, which can change`;
+    }
+  }
+  for (const [local, imported] of analysis.imports) {
+    if (LIVE_SOURCE.test(imported.source)) {
+      return `it uses ${local} from ${imported.source}`;
+    }
+  }
+  for (const name of analysis.globals) {
+    if (CHANGING_GLOBALS.has(name)) {
+      return `it reads ${name}`;
+    }
+  }
+  for (const body of [snippet, ...analysis.copies]) {
+    const found = liveMarkup(asNode(body.body));
+    if (found != null) {
+      return found;
+    }
+  }
+  return null;
+}
+
+function isInferable(island: AST.Component) {
+  return island.attributes.every((attribute) => {
+    if (attribute.type !== "Attribute") {
+      return attribute.type !== "SpreadAttribute";
+    }
+    if (attribute.name === "hydrate") {
+      return false;
+    }
+    return (
+      attribute.name !== "render" ||
+      (Array.isArray(attribute.value) &&
+        attribute.value.length === 1 &&
+        attribute.value[0]?.type === "Text" &&
+        attribute.value[0].data === "server")
+    );
+  });
 }
 
 function shorthandText(
@@ -1552,6 +1692,7 @@ export function extract(
   filename: string,
   name: string,
   target: "client" | "server",
+  isDev = false,
 ): Extracted | null {
   if (!code.includes("svelte-islands")) {
     return null;
@@ -1612,6 +1753,15 @@ export function extract(
         ? ""
         : ` scope={${scopeObject(analysis.captures, valueName, isServer)}}`;
     const nameEnd = island.start + 1 + island.name.length;
+    if (isInferable(island)) {
+      const why = whyLive(located.snippet, analysis);
+      if (why == null) {
+        page.appendLeft(nameEnd, ` hydrate="never"`);
+      }
+      if (isDev) {
+        page.appendLeft(nameEnd, ` why={${JSON.stringify(why ?? "inferred")}}`);
+      }
+    }
     if (isServer) {
       page.appendLeft(nameEnd, ` module="${id}"${scope}`);
       modules.push({ id, file: "", source: "" });

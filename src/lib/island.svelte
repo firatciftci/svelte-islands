@@ -60,6 +60,7 @@
     children,
     code: chunk,
     module: moduleId,
+    why,
     scope,
     failed,
     class: className,
@@ -90,6 +91,8 @@
     code?: Chunk;
     /** The island's id in the build. The Vite plugin sets this. */
     module?: string;
+    /** Why the island hydrates, or `"inferred"` when it never needs to. The Vite plugin sets this in dev. */
+    why?: string;
     /** The page values the island's code reads. The Vite plugin sets this. */
     scope?: object;
     /** Shown when a part can't be loaded. Call `retry` to try again. */
@@ -140,6 +143,7 @@
       as,
       module: moduleId ?? null,
       className: className ?? null,
+      why: why ?? null,
       body: children,
       context,
       hydrate: hydrate == null ? null : strategiesOf(hydrate),
@@ -376,6 +380,7 @@
     data-island={part.hash}
     data-island-name={dev ? part.name : undefined}
     data-island-bytes={dev ? part.bytes : undefined}
+    data-island-why={dev ? why : undefined}
     aria-busy={current == null || body == null ? "true" : undefined}
     {@attach learn}
   >
@@ -387,6 +392,7 @@
     data-island={part.hash}
     data-island-name={dev ? part.name : undefined}
     data-island-bytes={dev ? part.bytes : undefined}
+    data-island-why={dev ? why : undefined}
     aria-busy={current == null || body == null ? "true" : undefined}
     {@attach learn}
   >

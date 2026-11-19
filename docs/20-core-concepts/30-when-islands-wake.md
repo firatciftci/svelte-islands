@@ -22,7 +22,7 @@ There are six strategies:
 - `eager` wakes right away
 - `never` stays as server HTML
 
-The default is `interaction`, except for an island with `render="client"`, which defaults to `visible`. See [Islands](20-islands.md#client-only).
+The default is `interaction`, except for an island with `render="client"`, which defaults to `visible`. See [Islands](20-islands.md#client-only). With the [Vite plugin](70-vite-plugin.md#islands-that-never-hydrate), an island whose snippet can't change defaults to `never`.
 
 Each of these islands uses a different one, so you can see what it takes to wake each:
 
@@ -67,6 +67,8 @@ If the query never matches, the island never wakes, and that phone never downloa
 ## `never`
 
 Content that never responds to anything has no reason to hydrate. It stays as server HTML, and the browser never downloads its data.
+
+You rarely need to write it: the [Vite plugin](70-vite-plugin.md#islands-that-never-hydrate) sets it for any island whose snippet can't change.
 
 This paragraph is one of them.
 

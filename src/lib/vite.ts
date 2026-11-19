@@ -202,7 +202,7 @@ export function islands(): Array<Plugin> {
           const target =
             this.environment.config.consumer === "client" ? "client" : "server";
           const name = path.relative(root, id).split(path.sep).join("/");
-          const extracted = extract(code, id, name, target);
+          const extracted = extract(code, id, name, target, isServe);
           if (extracted == null) {
             return null;
           }

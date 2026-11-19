@@ -133,6 +133,7 @@ export type Fresh<T = unknown> = {
 export type Island = Omit<Shell, "state" | "file" | "needs" | "module"> & {
   module: string | null;
   className: string | null;
+  why: string | null;
   render: Render;
   as: "div" | "tbody";
   body: Snippet<[never]>;

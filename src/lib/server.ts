@@ -452,6 +452,7 @@ function wrap(island: Island, made: Omit<Adopted, "html">, inner: string) {
     attribute("data-island", origin.hash),
     attribute("data-island-name", dev ? origin.name : null),
     attribute("data-island-module", island.module),
+    attribute("data-island-why", dev ? island.why : null),
     attribute("data-island-bytes", dev ? origin.bytes : null),
     attribute("data-island-state", made.state),
     attribute("data-island-file", made.file),
