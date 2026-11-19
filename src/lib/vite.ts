@@ -58,6 +58,14 @@ function staticImports(bundle: Rollup.OutputBundle, entry: string) {
   return files;
 }
 
+function missing(id: string) {
+  const [before = "", after = ""] = coded(
+    "islands_missing_code",
+    "There's no code for the island %s in this build. The page may come from an older build, so reload it.",
+  ).split("%s");
+  return `${JSON.stringify(before)} + ${id} + ${JSON.stringify(after)}`;
+}
+
 /**
  * The Vite plugin that gives each island its own chunk, so a page's JavaScript
  * holds only the code outside islands, and that boots islands on pages with
@@ -73,14 +81,6 @@ function staticImports(bundle: Rollup.OutputBundle, entry: string) {
  *
  * @returns The plugins.
  */
-
-function missing(id: string) {
-  const [before = "", after = ""] = coded(
-    "islands_missing_code",
-    "There's no code for the island %s in this build. The page may come from an older build, so reload it.",
-  ).split("%s");
-  return `${JSON.stringify(before)} + ${id} + ${JSON.stringify(after)}`;
-}
 export function islands(): Array<Plugin> {
   const modules = new Map<string, string>();
   const pages = new Map<string, string>();

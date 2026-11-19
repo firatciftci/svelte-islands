@@ -27,5 +27,26 @@ export default defineConfig({
       "$app/server": local("tests/stubs/server.ts"),
     },
   },
-  test: { environment: "node", include: ["tests/unit/**/*.test.ts"] },
+  test: {
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "node",
+          environment: "node",
+          include: ["tests/unit/**/*.test.ts"],
+          exclude: ["tests/unit/dom/**"],
+        },
+      },
+      {
+        extends: true,
+        resolve: { conditions: ["browser"] },
+        test: {
+          name: "dom",
+          environment: "happy-dom",
+          include: ["tests/unit/dom/**/*.test.ts"],
+        },
+      },
+    ],
+  },
 });

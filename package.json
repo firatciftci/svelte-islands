@@ -136,6 +136,7 @@
     "eslint-plugin-sonarjs": "^4.2.2",
     "eslint-plugin-svelte": "^3.23.1",
     "fast-check": "^4.10.2",
+    "happy-dom": "21.0.4",
     "ioredis": "^6.0.0",
     "knip": "^6.41.0",
     "marked": "18.1.3",
