@@ -115,7 +115,7 @@ Prefetching doesn't happen in a few cases:
 - when `hydrate` includes `visible` or `eager`, since the island fetches its data then anyway
 - when `hydrate` is only `never`, since the island never wakes
 - when the reader has asked to save data with `Save-Data`, or the connection is `slow-2g` or `2g`, so that data the reader may never need doesn't use up a slow connection
-- once the page has prefetched 1 MiB of parts, until the page is reloaded, so that a long page can't fetch everything up front
+- once a page has prefetched 1 MiB of parts, so that a long page can't fetch everything up front (each page gets its own 1 MiB, so moving to another page starts the count again)
 
 An island that's waiting for another strategy, such as `idle` or `media`, still notices a pointer, focus, or touch inside it. It starts downloading its data and code right then, at high priority, and wakes when its own strategy fires. To see how much prefetching helped, listen for the [`prefetch` event](../50-tooling/40-measuring.md), which says, for each part, whether an island used it, needed it before it arrived, or never read it.
 
