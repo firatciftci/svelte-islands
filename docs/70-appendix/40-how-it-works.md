@@ -17,6 +17,8 @@ If a part or deferred HTML is requested after the server no longer has it, the b
 
 A failed fetch is retried after 1, 3, and 5 seconds before the island shows its failure state. A part the server can no longer rebuild is not retried.
 
+The page's HTML names only the path a part came from, never the query, so a token in a link such as `/reset?token=...` doesn't end up in the markup or in a cached copy of the page. When the browser asks for a rebuild of a part from the page it's on, it adds that page's query itself.
+
 ## Learned skeletons
 
 The server turns each island's rendered HTML into a skeleton made of bars and blocks. The browser does the same from the live DOM, saving what it learns in `localStorage`.

@@ -18,7 +18,7 @@ import {
   settings,
   usePacker,
 } from "./part.js";
-import { REBUILD_DEFAULTS, rebuilds } from "./rebuild.js";
+import { gate, REBUILD_DEFAULTS, rebuilds } from "./rebuild.js";
 import { outline, skeletonize } from "./skeleton.js";
 
 usePacker((value, claims) =>
@@ -66,6 +66,10 @@ const requests = new WeakMap<
   }
 >();
 const warned = new Set<string>();
+const WARNINGS = 256;
+const PAGES = 4096;
+const freshPages = new Set<string>();
+const barren = new Map<string, number>();
 const squeezed = new Map<
   string,
   { size: number; work: Promise<Uint8Array<ArrayBuffer> | null> }
@@ -106,9 +110,25 @@ const state: {
   squeezed: number;
   names: Promise<unknown> | null;
 } = { held: 0, squeezed: 0, names: null };
-const rebuild = rebuilds<Map<string, Digest>>(
-  () => config.rebuild ?? REBUILD_DEFAULTS,
-);
+const limits = () => config.rebuild ?? REBUILD_DEFAULTS;
+const rebuild = rebuilds<Map<string, Digest>>(limits);
+const freshTurns = gate(limits);
+
+function bound(
+  kept: {
+    size: number;
+    keys: () => Iterable<string>;
+    delete: (key: string) => boolean;
+  },
+  most: number,
+) {
+  for (const oldest of kept.keys()) {
+    if (kept.size <= most) {
+      break;
+    }
+    kept.delete(oldest);
+  }
+}
 
 function hashOf(text: string) {
   return createHash("sha256").update(text).digest("base64url").slice(0, 22);
@@ -158,13 +178,18 @@ function write(key: string, text: string, event: RequestEvent | null) {
   }
 }
 
-function keep(made: Digest, event: RequestEvent) {
+function publish(made: Digest, event: RequestEvent) {
   if (hold(made)) {
     write(`p:${made.hash}`, made.text, event);
   }
-  const token = event.request.headers.get(TOKEN);
-  if (token != null) {
-    waiting.get(token)?.set(made.hash, made);
+}
+
+function keep(made: Digest, event: RequestEvent) {
+  const rerunning = waiting.get(event.request.headers.get(TOKEN) ?? "");
+  if (rerunning == null) {
+    publish(made, event);
+  } else {
+    rerunning.set(made.hash, made);
   }
 }
 
@@ -186,14 +211,13 @@ function track(locals: object) {
   return found;
 }
 
-function sourceOf(url: URL) {
-  if (building) {
-    return url.pathname;
+function warnOnce(key: string, log: () => void) {
+  if (warned.has(key)) {
+    return;
   }
-  const search = new URLSearchParams(
-    [...url.searchParams].filter(([name]) => !name.startsWith("x-sveltekit-")),
-  ).toString();
-  return search === "" ? url.pathname : `${url.pathname}?${search}`;
+  warned.add(key);
+  bound(warned, WARNINGS);
+  log();
 }
 
 function flatten(known: Map<string, { html: string }>) {
@@ -328,12 +352,13 @@ async function recall(name: string) {
 }
 
 function warnPersonal(name: string, found: { isPersonal: boolean }) {
-  if (!dev || !config.warnOnCookies || !found.isPersonal || warned.has(name)) {
+  if (!dev || !config.warnOnCookies || !found.isPersonal) {
     return;
   }
-  warned.add(name);
-  console.warn(
-    `svelte-islands: part("${name}") was made during a request that read cookies. Parts are served from a public, immutable URL. If this value differs per visitor, pass { private: true }. If it doesn't, pass warnOnCookies: false to handle().`,
+  warnOnce(name, () =>
+    console.warn(
+      `svelte-islands: part("${name}") was made during a request that read cookies. Parts are served from a public, immutable URL. If this value differs per visitor, pass { private: true }. If it doesn't, pass warnOnCookies: false to handle().`,
+    ),
   );
 }
 
@@ -373,7 +398,7 @@ export function part<T>(
   const created = new Part<T>({
     name,
     hash: made.hash,
-    source: sourceOf(event.url),
+    source: event.url.pathname,
     bytes: made.text.length,
     fetch,
     isEager: fetch === "preload" || (fetch === "auto" && event.isDataRequest),
@@ -634,11 +659,11 @@ function contextsOf(island: Shell, checked: Map<unknown, boolean>) {
     }
     kept.push([typeof key === "symbol", name, value]);
   }
-  const notice = `contexts:${dropped.join(", ")}`;
-  if (dev && dropped.length > 0 && !warned.has(notice)) {
-    warned.add(notice);
-    console.warn(
-      `svelte-islands: on a page with csr = false, an island only gets contexts whose keys are strings or Symbol.for() keys and whose values can be serialized, so the island for part("${island.part.name}") won't get ${dropped.join(", ")}. Use context() from svelte-islands for a key that reaches it.`,
+  if (dev && dropped.length > 0) {
+    warnOnce(`contexts:${dropped.join(", ")}`, () =>
+      console.warn(
+        `svelte-islands: on a page with csr = false, an island only gets contexts whose keys are strings or Symbol.for() keys and whose values can be serialized, so the island for part("${island.part.name}") won't get ${dropped.join(", ")}. Use context() from svelte-islands for a key that reaches it.`,
+      ),
     );
   }
   return kept;
@@ -659,10 +684,8 @@ function shellOf(shells: ReadonlyArray<Shell>) {
       if (dev || !(error instanceof Error)) {
         throw error;
       }
-      if (!warned.has(error.message)) {
-        warned.add(error.message);
-        console.error(error.message);
-      }
+      const { message } = error;
+      warnOnce(message, () => console.error(message));
       continue;
     }
     islands.push({
@@ -752,6 +775,14 @@ async function rerun(isMarkup: boolean, target: URL, event: RequestEvent) {
     config.prepare({ url: data, headers }, event);
     const response = await event.fetch(data, { headers });
     await response.arrayBuffer();
+    const isPersonal = [event.request.headers, headers].some(
+      (sent) => sent.has("cookie") || sent.has("authorization"),
+    );
+    if (!isPersonal) {
+      for (const made of found.values()) {
+        publish(made, event);
+      }
+    }
     return found;
   } finally {
     waiting.delete(token);
@@ -777,9 +808,12 @@ async function recover(file: string, event: RequestEvent) {
   if (outcome.status === "busy") {
     throw new Error("busy");
   }
-  return outcome.status === "ran"
-    ? (outcome.found.get(file)?.text ?? null)
-    : null;
+  const made = outcome.status === "ran" ? outcome.found.get(file) : undefined;
+  if (made == null) {
+    return null;
+  }
+  publish(made, event);
+  return made.text;
 }
 
 const ALREADY_ENCODED = { encodeBody: "manual" } as const;
@@ -860,14 +894,7 @@ async function shapes(event: RequestEvent) {
   });
 }
 
-async function freshen(event: RequestEvent) {
-  const target = event.request.method === "GET" ? pageOf(event) : null;
-  if (target == null) {
-    return new Response(null, {
-      status: 404,
-      headers: { "cache-control": PRIVATE },
-    });
-  }
+async function gatherFresh(target: URL, event: RequestEvent) {
   const token = randomUUID();
   const found: Array<Fresh> = [];
   gathering.set(token, found);
@@ -878,31 +905,62 @@ async function freshen(event: RequestEvent) {
       headers.set("accept-language", language);
     }
     config.prepare({ url: target, headers }, event);
-    let status = 502;
-    try {
-      const response = await event.fetch(target, { headers });
-      await response.arrayBuffer();
-      status = response.status;
-    } catch {
-      status = 502;
-    }
-    const notice = `fresh:${target.pathname}`;
-    if (status !== 200 && !warned.has(notice)) {
-      warned.add(notice);
-      console.warn(
-        `svelte-islands: the server couldn't render ${target.pathname} for its fresh islands, so they show the page's own values. The server can't render a prerendered page again, so render the page on the server and cache it with cache-control instead.`,
-      );
-    }
-    return new Response(status === 200 ? serialize(found, true) : null, {
-      status: status === 200 ? 200 : 502,
-      headers: {
-        "content-type": "application/json; charset=utf-8",
-        "cache-control": PRIVATE,
-      },
-    });
+    const response = await event.fetch(target, { headers });
+    await response.arrayBuffer();
+    return { status: response.status, found };
+  } catch {
+    return { status: 502, found };
   } finally {
     gathering.delete(token);
   }
+}
+
+function privately(status: number, body: string | null = null) {
+  return new Response(body, {
+    status,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": PRIVATE,
+      ...(status === 503 && { "retry-after": "1" }),
+    },
+  });
+}
+
+async function freshen(event: RequestEvent) {
+  const target = event.request.method === "GET" ? pageOf(event) : null;
+  if (target == null) {
+    return privately(404);
+  }
+  const page = target.pathname;
+  const isKnown = freshPages.has(page);
+  if (!isKnown && (barren.get(page) ?? 0) > Date.now()) {
+    return privately(404);
+  }
+  if (!isKnown && freshTurns.isFull()) {
+    return privately(503);
+  }
+  const work = async () => gatherFresh(target, event);
+  const { status, found } = isKnown
+    ? await work()
+    : await freshTurns.pass(work);
+  if (status === 200 && found.length > 0) {
+    freshPages.add(page);
+    bound(freshPages, PAGES);
+    barren.delete(page);
+  } else if (!isKnown) {
+    barren.set(page, Date.now() + limits().cooldown);
+    bound(barren, PAGES);
+  }
+  if (status !== 200 && status !== 404) {
+    warnOnce(dev ? `fresh:${page}` : "fresh", () =>
+      console.warn(
+        `svelte-islands: the server couldn't render ${page} for its fresh islands, so they show the page's own values. The server can't render a prerendered page again, so render the page on the server and cache it with cache-control instead.`,
+      ),
+    );
+  }
+  return status === 200
+    ? privately(200, serialize(found, true))
+    : privately(502);
 }
 
 async function respond(event: RequestEvent) {
@@ -1053,7 +1111,7 @@ export function handle({
   prepare?: Prepare;
   /** Returns anything other than an island's data that changes its text, such as the locale. */
   vary?: (event: RequestEvent) => string;
-  /** Limits on rerunning a page to recover a missing part, or `false` to answer 404 instead. */
+  /** Limits on rerunning a page to recover a missing part, or `false` to answer 404 instead. Fresh requests for a page not yet known to have fresh islands wait behind the same `concurrency` and `queue`. */
   rebuild?: RebuildOptions | false;
   /** Serves parts and the skeleton file with Brotli when the browser accepts it. The default is `true`. */
   compress?: boolean;

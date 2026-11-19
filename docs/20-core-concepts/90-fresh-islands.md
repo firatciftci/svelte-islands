@@ -41,7 +41,7 @@ export const load = async ({ cookies }) => ({
 
 1. The server renders the page with the `fallback` in place of each fresh island's value, and leaves a skeleton where the island's content goes. The page's HTML is the same for every visitor, so you can cache it.
 2. Once the islands mount in the browser, the browser asks for the page's fresh islands with one request. The request goes to your parts prefix plus `fresh` and carries the page's path and query in `u`: `/_parts/fresh?u=/products`. An island that mounts later, such as one inside an `{#if}` block, makes a request of its own.
-3. The server renders the page again for that request, with the visitor's cookies. It returns only the fresh islands' HTML and their parts, with `cache-control: private, no-store`, so no cache keeps the response. Every part made during that render is private, as if you'd passed `private: true`.
+3. The server renders the page again for that request, with the visitor's cookies. It returns only the fresh islands' HTML and their parts, with `cache-control: private, no-store`, so no cache keeps the response. Every part made during that render is private, as if you'd passed `private: true`. Requests for a page that the server hasn't seen fresh islands on yet wait their turn behind the [rebuild limits](../40-build-and-deploy/10-node-servers.md#rebuilds), and the browser retries when the server answers 503.
 4. The island puts the HTML in place, and it hydrates when its `hydrate` strategy fires, as any island does.
 
 After a client-side navigation to the page, the island asks the same way for the new page.
@@ -54,13 +54,15 @@ The fresh request renders the _whole_ page again, which means every `load` funct
 
 So fresh islands suit pages whose `load` functions are cheap, or whose expensive reads are cached on the server (a product catalog read from a cache rather than the database, for example). If a page is expensive to render and only a small corner of it depends on the visitor, you can write an endpoint of your own that returns just that corner and read it with `fetch` from the island. It costs less, but you have to write it yourself.
 
+The server remembers which pages have fresh islands, and a page whose render had none answers 404 to fresh requests for the next 30 seconds (the rebuild `cooldown`). So the endpoint can't be used to render pages that don't have fresh islands, over and over, bypassing your page cache.
+
 ## Keep each island to its own part
 
 An island should read only the part it's given. Any other part it reads goes into the same response, so the response grows with every part an island touches.
 
 ## When there's no server
 
-The request needs a server that can render the page again. A prerendered page can't be rendered again, so the request for it fails, and the endpoint answers `502 Bad Gateway`. The server logs one warning for each such page, and the island shows its fallback. A static host has no endpoint at all, so the browser's request gets a `404`, and the island shows its fallback in the same way.
+The request needs a server that can render the page again. A prerendered page can't be rendered again, so the request for it fails, and the endpoint answers `502 Bad Gateway`. In development, the server logs one warning for each such page, and in production it logs only one warning, so the log can't grow with every path someone asks for. The island shows its fallback. A static host has no endpoint at all, so the browser's request gets a `404`, and the island shows its fallback in the same way.
 
 Serve the page from a server, and cache the page itself, not the fresh content. Set the cache header in `load` with `setHeaders`:
 

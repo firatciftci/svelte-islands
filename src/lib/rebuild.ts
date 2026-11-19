@@ -33,33 +33,42 @@ async function deadline<T>(work: Promise<T>, limit: number) {
   }
 }
 
+export function gate(limits: () => { concurrency: number; queue: number }) {
+  const line: Array<() => void> = [];
+  let running = 0;
+
+  return {
+    isFull: () =>
+      running >= limits().concurrency && line.length >= limits().queue,
+    async pass<T>(run: () => Promise<T>) {
+      if (running < limits().concurrency) {
+        running++;
+      } else {
+        await new Promise<void>((resolve) => {
+          line.push(resolve);
+        });
+      }
+      try {
+        return await run();
+      } finally {
+        const next = line.shift();
+        if (next == null) {
+          running--;
+        } else {
+          next();
+        }
+      }
+    },
+  };
+}
+
 export function rebuilds<T>(
   limits: () => Required<RebuildOptions>,
   now: () => number = Date.now,
 ) {
   const flights = new Map<string, Promise<T>>();
   const settled = new Map<string, number>();
-  const line: Array<() => void> = [];
-  let running = 0;
-
-  async function enter() {
-    if (running < limits().concurrency) {
-      running++;
-      return;
-    }
-    await new Promise<void>((resolve) => {
-      line.push(resolve);
-    });
-  }
-
-  function leave() {
-    const next = line.shift();
-    if (next == null) {
-      running--;
-    } else {
-      next();
-    }
-  }
+  const turns = gate(limits);
 
   function settle(key: string) {
     const { cooldown } = limits();
@@ -89,14 +98,14 @@ export function rebuilds<T>(
   }
 
   async function fly(key: string, run: () => Promise<T>) {
-    await enter();
     try {
-      const found = await deadline(run(), limits().timeout);
-      settle(key);
-      return found;
+      return await turns.pass(async () => {
+        const found = await deadline(run(), limits().timeout);
+        settle(key);
+        return found;
+      });
     } finally {
       flights.delete(key);
-      leave();
     }
   }
 
@@ -113,7 +122,7 @@ export function rebuilds<T>(
     if (isCooling(key)) {
       return { status: "cooling" };
     }
-    if (running >= limits().concurrency && line.length >= limits().queue) {
+    if (turns.isFull()) {
       return { status: "busy" };
     }
     const flight = fly(key, run);

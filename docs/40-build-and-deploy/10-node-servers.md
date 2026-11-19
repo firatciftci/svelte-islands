@@ -30,6 +30,10 @@ A rebuild costs as much as a page view, and a burst of them (right after a deplo
 
 Simultaneous requests for the same page share one run. When the queue is full, the server answers 503, and the browser retries.
 
+A rebuild runs with the cookies of the visitor who asked for the part, so pages behind a login can still recover their parts. When that request carries cookies (or `prepare` adds a `cookie` or `authorization` header), the server keeps only the part that was asked for. That part's contents match its name, a hash of those contents, so it was already public. Every other part the rerun made is dropped, so nothing made from one visitor's cookies is stored for anyone else. Those parts come back from a later rebuild, or from the page reloading its data.
+
+The same limits apply to [fresh requests](../20-core-concepts/90-fresh-islands.md) for a page that the server hasn't yet seen any fresh islands on. Once a page has rendered a fresh island, its fresh requests skip the queue, and a page whose render had none answers 404 until the `cooldown` passes. Asking for a page's fresh islands therefore never costs more than asking for the page itself.
+
 If you would rather never rerun a page, pass `rebuild: false`. The server then answers 404, and the browser [reloads the page's data](../20-core-concepts/10-parts.md#when-a-part-goes-missing) once.
 
 With more than one process, you should use a [store](20-stores.md), so that each process can read what the others made instead of rebuilding it.

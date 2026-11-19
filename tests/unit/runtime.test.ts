@@ -3,8 +3,8 @@ import { Part } from "#lib/part.js";
 
 const KIB = 1024;
 
-function made(name: string, bytes: number) {
-  return new Part({ name, hash: `${name}-hash`, source: "/", bytes });
+function made(name: string, bytes: number, source = "/") {
+  return new Part({ name, hash: `${name}-hash`, source, bytes });
 }
 
 async function settled() {
@@ -30,7 +30,11 @@ function stubFetch() {
 
 beforeEach(() => {
   vi.stubGlobal("navigator", {});
-  vi.stubGlobal("location", { origin: "https://example.com" });
+  vi.stubGlobal("location", {
+    origin: "https://example.com",
+    pathname: "/",
+    search: "",
+  });
 });
 
 afterEach(() => {
@@ -74,6 +78,23 @@ describe("prefetch", () => {
     expect(extra).toHaveBeenCalledTimes(2);
   });
 
+  it("gives each page its own budget", async () => {
+    const calls = stubFetch();
+    const { prefetch } = await fresh();
+    const extra = vi.fn();
+    prefetch([made("first", 900 * KIB)], extra);
+    prefetch([made("second", 900 * KIB)], extra);
+    vi.stubGlobal("location", {
+      origin: "https://example.com",
+      pathname: "/next",
+      search: "",
+    });
+    prefetch([made("third", 900 * KIB)], extra);
+    await settled();
+    expect(calls).toHaveLength(2);
+    expect(extra).toHaveBeenCalledTimes(2);
+  });
+
   it("asks once for a part that's already on its way", async () => {
     const calls = stubFetch();
     const { load, prefetch } = await fresh();
@@ -98,5 +119,43 @@ describe("prefetch", () => {
     await settled();
     expect(calls).toHaveLength(0);
     expect(extra).not.toHaveBeenCalled();
+  });
+});
+
+describe("rebuilding a missing part", () => {
+  function missing() {
+    const asked: Array<URL> = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: URL) => {
+        asked.push(new URL(url));
+        return new Response(null, { status: 404 });
+      }),
+    );
+    return asked;
+  }
+
+  it("sends the page's own query, which the page's markup leaves out", async () => {
+    vi.stubGlobal("location", {
+      origin: "https://example.com",
+      pathname: "/search",
+      search: "?q=boats",
+    });
+    const asked = missing();
+    const { load } = await fresh();
+    await expect(load(made("results", KIB, "/search"))).rejects.toThrow();
+    expect(asked.at(-1)?.searchParams.get("u")).toBe("/search?q=boats");
+  });
+
+  it("sends only the path for a part from another page", async () => {
+    vi.stubGlobal("location", {
+      origin: "https://example.com",
+      pathname: "/search",
+      search: "?q=boats",
+    });
+    const asked = missing();
+    const { load } = await fresh();
+    await expect(load(made("menu", KIB, "/"))).rejects.toThrow();
+    expect(asked.at(-1)?.searchParams.get("u")).toBe("/");
   });
 });

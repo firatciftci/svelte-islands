@@ -266,6 +266,91 @@ describe("the part server", () => {
       expect(fetcher).toHaveBeenCalledTimes(1);
     });
 
+    function rerunMaking(values: Array<unknown>) {
+      return vi.fn(async (target: URL, init: RequestInit) => {
+        enter(
+          eventFor(target.href, {
+            headers: Object.fromEntries(new Headers(init.headers)),
+          }),
+        );
+        for (const value of values) {
+          server.part("thing", value);
+        }
+        return new Response("{}");
+      });
+    }
+
+    async function forgotten(values: Array<unknown>) {
+      server.handle();
+      enter(eventFor("/probe"));
+      const hashes = values.map((value) => server.part("thing", value).hash);
+      vi.resetModules();
+      server = await import("#lib/server.js");
+      ({ enter } = await import("../stubs/server.js"));
+      return { handler: server.handle(), hashes };
+    }
+
+    it("publishes only the part it was asked for when the visitor sent cookies", async () => {
+      const values = [{ rows: "a".repeat(8000) }, { rows: "b".repeat(8000) }];
+      const { handler, hashes } = await forgotten(values);
+      const [asked, sibling] = hashes;
+      const fetcher = rerunMaking(values);
+      const recovered = await serve(
+        eventFor(`/_parts/${asked}.json?u=/page`, {
+          fetcher,
+          headers: { cookie: "session=ada" },
+        }),
+        handler,
+      );
+      expect(recovered.status).toBe(200);
+      const again = await serve(eventFor(`/_parts/${asked}.json`), handler);
+      expect(again.status).toBe(200);
+      const other = await serve(eventFor(`/_parts/${sibling}.json`), handler);
+      expect(other.status).toBe(404);
+    });
+
+    it("publishes every part it made when the visitor sent no cookies", async () => {
+      const values = [{ rows: "a".repeat(8000) }, { rows: "b".repeat(8000) }];
+      const { handler, hashes } = await forgotten(values);
+      const [asked, sibling] = hashes;
+      const fetcher = rerunMaking(values);
+      await serve(
+        eventFor(`/_parts/${asked}.json?u=/page`, { fetcher }),
+        handler,
+      );
+      const other = await serve(eventFor(`/_parts/${sibling}.json`), handler);
+      expect(other.status).toBe(200);
+    });
+
+    it("runs at most its concurrency under a flood of random names", async () => {
+      const handler = server.handle();
+      let running = 0;
+      let most = 0;
+      const fetcher = vi.fn(async () => {
+        running++;
+        most = Math.max(most, running);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        running--;
+        return new Response("{}");
+      });
+      const responses = await Promise.all(
+        Array.from({ length: 200 }, async (_, index) =>
+          serve(
+            eventFor(
+              `/_parts/${String(index).padStart(22, "x")}.json?u=/page/${index}`,
+              { fetcher },
+            ),
+            handler,
+          ),
+        ),
+      );
+      const statuses = responses.map(({ status }) => status);
+      expect(most).toBe(4);
+      expect(fetcher).toHaveBeenCalledTimes(36);
+      expect(statuses.filter((status) => status === 503)).toHaveLength(164);
+      expect(statuses.filter((status) => status === 404)).toHaveLength(36);
+    });
+
     it("keeps different languages apart", async () => {
       const handler = server.handle();
       const fetcher = vi.fn(async () => new Response("{}"));
@@ -847,6 +932,136 @@ describe("pages without SvelteKit's client", () => {
     expect(read).not.toHaveBeenCalled();
     expect(made.loaded?.value).toStrictEqual({ name: "guest" });
     expect(made.isPrivate).toBe(false);
+  });
+
+  it("leaves the query out of a part's page, so no token lands in the markup", () => {
+    server.handle();
+    enter(eventFor("/reset?token=secret&utm_source=mail"));
+    const made = server.part("thing", { rows: "x".repeat(8000) });
+    expect(made.source).toBe("/reset");
+  });
+
+  it("warns once in production when fresh islands can't render, however many pages fail", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const handler = server.handle();
+    for (const page of ["/one", "/two", "/three"]) {
+      await handler({
+        event: eventFor(`/_parts/fresh?u=${page}`, {
+          fetcher: async () => new Response(null, { status: 500 }),
+        }),
+        resolve: async () => new Response("page"),
+      });
+    }
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
+  });
+
+  it("doesn't warn when a fresh request names a page that doesn't exist", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const handler = server.handle();
+    const response = await handler({
+      event: eventFor("/_parts/fresh?u=/nowhere", {
+        fetcher: async () => new Response(null, { status: 404 }),
+      }),
+      resolve: async () => new Response("page"),
+    });
+    expect(response.status).toBe(502);
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  function freshRender(islands: number) {
+    return vi.fn(async (target: URL, init: RequestInit) => {
+      enter(
+        eventFor(target.href, {
+          headers: Object.fromEntries(new Headers(init.headers)),
+        }),
+      );
+      for (let index = 0; index < islands; index++) {
+        part
+          .scope()
+          ?.collect?.({
+            key: `cart-${index}`,
+            html: "<p>2 items</p>",
+            part: server.part("cart", { items: 2 }),
+            needs: null,
+          });
+      }
+      return new Response("page");
+    });
+  }
+
+  async function askFresh(
+    handler: ReturnType<Server["handle"]>,
+    page: string,
+    fetcher: ReturnType<typeof freshRender>,
+  ) {
+    return handler({
+      event: eventFor(`/_parts/fresh?u=${page}`, { fetcher }),
+      resolve: async () => new Response("page"),
+    });
+  }
+
+  it("stop rendering a page for fresh requests once it showed no fresh islands", async () => {
+    const handler = server.handle();
+    const fetcher = freshRender(0);
+    expect((await askFresh(handler, "/about", fetcher)).status).toBe(200);
+    expect((await askFresh(handler, "/about", fetcher)).status).toBe(404);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it("keep answering a page that has fresh islands, even when the queue is full", async () => {
+    const handler = server.handle({ rebuild: { concurrency: 1, queue: 0 } });
+    const cart = freshRender(1);
+    expect((await askFresh(handler, "/shop", cart)).status).toBe(200);
+    let open = () => {};
+    const stuck = vi.fn(
+      async () =>
+        new Promise<Response>((resolve) => {
+          open = () => {
+            resolve(new Response("page"));
+          };
+        }),
+    );
+    const waiting = askFresh(handler, "/unknown", stuck);
+    await vi.waitFor(() => {
+      expect(stuck).toHaveBeenCalled();
+    });
+    expect((await askFresh(handler, "/other", freshRender(0))).status).toBe(
+      503,
+    );
+    const known = await askFresh(handler, "/shop", cart);
+    expect(known.status).toBe(200);
+    expect(await known.text()).toContain("2 items");
+    open();
+    await waiting;
+  });
+
+  it("render at most the rebuild concurrency for a flood of unknown pages", async () => {
+    const handler = server.handle();
+    let running = 0;
+    let most = 0;
+    const fetcher = vi.fn(async () => {
+      running++;
+      most = Math.max(most, running);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      running--;
+      return new Response("page");
+    });
+    const responses = await Promise.all(
+      Array.from({ length: 200 }, async (_, index) =>
+        askFresh(handler, `/flood/${index}`, fetcher),
+      ),
+    );
+    const statuses = responses.map(({ status }) => status);
+    expect(most).toBe(4);
+    expect(fetcher).toHaveBeenCalledTimes(36);
+    expect(statuses.filter((status) => status === 503)).toHaveLength(164);
+    expect(
+      responses.every(
+        ({ headers }) => headers.get("cache-control") === "private, no-store",
+      ),
+    ).toBe(true);
   });
 
   it("answer a fresh request for a page outside the site with 404", async () => {

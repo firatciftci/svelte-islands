@@ -43,6 +43,7 @@ const prefetched = new Set<string>();
 const state: {
   held: number;
   prefetched: number;
+  prefetchedOn: string;
   isBooted: boolean;
   isRead: boolean;
   isDraining: boolean;
@@ -52,6 +53,7 @@ const state: {
 } = {
   held: 0,
   prefetched: 0,
+  prefetchedOn: "",
   isBooted: false,
   isRead: false,
   isDraining: false,
@@ -147,6 +149,12 @@ export function peek<T>(part: Part<T>): { value: T } | null {
 
 type Priority = "high" | "low" | "auto";
 
+function pageFor(source: string) {
+  return source === location.pathname
+    ? `${location.pathname}${location.search}`
+    : source;
+}
+
 async function fetched(name: string, source: string, priority: Priority) {
   const url = new URL(`${settings.prefix}${name}`, location.origin);
   const response = await fetch(url, { priority });
@@ -156,7 +164,7 @@ async function fetched(name: string, source: string, priority: Priority) {
   if (response.status !== 404) {
     throw new Error(`${response.status} ${response.statusText}`);
   }
-  url.searchParams.set("u", source);
+  url.searchParams.set("u", pageFor(source));
   const rebuilt = await fetch(url, { priority });
   if (rebuilt.ok) {
     return rebuilt.text();
@@ -207,7 +215,9 @@ async function fetchFresh() {
   url.searchParams.set("u", `${location.pathname}${location.search}`);
   const response = await fetch(url, { cache: "no-store", priority: "high" });
   if (!response.ok) {
-    throw new Error(`${response.status} ${response.statusText}`);
+    throw response.status === 503
+      ? new Error(response.statusText)
+      : new Gone("fresh");
   }
   return deserialize(await response.text()) as Array<Fresh>;
 }
@@ -227,7 +237,7 @@ export async function freshOf<T = unknown>(
 ): Promise<Fresh<T> | null> {
   let batch = freshened.batch;
   if (batch == null) {
-    const made: Batch = { found: fetchFresh(), taken: new Map() };
+    const made: Batch = { found: persist(fetchFresh), taken: new Map() };
     const clear = () => {
       if (freshened.batch === made) {
         freshened.batch = null;
@@ -302,7 +312,7 @@ export function markupNow(name: string, source: string) {
   try {
     let found = send();
     if (found.status === 404) {
-      url.searchParams.set("u", source);
+      url.searchParams.set("u", pageFor(source));
       found = send();
     }
     return found.status === 200 ? found.responseText : null;
@@ -406,6 +416,11 @@ export function prefetch(parts: ReadonlyArray<Part>, extra: () => void) {
   let bytes = 0;
   for (const part of missing) {
     bytes += part.bytes;
+  }
+  const page = `${location.pathname}${location.search}`;
+  if (state.prefetchedOn !== page) {
+    state.prefetchedOn = page;
+    state.prefetched = 0;
   }
   if (isThrifty() || state.prefetched + bytes > PREFETCH_BUDGET) {
     return;
