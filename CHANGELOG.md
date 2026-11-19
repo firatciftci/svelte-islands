@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.1
+
+### Fixed
+
+- a page's query string no longer appears in its HTML: parts name only the path they came from, and the browser adds its own query when it asks for a rebuild, so a token in a link such as `/reset?token=...` can't end up in a cached copy of the page
+- fresh requests for a page where the server hasn't yet seen fresh islands now wait behind the `rebuild` limits, and a page whose render had none answers 404 until the `cooldown` passes, so `/_parts/fresh` can't be used to render pages over and over bypassing the page cache; the browser retries a fresh request that gets 503
+- a rebuild that runs with a visitor's cookies now stores only the part that was asked for, which was already public, and drops every other part it made
+- the warning about fresh islands that can't render is logged once in production instead of once per path, and the set of shown warnings is capped, so neither the log nor memory grows with requests for made-up paths
+- the prefetch budget is now 1 MiB per page, as documented, instead of 1 MiB for the whole visit, which stopped prefetching after a few client-side navigations
+
 ## 1.0.0
 
 ### Breaking changes
