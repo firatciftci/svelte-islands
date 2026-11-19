@@ -87,6 +87,18 @@ describe("the part server", () => {
     expect(await response.text()).toContain("xxx");
   });
 
+  it("follows an object the app changes between requests", () => {
+    const rows = [{ name: "a" }, { name: "b" }];
+    const first = publish(rows);
+    rows.push({ name: "c" });
+    const second = publish(rows);
+    expect(second.hash).not.toBe(first.hash);
+    expect(second.bytes).toBeGreaterThan(first.bytes);
+    rows.pop();
+    expect(publish(rows).hash).toBe(first.hash);
+    expect(publish(new Date(0)).hash).toBe(publish(new Date(0)).hash);
+  });
+
   it("answers tabs left open from before file names ended in .json", async () => {
     const handler = server.handle();
     const made = publish(large);

@@ -8,8 +8,13 @@ import { outline, skeletonize } from "#lib/skeleton.js";
 const RUNS = Number(process.env.FUZZ_RUNS ?? 300);
 const SECRET = "zq9secret";
 
-usePacker((value, claims) =>
-  isPackable(value, claims) ? JSON.stringify(pack(value)) : null,
+usePacker(
+  (value, claims, isNested) =>
+    (!isNested || (Array.isArray(value) && value.length >= 4)) &&
+    isPackable(value, claims)
+      ? JSON.stringify(pack(value))
+      : null,
+  (_, value) => value,
 );
 islands();
 

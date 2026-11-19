@@ -169,6 +169,7 @@ const state: {
   revivers: Record<string, (value: unknown) => unknown>;
   claims: Array<(value: unknown) => boolean>;
   packer: Packer | null;
+  inlined: (part: Part, value: unknown) => unknown;
 } = {
   read: () => null,
   arrived: () => {},
@@ -177,15 +178,25 @@ const state: {
   revivers: {},
   claims: [],
   packer: null,
+  inlined: (_, value) => value,
 };
 
 type Packer = (
   value: unknown,
   claims: ReadonlyArray<(value: unknown) => boolean>,
+  isNested: boolean,
 ) => string | null;
 
-export function usePacker(packer: Packer) {
+export function usePacker(
+  packer: Packer,
+  inlined: (part: Part, value: unknown) => unknown,
+) {
   state.packer = packer;
+  state.inlined = inlined;
+}
+
+export function transportClaims() {
+  return state.claims;
 }
 
 export function provide(reader: () => Scope | null) {
@@ -230,7 +241,7 @@ function encoded(value: Part, isEager: boolean) {
   ];
   const result: Encoded =
     value.isInline && value.loaded != null
-      ? [...head, value.loaded.value]
+      ? [...head, state.inlined(value, value.loaded.value)]
       : head;
   return result;
 }
@@ -257,10 +268,7 @@ const codec = {
 
 const packed = {
   encode: (value: unknown) =>
-    (Array.isArray(value) &&
-      value.length >= 4 &&
-      state.packer?.(value, state.claims)) ??
-    false,
+    state.packer?.(value, state.claims, true) ?? false,
   decode: (text: string) => unpack(JSON.parse(text)),
 };
 
@@ -336,7 +344,7 @@ export function islands({
 }
 
 export function serialize(value: unknown, isPrivate = false) {
-  const packedText = state.packer?.(value, state.claims);
+  const packedText = state.packer?.(value, state.claims, false);
   return packedText == null
     ? stringify(value, isPrivate ? state.sealed : state.reducers)
     : `~${packedText}`;

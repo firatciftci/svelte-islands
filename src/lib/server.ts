@@ -9,7 +9,7 @@ import type { Adopted, Fetch, Fresh, Island, Scope, Shell } from "./part.js";
 import type { RebuildOptions } from "./rebuild.js";
 import type { Store } from "./stores.js";
 import Frame from "./frame.svelte";
-import { isPackable, pack } from "./pack.js";
+import { isPackable, pack, plainKey } from "./pack.js";
 import { coded } from "./errors.js";
 import {
   Part,
@@ -17,6 +17,7 @@ import {
   quietly,
   serialize,
   settings,
+  transportClaims,
   usePacker,
 } from "./part.js";
 import { gate, REBUILD_DEFAULTS, rebuilds } from "./rebuild.js";
@@ -24,8 +25,32 @@ import { fallback, needsOf, reading } from "./runtime.js";
 import { outline, skeletonize } from "./skeleton.js";
 import { startTracing, traced, tracedAsync } from "./trace.js";
 
-usePacker((value, claims) =>
-  isPackable(value, claims) ? JSON.stringify(pack(value)) : null,
+class Packed {
+  readonly text: string;
+
+  constructor(text: string) {
+    this.text = text;
+  }
+}
+
+const packedTexts = new WeakMap<Part, string>();
+
+const isListed = (value: unknown) => Array.isArray(value) && value.length >= 4;
+
+usePacker(
+  (value, claims, isNested) => {
+    if (value instanceof Packed) {
+      return value.text;
+    }
+    if (isNested && !isListed(value)) {
+      return null;
+    }
+    return isPackable(value, claims) ? JSON.stringify(pack(value)) : null;
+  },
+  (made, value) => {
+    const text = packedTexts.get(made);
+    return text != null && isListed(value) ? new Packed(text) : value;
+  },
 );
 
 export type { RebuildOptions } from "./rebuild.js";
@@ -82,7 +107,9 @@ const VIEW_TRANSITIONS = "<style>@view-transition{navigation:auto}</style>";
 
 type Digest = { text: string; hash: string };
 
-const digests = new WeakMap<object, Digest>();
+const DIGESTS_LIMIT = 4 * 1024 * 1024;
+
+const byContent = new Map<string, Digest>();
 const recent = new Map<string, string>();
 const exemplars = new Map<string, Map<string, { html: string; at: number }>>();
 const asked = new Set<string>();
@@ -144,9 +171,10 @@ const config: {
 };
 const state: {
   held: number;
+  remembered: number;
   squeezed: number;
   names: Promise<unknown> | null;
-} = { held: 0, squeezed: 0, names: null };
+} = { held: 0, remembered: 0, squeezed: 0, names: null };
 const limits = () => config.rebuild ?? REBUILD_DEFAULTS;
 const rebuild = rebuilds<Map<string, Digest>>(limits);
 const freshTurns = gate(limits);
@@ -173,20 +201,39 @@ function hashOf(text: string) {
 
 function digest(value: unknown, isPrivate: boolean) {
   if (isPrivate) {
-    const text = serialize(value, true);
-    return { text, hash: hashOf(text) };
+    return digested(serialize(value, true));
   }
-  const isObject = typeof value === "object" && value != null;
-  const known = isObject ? digests.get(value) : undefined;
-  if (known != null) {
-    return known;
+  const key = plainKey(value, transportClaims());
+  const found = key == null ? null : (byContent.get(key) ?? null);
+  if (key == null || found == null) {
+    const made = digested(serialize(value));
+    if (key != null) {
+      remember(key, made);
+    }
+    return made;
   }
-  const text = serialize(value);
-  const made = { text, hash: hashOf(text) };
-  if (isObject) {
-    digests.set(value, made);
+  remember(key, found);
+  return found;
+}
+
+function digested(text: string) {
+  return { text, hash: hashOf(text) };
+}
+
+function remember(key: string, made: Digest) {
+  if (byContent.delete(key)) {
+    byContent.set(key, made);
+    return;
   }
-  return made;
+  byContent.set(key, made);
+  state.remembered += key.length + made.text.length;
+  for (const [oldest, kept] of byContent) {
+    if (state.remembered <= DIGESTS_LIMIT) {
+      break;
+    }
+    byContent.delete(oldest);
+    state.remembered -= oldest.length + kept.text.length;
+  }
 }
 
 function hold({ hash, text }: Digest) {
@@ -460,6 +507,9 @@ export function part<T>(
     isPrivate,
     loaded: { value },
   });
+  if (made.text.startsWith("~")) {
+    packedTexts.set(created, made.text.slice(1));
+  }
   found.parts.add(created);
   return created;
 }

@@ -31,6 +31,7 @@ type Row = Record<string, Value>;
 type Walk = {
   seen: Set<object>;
   claims: ReadonlyArray<(value: unknown) => boolean>;
+  hasUndefined: boolean;
 };
 
 function isRow(value: Value): value is Row {
@@ -68,8 +69,12 @@ function isPackableObject(value: object, walk: Walk) {
 }
 
 function isPackableWithin(value: unknown, walk: Walk): value is Value {
+  if (value === undefined) {
+    walk.hasUndefined = true;
+    return true;
+  }
   if (
-    value == null ||
+    value === null ||
     typeof value === "string" ||
     typeof value === "boolean"
   ) {
@@ -95,7 +100,21 @@ export function isPackable(
   value: unknown,
   claims: ReadonlyArray<(value: unknown) => boolean> = [],
 ): value is Value {
-  return isPackableWithin(value, { seen: new Set(), claims });
+  return isPackableWithin(value, {
+    seen: new Set(),
+    claims,
+    hasUndefined: false,
+  });
+}
+
+export function plainKey(
+  value: unknown,
+  claims: ReadonlyArray<(value: unknown) => boolean>,
+) {
+  const walk: Walk = { seen: new Set(), claims, hasUndefined: false };
+  return isPackableWithin(value, walk) && !walk.hasUndefined
+    ? JSON.stringify(value)
+    : null;
 }
 
 function runs(cells: Array<Value>) {
