@@ -30,6 +30,8 @@
 - a click on a `<button>` with no `type` outside a form now reaches the island it wakes; the button counted as a submit button with a native action, so the click was lost while the island's code loaded
 - an island in `+layout.svelte` no longer makes SvelteKit warn that the layout doesn't render its children
 - the browser learns an island's skeleton in a fraction of the time on long pages, because it stops drawing a skeleton as soon as it's too big to keep, instead of finishing it four times and throwing every copy away
+- `part()` no longer serves an old copy of an object your app changed and passed in again; it cached each value's serialized form by object identity, so a module-level array kept its first version after an action pushed to it
+- the server spends less time per page serializing parts: it reuses the serialized form of the same content across requests, and an inline part is no longer serialized twice (on a product page with a shell, server time per request fell from about 205 µs to 126 µs)
 
 ## 1.0.1
 
