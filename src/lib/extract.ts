@@ -1684,6 +1684,7 @@ export type Extracted = {
   map: ReturnType<MagicString["generateMap"]>;
   modules: Array<{ id: string; file: string; source: string }>;
   warnings: Array<string>;
+  inferred: Array<string>;
 };
 
 /**
@@ -1732,6 +1733,7 @@ export function extract(
   let isInstanced = false;
   const modules: Extracted["modules"] = [];
   const warnings: Array<string> = [];
+  const inferred: Array<string> = [];
   const rewritten = new Set<number>();
   const removed: Array<[number, number]> = [];
   const moved = new Map<string, Imported>();
@@ -1776,6 +1778,7 @@ export function extract(
       const why = whyLive(located.snippet, analysis);
       if (why == null) {
         page.appendLeft(nameEnd, ` hydrate="never"`);
+        inferred.push(`${name}:${line}`);
       }
       if (isDev) {
         page.appendLeft(nameEnd, ` why={${JSON.stringify(why ?? "inferred")}}`);
@@ -1837,7 +1840,13 @@ export function extract(
   walk(asNode(root.fragment), top);
   if (modules.length === 0) {
     return warnings.length > 0
-      ? { code, map: page.generateMap({ hires: true }), modules, warnings }
+      ? {
+          code,
+          map: page.generateMap({ hires: true }),
+          modules,
+          warnings,
+          inferred,
+        }
       : null;
   }
   if (!isServer) {
@@ -1855,6 +1864,7 @@ export function extract(
     map: page.generateMap({ hires: true, source: filename }),
     modules,
     warnings,
+    inferred,
   };
 }
 

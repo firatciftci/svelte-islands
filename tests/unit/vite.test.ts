@@ -206,6 +206,37 @@ describe("the Vite plugin", () => {
     expect(client.emitFile).not.toHaveBeenCalled();
   });
 
+  it("says once in dev which islands never hydrate", () => {
+    const root = scratch();
+    const plugins = islands();
+    const main = named(plugins, "svelte-islands");
+    call(
+      main,
+      "configResolved",
+      {},
+      { root, command: "serve", plugins: [main] },
+    );
+    const info = vi.fn();
+    const context = {
+      environment: { ...environment("client"), logger: { info } },
+      warn: vi.fn(),
+    };
+    const page = path.join(root, "src/routes/+page.svelte");
+    const quiet = `<script>\n  import { Island } from "svelte-islands";\n\n  let { data } = $props();\n</script>\n\n<Island part={data.rows}>\n  {#snippet children(rows)}\n    <p>{rows.length} rows</p>\n  {/snippet}\n</Island>\n`;
+    call(main, "transform", context, quiet, page);
+    call(main, "transform", context, quiet, page);
+    call(
+      main,
+      "transform",
+      context,
+      PAGE,
+      path.join(root, "src/routes/b/+page.svelte"),
+    );
+    expect(info.mock.calls.map(([line]) => line)).toStrictEqual([
+      "svelte-islands: src/routes/+page.svelte:7: the island never hydrates, because nothing in it can change",
+    ]);
+  });
+
   it("answers an island it has no code for with a coded error", async () => {
     const main = built(scratch());
     const code = await call(

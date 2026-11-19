@@ -86,6 +86,7 @@ export function islands(): Array<Plugin> {
   const pages = new Map<string, string>();
   const bodies = new Map<string, string>();
   const patched = new Set<string>();
+  const explained = new Set<string>();
   let root = process.cwd();
   let isServe = false;
   let boot: string | null = null;
@@ -244,6 +245,15 @@ export function islands(): Array<Plugin> {
           if (target === "client") {
             for (const warning of extracted.warnings) {
               this.warn(warning);
+            }
+            for (const where of extracted.inferred) {
+              if (isServe && !explained.has(where)) {
+                explained.add(where);
+                this.environment.logger.info(
+                  `svelte-islands: ${where}: the island never hydrates, because nothing in it can change`,
+                  { timestamp: true },
+                );
+              }
             }
           }
           for (const made of extracted.modules) {
