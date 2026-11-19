@@ -57,6 +57,8 @@ export async function load() {
 
 The [docs](https://firatciftci.github.io/svelte-islands/) have live demos, a [tutorial](https://firatciftci.github.io/svelte-islands/docs/getting-started/tutorial) that builds a product page step by step, and [worked examples](https://firatciftci.github.io/svelte-islands/docs/examples/comments) that go from a comment thread to running at scale. You can read the same pages [in this repository](docs). If you already have a page you want to move, start with [Moving a page to islands](docs/70-appendix/10-migrating.md).
 
+If you work with a coding agent, it can read the docs as [`llms.txt`](https://firatciftci.github.io/svelte-islands/llms.txt), and look at your pages through `svelte-islands mcp`. See [Coding agents](docs/50-tooling/50-agents.md) for details.
+
 ## Status
 
 svelte-islands 1.0 is the first stable release. It was built for [electionsarchive.com](https://electionsarchive.com), where a single page can hold tens of thousands of rows, but nothing in it is specific to that site.
