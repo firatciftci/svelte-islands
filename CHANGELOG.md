@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.1.0
+
+### Breaking changes
+
+- `observe` has two new event types, `prefetch` and `frame`, that carry no `name` or `hash` of their own, so a listener that reads `event.name` without checking `event.type` first no longer type-checks
+- on pages with `csr = false`, the islands of a component now share one live copy of the page values they read, as islands on a SvelteKit page share the page's state, instead of each getting its own copy ([shell pages](https://firatciftci.github.io/svelte-islands/docs/core-concepts/shell-pages))
+- every error and warning now starts with a stable code, such as `islands_part_after_cookies`, and ends with a link to that code's section in [errors and warnings](https://firatciftci.github.io/svelte-islands/docs/appendix/errors), so a log search for the old message text won't match
+
+### Added
+
+- with the Vite plugin, an island that has no `hydrate` prop and whose snippet nothing can change is inferred as `hydrate="never"`, so neither its data nor its code is downloaded; in development, `inspect`, the overlay, and the plugin's log say why each island hydrates or never does ([islands that never hydrate](https://firatciftci.github.io/svelte-islands/docs/core-concepts/vite-plugin#islands-that-never-hydrate))
+- a pointer, focus, or touch inside an island that has not hydrated yet now downloads its data and code at high priority, through one delegated listener for the whole page, and moves an `interaction` island to the front of the queue
+- the `prefetch` event in `observe`, sent when the page is hidden or the reader moves on, which says for each prefetched part whether an island used it, needed it before it arrived, or never read it
+- the `frame` event in `observe`, which names the islands that hydrated in a long animation frame (Chromium only)
+- OpenTelemetry spans for pages, parts, rebuilds, and fresh requests under SvelteKit's own spans, when SvelteKit's tracing is on; `@opentelemetry/api` is an optional peer dependency and isn't imported otherwise ([tracing on the server](https://firatciftci.github.io/svelte-islands/docs/tooling/measuring#tracing-on-the-server))
+- `npx svelte-islands mcp`, an MCP server for coding agents with `inspect_page`, `check_budget`, `advise_page_data`, and `explain_island` tools ([coding agents](https://firatciftci.github.io/svelte-islands/docs/tooling/agents))
+- `init --store redis|r2|none`, and `init` now writes the transport's `prefix` when the app sets `paths.base`, and handles hooks files that export `handle` from a list or already use the name `app`
+
+### Changed
+
+- an island now costs a SvelteKit page 10.5 KiB gzipped, down from 13.8 KiB in 1.0, measured on a SvelteKit app with and without one island; the size script now reports that number, along with what the transport adds to every page and what the Vite plugin adds to pages without islands
+- the Vite plugin decides which pages are shell pages from each route's `csr` export, and falls back to the page's HTML only when it can't read the value; in development, it warns when the two disagree
+- the prefetch docs now say that the 1 MiB budget is per page
+
 ## 1.0.1
 
 ### Fixed
