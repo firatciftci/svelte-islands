@@ -54,10 +54,11 @@ const SELECTORS = [
 
 const ISLAND = `<script>
   import { registry } from "./registry.js";
-  let { part, children, module, scope } = $props();
+  let { part, children, module, scope, hydrate } = $props();
   const body = module != null && registry[module] != null ? registry[module] : children;
+  globalThis.fuzzHydrate?.push(hydrate ?? null);
 </script>
-{@render body(part, scope)}
+<x-island>{@render body(part, scope)}</x-island>
 `;
 
 const CHILD = `<script>
@@ -81,6 +82,7 @@ type Draw = {
   int: (min: number, max: number) => number;
   bool: () => boolean;
   next: () => number;
+  isStatic: boolean;
 };
 
 function pick<T>(draw: Draw, items: ReadonlyArray<T>): T {
@@ -105,7 +107,7 @@ function expression(
     leaf,
     () => `${inner()} + ${inner()}`,
     () => `twice(${inner()})`,
-    () => `shout(${inner()})`,
+    () => (draw.isStatic ? `twice(${inner()})` : `shout(${inner()})`),
     () => `[${inner()}, ${inner()}].length`,
     () => `((count) => count + 1)(${inner()})`,
     () => `list.map((label) => label + ${inner()}).join("-")`,
@@ -149,10 +151,14 @@ function node(
     () => `<span title="{${expr()}}">{${expr()}}</span>`,
     () => `<b class:on={${expr()}}>{${expr()}}</b>`,
     () => `<i {${pick(draw, names)}}></i>`,
-    () => `<Child value={${expr()}} />`,
-    () => `{@render tag(${expr()})}`,
   ];
-  if (isIsland) {
+  if (!draw.isStatic) {
+    leaves.push(
+      () => `<Child value={${expr()}} />`,
+      () => `{@render tag(${expr()})}`,
+    );
+  }
+  if (isIsland && !draw.isStatic) {
     leaves.push(() => `<input bind:value={text} />`);
   }
   if (depth <= 0) {
@@ -177,12 +183,20 @@ function node(
       );
       return `{#snippet ${name}(p)}${inside}{/snippet}{@render ${name}(${expr()})}`;
     },
-    () => `<Child value={${expr()}}>${deeper()}</Child>`,
   ];
+  if (!draw.isStatic) {
+    blocks.push(() => `<Child value={${expr()}}>${deeper()}</Child>`);
+  }
   return pick(draw, blocks)();
 }
 
 function island(draw: Draw) {
+  if (draw.int(0, 2) === 0) {
+    draw.isStatic = true;
+    const body = nodes(draw, ["list", "word", "rows"], 2, true);
+    draw.isStatic = false;
+    return `<Island part={data.rows}>{#snippet children(rows)}${body}{/snippet}</Island>`;
+  }
   const isWrapped = draw.bool();
   const outer = isWrapped ? [...PAGE_NAMES, "item"] : PAGE_NAMES;
   const body = nodes(draw, [...outer, "rows"], 2, true);
@@ -196,6 +210,7 @@ const pages = fc.gen().map((generator) => {
     int: (min, max) => generator(fc.integer, { min, max }),
     bool: () => generator(fc.boolean),
     next: () => (counter += 1),
+    isStatic: false,
   };
   const sections = Array.from({ length: draw.int(1, 3) }, () =>
     [island(draw), `<div>${nodes(draw, PAGE_NAMES, 1, false)}</div>`].join(
@@ -313,5 +328,38 @@ describe("the Vite plugin's transform", () => {
     );
     expect(tally.split / tally.islands).toBeGreaterThan(0.8);
     expect(tally.styledSplit / tally.styled).toBeGreaterThan(0.3);
+  }, 600_000);
+
+  it("renders an island it marks never-hydrating the same whatever the page's state", async () => {
+    const seen = { never: 0 };
+    await fc.assert(
+      fc.asyncProperty(pages, async (page) => {
+        const hydrates: Array<string | null> = [];
+        Object.assign(globalThis, { fuzzHydrate: hydrates });
+        const before = await renderVariant("server", page);
+        Object.assign(globalThis, { fuzzHydrate: undefined });
+        const after = await renderVariant(
+          "server",
+          page
+            .replace("$state(2)", "$state(7)")
+            .replace('$state("ok")', '$state("changed")')
+            .replace('$state("typed")', '$state("retyped")'),
+        );
+        const islandsOf = (html: string) =>
+          html
+            .split("<x-island>")
+            .slice(1)
+            .map((part) => part.split("</x-island>")[0]);
+        const [first, second] = [islandsOf(before), islandsOf(after)];
+        for (const [index, hydrate] of hydrates.entries()) {
+          if (hydrate === "never") {
+            seen.never += 1;
+            expect(second[index]).toBe(first[index]);
+          }
+        }
+      }),
+      { numRuns: RUNS },
+    );
+    expect(seen.never).toBeGreaterThan(0);
   }, 600_000);
 });
