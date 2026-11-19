@@ -34,6 +34,8 @@ This is the default because it costs nothing until someone reaches for the islan
 
 Moving a pointer over the island is enough to start the download, which means the data is often in memory by the time the click lands. If the click gets there first, the island holds it and replays it, as described in [input before hydration](../20-core-concepts/60-clicks.md).
 
+The page listens for this once, on the document, rather than once per island, so a page with hundreds of islands adds no listeners for them. A download that starts this way asks the browser for high priority, ahead of images and other low-priority requests, because someone is about to use the island.
+
 ## `visible`
 
 You can use this for a chart or map that should be live as soon as someone can see it.
@@ -114,6 +116,8 @@ Prefetching doesn't happen in a few cases:
 - when `hydrate` is only `never`, since the island never wakes
 - when the reader has asked to save data with `Save-Data`, or the connection is `slow-2g` or `2g`, so that data the reader may never need doesn't use up a slow connection
 - once the page has prefetched 1 MiB of parts, until the page is reloaded, so that a long page can't fetch everything up front
+
+An island that's waiting for another strategy, such as `idle` or `media`, still notices a pointer, focus, or touch inside it. It starts downloading its data and code right then, at high priority, and wakes when its own strategy fires. To see how much prefetching helped, listen for the [`prefetch` event](../50-tooling/40-measuring.md), which says, for each part, whether an island used it, needed it before it arrived, or never read it.
 
 ## Several at once
 

@@ -16,6 +16,10 @@ import type { Strategy } from "./part.js";
  * - `reveal`: content replaced a skeleton. `from` and `to` are the heights in
  *   pixels before and after, so a difference means the skeleton shifted the page.
  * - `fail`: a part or deferred HTML could not be downloaded.
+ * - `prefetch`: sent when the page is hidden or the visitor moves to another
+ *   page, for each part fetched early: `used` if an island read it after it
+ *   arrived, `late` if an island needed it before it arrived, and `wasted` if
+ *   no island read it.
  */
 export type Observation =
   | {
@@ -46,7 +50,15 @@ export type Observation =
       isPrefetched: boolean;
     }
   | { type: "reveal"; name: string; hash: string; from: number; to: number }
-  | { type: "fail"; name: string; hash: string; message: string };
+  | { type: "fail"; name: string; hash: string; message: string }
+  | {
+      type: "prefetch";
+      parts: Array<{
+        name: string;
+        hash: string;
+        outcome: "used" | "late" | "wasted";
+      }>;
+    };
 
 const listeners = new Set<(observation: Observation) => void>();
 

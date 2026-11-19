@@ -16,6 +16,8 @@ import {
   keepFields,
   load,
   loadNow,
+  loadSoon,
+  onIntent,
   partsOf,
   prefetch,
   schedule,
@@ -169,13 +171,27 @@ function prefetchNear(target: HTMLElement, wake: Wake) {
   };
 }
 
-async function ready(wake: Wake) {
+async function ready(wake: Wake, fired: Strategy) {
+  const get = fired === "interaction" ? loadSoon : load;
   const [value, body] = await Promise.all([
-    load(wake.part),
+    get(wake.part),
     wake.code.load(),
-    ...wake.needs.map(async (need) => load(need)),
+    ...wake.needs.map(async (need) => get(need)),
   ]);
   return { value, body };
+}
+
+function warmOnIntent(target: HTMLElement, wake: Wake) {
+  const strategies = wake.hydrate();
+  if (isNeverOnly(strategies) || strategies.includes("interaction")) {
+    return nothing;
+  }
+  return onIntent(target, () => {
+    for (const part of [wake.part, ...wake.needs]) {
+      void quietly(loadSoon(part));
+    }
+    void quietly(wake.code.load());
+  });
 }
 
 function reportHydrate(
@@ -252,7 +268,7 @@ export function awaken(target: HTMLElement, wake: Wake, control: Control) {
         touched ??= performance.now();
       }
       void when(
-        ready(wake),
+        ready(wake, fired),
         ({ value, body }) => {
           if (!isLive) {
             return;
@@ -260,7 +276,7 @@ export function awaken(target: HTMLElement, wake: Wake, control: Control) {
           job = schedule(() => {
             go(value, body, fired);
           }, wake.hydrate());
-          if (held?.isHolding() === true) {
+          if (fired === "interaction" || held?.isHolding() === true) {
             job.hurry();
           }
         },
@@ -275,7 +291,12 @@ export function awaken(target: HTMLElement, wake: Wake, control: Control) {
     wake,
     control,
   );
-  stopPrefetch = prefetchNear(target, wake);
+  const stopPrefetchNear = prefetchNear(target, wake);
+  const stopWarming = warmOnIntent(target, wake);
+  stopPrefetch = () => {
+    stopPrefetchNear();
+    stopWarming();
+  };
   if (!isNever) {
     stopWanting = whenWanted((want) => {
       if (want === "find") {
@@ -442,7 +463,7 @@ export function render(target: HTMLElement, wake: Wake, control: Control) {
     wake.hydrate(),
     (fired) => {
       void when(
-        ready(wake),
+        ready(wake, fired),
         ({ value, body }) => {
           if (!isLive) {
             return;

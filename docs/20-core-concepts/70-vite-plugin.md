@@ -99,6 +99,8 @@ An island keeps hydrating when its snippet:
 
 Plain forms, links, `<details>`, and `<dialog>` with `commandfor` buttons all work without Svelte, so they don't keep an island hydrating.
 
+The plugin reads only the snippet, not the modules it imports. A function from a plain `.ts` or `.js` module is trusted to depend only on its arguments, so an island the plugin marked as never hydrating will not update when a helper reads shared state from a `.svelte.ts` module. Set `hydrate` on that island so that you control its hydration.
+
 In `vite dev`, each island the plugin checked carries a `data-island-why` attribute: `inferred` when it never hydrates, or the first reason it found otherwise. [`inspect`](../50-tooling/05-init-and-inspect.md) and the [overlay](../50-tooling/30-overlay.md) show it too. To choose for yourself, set `hydrate`, and the plugin leaves the island alone.
 
 The inference covers the first load only. After a client-side navigation, there's no server HTML to adopt, so the island renders in the browser from its snippet, and downloads its code to do it.

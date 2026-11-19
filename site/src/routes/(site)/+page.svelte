@@ -24,7 +24,7 @@
       status = "awake";
     }
     return observe((event) => {
-      if (event.name !== data.harrow.name) {
+      if (event.type === "prefetch" || event.name !== data.harrow.name) {
         return;
       }
       if (event.type === "load") {

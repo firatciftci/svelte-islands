@@ -15,7 +15,7 @@ const SAVED_LIMIT = 512 * 1024;
 const BUSY = ".island-shell, [aria-busy='true']";
 const RETRY = 250;
 const RETRY_LIMIT = 4000;
-const INTERACTIONS = ["pointerenter", "pointerdown", "focusin", "touchstart"];
+const INTENTS = ["pointerover", "pointerdown", "focusin", "touchstart"];
 const SLICE = 8;
 const PREFETCH_BUDGET = 1024 ** 2;
 const RANKS: Record<Strategy, number> = {
@@ -38,7 +38,13 @@ const refreshed = new Set<string>();
 const watched = new Map<Element, Set<() => void>>();
 const observers = new Map<string, IntersectionObserver>();
 const wants = new Set<(want: Want) => void>();
-const prefetched = new Set<string>();
+type Prefetched = {
+  part: Part;
+  outcome: "pending" | "arrived" | "used" | "late";
+};
+
+const prefetched = new Map<string, Prefetched>();
+const intents = new WeakMap<Element, Set<() => void>>();
 const state: {
   held: number;
   prefetched: number;
@@ -48,6 +54,8 @@ const state: {
   isDraining: boolean;
   isListening: boolean;
   isFinding: boolean;
+  isIntending: boolean;
+  isSummarizing: boolean;
   reads: Set<Part> | null;
 } = {
   held: 0,
@@ -58,6 +66,8 @@ const state: {
   isDraining: false,
   isListening: false,
   isFinding: false,
+  isIntending: false,
+  isSummarizing: false,
   reads: null,
 };
 
@@ -381,7 +391,17 @@ export async function load<T>(part: Part<T>): Promise<T> {
   return fetchPart(part, "auto");
 }
 
+export async function loadSoon<T>(part: Part<T>): Promise<T> {
+  return fetchPart(part, "high");
+}
+
 async function fetchPart<T>(part: Part<T>, priority: Priority): Promise<T> {
+  const early = priority === "low" ? null : prefetched.get(part.hash);
+  if (early?.outcome === "pending") {
+    early.outcome = "late";
+  } else if (early?.outcome === "arrived") {
+    early.outcome = "used";
+  }
   const known = untrack(() => peek(part));
   if (known != null) {
     return known.value;
@@ -409,6 +429,24 @@ export function isPrefetched(part: Part) {
   return prefetched.has(part.hash);
 }
 
+function summarize() {
+  if (prefetched.size === 0) {
+    return;
+  }
+  if (isObserved()) {
+    emit({
+      type: "prefetch",
+      parts: [...prefetched.values()].map(({ part, outcome }) => ({
+        name: part.name,
+        hash: part.hash,
+        outcome:
+          outcome === "pending" || outcome === "arrived" ? "wasted" : outcome,
+      })),
+    });
+  }
+  prefetched.clear();
+}
+
 export function prefetch(parts: ReadonlyArray<Part>, extra: () => void) {
   const missing = parts.filter(
     (part) => peek(part) == null && !pending.has(part.hash),
@@ -419,16 +457,28 @@ export function prefetch(parts: ReadonlyArray<Part>, extra: () => void) {
   }
   const page = `${location.pathname}${location.search}`;
   if (state.prefetchedOn !== page) {
+    summarize();
     state.prefetchedOn = page;
     state.prefetched = 0;
+  }
+  if (!state.isSummarizing) {
+    state.isSummarizing = true;
+    addEventListener("pagehide", summarize);
   }
   if (isThrifty() || state.prefetched + bytes > PREFETCH_BUDGET) {
     return;
   }
   state.prefetched += bytes;
   for (const part of missing) {
-    prefetched.add(part.hash);
-    void quietly(fetchPart(part, "low"));
+    const entry: Prefetched = { part, outcome: "pending" };
+    prefetched.set(part.hash, entry);
+    void quietly(
+      fetchPart(part, "low").then(() => {
+        if (entry.outcome === "pending") {
+          entry.outcome = "arrived";
+        }
+      }),
+    );
   }
   extra();
 }
@@ -769,14 +819,40 @@ function matched(_: Element, start: () => void, options: Options) {
   });
 }
 
-function engaged(element: Element, start: () => void) {
-  const stops = INTERACTIONS.map((type) =>
-    on(element, type, start, { passive: true, capture: true }),
-  );
-  return () => {
-    for (const stop of stops) {
-      stop();
+function intended(event: Event) {
+  for (
+    let node = event.target instanceof Element ? event.target : null;
+    node != null;
+    node = node.parentElement
+  ) {
+    for (const run of intents.get(node) ?? []) {
+      run();
     }
+  }
+}
+
+/**
+ * Calls `run` when someone points at, presses, focuses, or touches something
+ * inside `element`, through one set of listeners on the document.
+ */
+export function onIntent(element: Element, run: () => void) {
+  if (!state.isIntending) {
+    state.isIntending = true;
+    for (const type of INTENTS) {
+      addEventListener(type, intended, { passive: true, capture: true });
+    }
+  }
+  let runs = intents.get(element);
+  if (runs == null) {
+    runs = new Set();
+    intents.set(element, runs);
+  }
+  const entry = () => {
+    run();
+  };
+  runs.add(entry);
+  return () => {
+    runs.delete(entry);
   };
 }
 
@@ -863,7 +939,7 @@ const STRATEGIES: Record<
   idle: (_, start) => idle(start),
   visible,
   media: matched,
-  interaction: engaged,
+  interaction: onIntent,
   never: () => nothing,
 };
 

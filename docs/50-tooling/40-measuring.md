@@ -35,6 +35,7 @@ Each event has a `type`, plus the part's `name` and `hash`:
   - `isPrefetched`: whether its part was prefetched
 - `reveal` means content replaced a skeleton, and adds `from` and `to`, the island's height in pixels before and after
 - `fail` means a part or deferred HTML could not be downloaded, and adds `message`
+- `prefetch` arrives when the page is hidden or the reader moves to another page, and has no `name` or `hash` of its own. It adds `parts`, one entry for each part fetched early, with its `name`, its `hash`, and an `outcome`: `used` when an island read it after it arrived, `late` when an island needed it before it arrived, and `wasted` when no island read it
 
 A large difference between `from` and `to` means the skeleton shifted your page.
 

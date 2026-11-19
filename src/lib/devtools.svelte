@@ -162,6 +162,11 @@
       case "reveal": {
         return `reveal ${event.name}: ${Math.round(event.from)} to ${Math.round(event.to)} px`;
       }
+      case "prefetch": {
+        const count = (outcome: string) =>
+          event.parts.filter((part) => part.outcome === outcome).length;
+        return `prefetch: ${count("used")} used, ${count("late")} late, ${count("wasted")} wasted`;
+      }
       default: {
         return `fail ${event.name}: ${event.message}`;
       }
@@ -170,6 +175,9 @@
 
   function record(event: Observation) {
     log = [event, ...log].slice(0, LOG);
+    if (event.type === "prefetch") {
+      return;
+    }
     const stats = seen.get(event.hash) ?? {};
     if (event.type === "load") {
       seen.set(event.hash, { ...stats, load: event.duration });

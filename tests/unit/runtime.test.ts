@@ -28,7 +28,16 @@ function stubFetch() {
   return calls;
 }
 
+const listeners = new Map<string, Array<(event: Event) => void>>();
+
 beforeEach(() => {
+  listeners.clear();
+  vi.stubGlobal(
+    "addEventListener",
+    (type: string, listener: (event: Event) => void) => {
+      listeners.set(type, [...(listeners.get(type) ?? []), listener]);
+    },
+  );
   vi.stubGlobal("navigator", {});
   vi.stubGlobal("location", {
     origin: "https://example.com",
@@ -48,6 +57,71 @@ describe("strategiesOf", () => {
     expect(strategiesOf(["interaction", "idle"])).toStrictEqual([
       "interaction",
       "idle",
+    ]);
+  });
+});
+
+describe("loading on intent", () => {
+  it("asks at high priority", async () => {
+    const calls = stubFetch();
+    const { loadSoon } = await fresh();
+    void loadSoon(made("rows", KIB));
+    await settled();
+    expect(calls[0]?.priority).toBe("high");
+  });
+
+  it("runs once for each island the event happens inside", async () => {
+    const { onIntent } = await fresh();
+    const outer = { parentElement: null };
+    const inner = { parentElement: outer };
+    vi.stubGlobal("Element", Object);
+    const ran: Array<string> = [];
+    const stop = onIntent(outer as unknown as Element, () => ran.push("outer"));
+    onIntent(inner as unknown as Element, () => ran.push("inner"));
+    for (const listener of listeners.get("pointerover") ?? []) {
+      listener({ target: inner } as unknown as Event);
+    }
+    stop();
+    for (const listener of listeners.get("focusin") ?? []) {
+      listener({ target: inner } as unknown as Event);
+    }
+    expect(ran).toStrictEqual(["inner", "outer", "inner"]);
+  });
+});
+
+describe("the prefetch summary", () => {
+  it("reports each prefetched part as used, late, or wasted when the page hides", async () => {
+    const { prefetch, load } = await fresh();
+    const { observe } = await import("#lib/observe.js");
+    const { serialize } = await import("#lib/part.js");
+    const arrived = made("arrived", KIB);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: URL) =>
+        url.href.includes("arrived")
+          ? new Response(serialize([1]))
+          : new Promise<Response>(() => {}),
+      ),
+    );
+    const seen: Array<unknown> = [];
+    observe((event) => {
+      if (event.type === "prefetch") {
+        seen.push(event.parts.map((part) => [part.name, part.outcome]));
+      }
+    });
+    prefetch([arrived, made("late", KIB), made("wasted", KIB)], () => {});
+    await settled();
+    await load(arrived);
+    void load(made("late", KIB));
+    for (const listener of listeners.get("pagehide") ?? []) {
+      listener(new Event("pagehide"));
+    }
+    expect(seen).toStrictEqual([
+      [
+        ["arrived", "used"],
+        ["late", "late"],
+        ["wasted", "wasted"],
+      ],
     ]);
   });
 });
