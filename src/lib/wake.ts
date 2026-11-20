@@ -249,15 +249,11 @@ export function awaken(target: HTMLElement, wake: Wake, control: Control) {
     stopPrefetch();
     const restore = keepFields(target);
     const started = performance.now();
-    let isReady = false;
-    let isPlaced = false;
+    let waiting = 2;
     const release = () => {
-      if (!(isReady && isPlaced)) {
-        return;
+      if (--waiting === 0) {
+        held?.release();
       }
-
-      isReady = false;
-      held?.release();
     };
     instance = hydrate(Frame, {
       target,
@@ -266,7 +262,6 @@ export function awaken(target: HTMLElement, wake: Wake, control: Control) {
         value,
         scope: wake.scope,
         onready: () => {
-          isReady = true;
           queueMicrotask(release);
         },
       },
@@ -281,7 +276,6 @@ export function awaken(target: HTMLElement, wake: Wake, control: Control) {
     if (held?.isHolding() === true) {
       flushSync();
     }
-    isPlaced = true;
     release();
   };
   const stop = arm(

@@ -20,7 +20,7 @@
 
 ### Changed
 
-- an island now costs a SvelteKit page 10.5 KiB gzipped, down from 13.8 KiB in 1.0, measured on a SvelteKit app with and without one island; the size script now reports that number, along with what the transport adds to every page and what the Vite plugin adds to pages without islands
+- an island now costs a SvelteKit page 10.6 KiB gzipped, down from 13.8 KiB in 1.0, measured on a SvelteKit app with and without one island; the size script now reports that number, along with what the transport adds to every page and what the Vite plugin adds to pages without islands
 - the Vite plugin decides which pages are shell pages from each route's `csr` export, and falls back to the page's HTML only when it can't read the value; in development, it warns when the two disagree
 - the prefetch docs now say that the 1 MiB budget is per page
 
