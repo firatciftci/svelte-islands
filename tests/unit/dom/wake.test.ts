@@ -1,3 +1,4 @@
+import type { Component } from "svelte";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createRawSnippet, flushSync } from "svelte";
@@ -131,7 +132,7 @@ async function asyncCard() {
   const load = async <T>(name: string) =>
     (await import(/* @vite-ignore */ path.join(ASYNC, name))) as T;
   const server = await load<{ card: Body }>("Snippets.server.js");
-  const Frame = await load<{ default: Parameters<typeof renderServer>[0] }>(
+  const Frame = await load<{ default: Component<{ body: Body; value: unknown }> }>(
     "Frame.server.js",
   );
   const { body: html } = await renderServer(Frame.default, {
