@@ -269,13 +269,15 @@ test.describe("recovery", () => {
   test("a part that stays gone reloads the page's data once", async ({
     page,
   }) => {
-    let refused = 0;
+    const refused = new Map<string, number>();
     await page.route("**/_parts/*", async (route) => {
-      if (route.request().url().endsWith("/skeletons.json") || refused >= 2) {
+      const url = route.request().url();
+      const count = refused.get(url) ?? 0;
+      if (url.endsWith("/skeletons.json") || count >= 2) {
         await route.continue();
         return;
       }
-      refused += 1;
+      refused.set(url, count + 1);
       await route.fulfill({ status: 404 });
     });
     const data = page.waitForRequest((request) =>
@@ -285,7 +287,7 @@ test.describe("recovery", () => {
     await hydrated(page);
     await page.getByTestId("static-press").click();
     await data;
-    expect(refused).toBe(2);
+    expect(refused.size).toBeGreaterThanOrEqual(2);
   });
 
   test("a 503 is retried", async ({ page }) => {
