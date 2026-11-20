@@ -57,4 +57,4 @@ Content streamed into an [`Await`](../20-core-concepts/45-streaming.md) appears 
 
 ## How much JavaScript does it add?
 
-About 11 KiB gzipped for `Island` alone, and 12.4 KiB for every client export together. CI fails if those go over 11.5 KiB and 12.5 KiB.
+A SvelteKit page with one island ships about 10.6 KiB more gzipped JavaScript than the same page without it. `Island` alone is about 11.2 KiB, and every client export together is about 12.8 KiB. CI fails if those three go over 10.6 KiB, 11.3 KiB, and 12.8 KiB.
