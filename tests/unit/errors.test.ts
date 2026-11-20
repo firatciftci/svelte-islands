@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { CODES, coded, ERRORS } from "#lib/errors.js";
+import { coded, CODES, ERRORS } from "#lib/errors.js";
 
 const LIBRARY = "src/lib";
 

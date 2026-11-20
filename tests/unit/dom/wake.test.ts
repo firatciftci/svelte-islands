@@ -192,7 +192,7 @@ describe("render", () => {
     const target = islandWith(`<div class="island-shell"></div>`, "client");
     render(target, wakeOf(part), { rouse: () => {} });
     await fire();
-    expect(target.innerHTML).toContain("5 rows");
+    expect(target.getHTML()).toContain("5 rows");
     expect(target.querySelector(".island-shell")).toBeNull();
     expect(target.dataset.islandState).toBe("live");
     expect(target.hasAttribute("aria-busy")).toBe(false);

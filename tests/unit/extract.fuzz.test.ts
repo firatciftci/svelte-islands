@@ -349,13 +349,15 @@ describe("the Vite plugin's transform", () => {
           html
             .split("<x-island>")
             .slice(1)
-            .map((part) => part.split("</x-island>")[0]);
+            .map((part) => part.split("</x-island>", 1)[0]);
         const [first, second] = [islandsOf(before), islandsOf(after)];
         for (const [index, hydrate] of hydrates.entries()) {
-          if (hydrate === "never") {
-            seen.never += 1;
-            expect(second[index]).toBe(first[index]);
+          if (hydrate !== "never") {
+            continue;
           }
+
+          seen.never += 1;
+          expect(second[index]).toBe(first[index]);
         }
       }),
       { numRuns: RUNS },

@@ -74,21 +74,23 @@ export type Observation =
 const listeners = new Set<(observation: Observation) => void>();
 const FRAME = "long-animation-frame";
 const WINDOWS = 32;
-let windows: Array<{ name: string; hash: string; start: number; end: number }> =
-  [];
-let frames: PerformanceObserver | null = null;
+const tracking: {
+  frames: PerformanceObserver | null;
+  windows: Array<{ name: string; hash: string; start: number; end: number }>;
+} = { frames: null, windows: [] };
 
 function watchFrames() {
   if (
-    frames != null ||
-    globalThis.PerformanceObserver?.supportedEntryTypes.includes(FRAME) !== true
+    typeof PerformanceObserver === "undefined" ||
+    tracking.frames != null ||
+    !PerformanceObserver.supportedEntryTypes.includes(FRAME)
   ) {
     return;
   }
-  frames = new PerformanceObserver((list) => {
+  tracking.frames = new PerformanceObserver((list) => {
     for (const entry of list.getEntries()) {
       const end = entry.startTime + entry.duration;
-      const islands = windows
+      const islands = tracking.windows
         .filter((made) => made.start < end && made.end > entry.startTime)
         .map(({ name, hash }) => ({ name, hash }));
       if (islands.length > 0) {
@@ -102,16 +104,16 @@ function watchFrames() {
       }
     }
   });
-  frames.observe({ type: FRAME, buffered: true });
+  tracking.frames.observe({ type: FRAME, buffered: true });
 }
 
 export function worked(name: string, hash: string, start: number) {
-  if (frames == null) {
+  if (tracking.frames == null) {
     return;
   }
-  windows.push({ name, hash, start, end: performance.now() });
-  if (windows.length > WINDOWS) {
-    windows.shift();
+  tracking.windows.push({ name, hash, start, end: performance.now() });
+  if (tracking.windows.length > WINDOWS) {
+    tracking.windows.shift();
   }
 }
 
@@ -141,9 +143,9 @@ export function observe(
   return () => {
     listeners.delete(listener);
     if (listeners.size === 0) {
-      frames?.disconnect();
-      frames = null;
-      windows = [];
+      tracking.frames?.disconnect();
+      tracking.frames = null;
+      tracking.windows = [];
     }
   };
 }

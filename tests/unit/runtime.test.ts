@@ -76,13 +76,19 @@ describe("loading on intent", () => {
     const inner = { parentElement: outer };
     vi.stubGlobal("Element", Object);
     const ran: Array<string> = [];
-    const stop = onIntent(outer as unknown as Element, () => ran.push("outer"));
-    onIntent(inner as unknown as Element, () => ran.push("inner"));
-    for (const listener of listeners.get("pointerover") ?? []) {
+    const stop = onIntent(outer as unknown as Element, () => {
+      ran.push("outer");
+    });
+    onIntent(inner as unknown as Element, () => {
+      ran.push("inner");
+    });
+    const pointerOver = listeners.get("pointerover") ?? [];
+    for (const listener of pointerOver) {
       listener({ target: inner } as unknown as Event);
     }
     stop();
-    for (const listener of listeners.get("focusin") ?? []) {
+    const focusIn = listeners.get("focusin") ?? [];
+    for (const listener of focusIn) {
       listener({ target: inner } as unknown as Event);
     }
     expect(ran).toStrictEqual(["inner", "outer", "inner"]);
@@ -113,7 +119,8 @@ describe("the prefetch summary", () => {
     await settled();
     await load(arrived);
     void load(made("late", KIB));
-    for (const listener of listeners.get("pagehide") ?? []) {
+    const pageHide = listeners.get("pagehide") ?? [];
+    for (const listener of pageHide) {
       listener(new Event("pagehide"));
     }
     expect(seen).toStrictEqual([

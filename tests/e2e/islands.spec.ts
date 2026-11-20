@@ -556,10 +556,15 @@ test.describe("inferred never islands", () => {
     const scripts: Array<string> = [];
     page.on("response", async (response) => {
       if (!response.url().endsWith(".js")) {
-      	return;
+        return;
       }
 
-      const text = await response.text().catch(() => "");
+      let text: string;
+      try {
+        text = await response.text();
+      } catch {
+        return;
+      }
       if (text.includes("inferred-rows")) {
         scripts.push(response.url());
       }

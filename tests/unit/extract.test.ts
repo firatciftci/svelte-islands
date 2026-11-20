@@ -493,7 +493,7 @@ describe('inferring hydrate="never"', () => {
       target,
       true,
     );
-    if (extracted == null || extracted.modules.length !== 1) {
+    if (extracted?.modules.length !== 1) {
       throw new Error("expected one island");
     }
     const why = /why=\{"([^"]*)"\}/u.exec(extracted.code)?.[1] ?? null;

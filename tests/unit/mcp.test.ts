@@ -1,3 +1,4 @@
+import type { Buffer } from "node:buffer";
 import { stringify } from "devalue";
 import { readFileSync } from "node:fs";
 import { PassThrough } from "node:stream";
@@ -16,7 +17,15 @@ type Message = {
 };
 
 class Shipped {
-  constructor(readonly head: Array<unknown>) {}
+  readonly head: Array<unknown>;
+
+  constructor(head: Array<unknown>) {
+    this.head = head;
+  }
+}
+
+function unpacked(text: string) {
+  return JSON.parse(text) as Array<unknown>;
 }
 
 const ROWS = Array.from({ length: 400 }, (_, id) => ({
@@ -33,10 +42,10 @@ const PAGE = `<!doctype html><html><head></head><body>
 const DATA = JSON.stringify({
   type: "data",
   nodes: [
-    { type: "data", data: JSON.parse(stringify({ title: "Products" })) },
+    { type: "data", data: unpacked(stringify({ title: "Products" })) },
     {
       type: "data",
-      data: JSON.parse(
+      data: unpacked(
         stringify(
           {
             rows: ROWS,
@@ -64,7 +73,9 @@ async function session(requests: Array<unknown>) {
   const input = new PassThrough();
   const output = new PassThrough();
   const chunks: Array<string> = [];
-  output.on("data", (chunk: Buffer) => chunks.push(chunk.toString()));
+  output.on("data", (chunk: Buffer) => {
+    chunks.push(chunk.toString());
+  });
   const served = serve({ input, output }, site);
   for (const request of requests) {
     input.write(
@@ -120,7 +131,7 @@ describe("the MCP server", () => {
 
   it("inspects a page", async () => {
     const [inspected] = await session([
-      call(1, "inspect_page", { url: "http://site.test/products" }),
+      call(1, "inspect_page", { url: "https://site.test/products" }),
     ]);
     expect(resultOf(inspected)).toMatchObject({
       client: "sveltekit",
@@ -130,7 +141,7 @@ describe("the MCP server", () => {
 
   it("advises a part for large page data, but not for a part", async () => {
     const [advised] = await session([
-      call(1, "advise_page_data", { url: "http://site.test/products" }),
+      call(1, "advise_page_data", { url: "https://site.test/products" }),
     ]);
     const { entries } = resultOf(advised) as {
       entries: Array<{ path: string; isPart: boolean; advice: string | null }>;
@@ -147,15 +158,15 @@ describe("the MCP server", () => {
   it("explains why an island hydrates, and names the islands it can't find", async () => {
     const [counter, list, missing] = await session([
       call(1, "explain_island", {
-        url: "http://site.test/products",
+        url: "https://site.test/products",
         island: "counter",
       }),
       call(2, "explain_island", {
-        url: "http://site.test/products",
+        url: "https://site.test/products",
         island: "list",
       }),
       call(3, "explain_island", {
-        url: "http://site.test/products",
+        url: "https://site.test/products",
         island: "cart",
       }),
     ]);
@@ -178,9 +189,9 @@ describe("the MCP server", () => {
     expect(
       messages.map((message) => [message.id, message.error?.code]),
     ).toStrictEqual([
-      [null, -32700],
-      [1, -32601],
-      [2, -32602],
+      [null, -32_700],
+      [1, -32_601],
+      [2, -32_602],
     ]);
   });
 });

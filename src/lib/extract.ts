@@ -1514,9 +1514,11 @@ function scopeObject(
     }
   }
   if (instance != null) {
-    const own = [...captures.values()]
+    const own = captures
+      .values()
       .filter((capture) => capture.kind === "template")
-      .map((capture) => capture.name);
+      .map((capture) => capture.name)
+      .toArray();
     members.push(
       `[Symbol.for("svelte-islands:scope")]: { instance: ${instance}, own: ${JSON.stringify(own)} }`,
     );
@@ -1730,7 +1732,7 @@ export function extract(
   const valueName = fresh("value", code);
   const instanceName =
     isServer && root.instance != null ? fresh("instance", code) : null;
-  let isInstanced = false;
+  const instancedIslands: Array<string> = [];
   const modules: Extracted["modules"] = [];
   const warnings: Array<string> = [];
   const inferred: Array<string> = [];
@@ -1772,7 +1774,9 @@ export function extract(
       analysis.captures.size === 0
         ? ""
         : ` scope={${scopeObject(analysis.captures, valueName, instanceName)}}`;
-    isInstanced ||= instanceName != null && analysis.captures.size > 0;
+    if (instanceName != null && analysis.captures.size > 0) {
+      instancedIslands.push(id);
+    }
     const nameEnd = island.start + 1 + island.name.length;
     if (isInferable(island)) {
       const why = whyLive(located.snippet, analysis);
@@ -1789,13 +1793,13 @@ export function extract(
       modules.push({ id, file: "", source: "" });
       return true;
     }
-    for (const reference of analysis.references) {
-      if (rewritten.has(reference.start)) {
-        continue;
-      }
-      rewritten.add(reference.start);
-      rewrite(moduleText, reference, scopeName, code);
-    }
+    rewriteReferences(
+      moduleText,
+      analysis.references,
+      rewritten,
+      scopeName,
+      code,
+    );
     const source = islandSource(
       located.snippet,
       analysis,
@@ -1854,7 +1858,7 @@ export function extract(
     pruneSnippets(prunable, root, page, removed);
     pruneImports(moved, root, code, page, removed);
   }
-  if (isInstanced && root.instance != null) {
+  if (instancedIslands.length > 0 && root.instance != null) {
     page.appendLeft(
       asNode(root.instance.content).end,
       `\nconst ${instanceName} = {};\n`,
@@ -1867,6 +1871,22 @@ export function extract(
     warnings,
     inferred,
   };
+}
+
+function rewriteReferences(
+  text: MagicString,
+  references: Array<Reference>,
+  rewritten: Set<number>,
+  scope: string,
+  code: string,
+) {
+  for (const reference of references) {
+    if (rewritten.has(reference.start)) {
+      continue;
+    }
+    rewritten.add(reference.start);
+    rewrite(text, reference, scope, code);
+  }
 }
 
 function isRemoved(start: number, removed: Array<[number, number]>) {

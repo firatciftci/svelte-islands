@@ -440,12 +440,17 @@ function summarize() {
   if (isObserved()) {
     emit({
       type: "prefetch",
-      parts: [...prefetched.values()].map(({ part, outcome }) => ({
-        name: part.name,
-        hash: part.hash,
-        outcome:
-          outcome === "pending" || outcome === "arrived" ? "wasted" : outcome,
-      })),
+      parts: prefetched
+        .values()
+        .map(({ part, outcome }) => ({
+          name: part.name,
+          hash: part.hash,
+          outcome:
+            outcome === "pending" || outcome === "arrived"
+              ? ("wasted" as const)
+              : outcome,
+        }))
+        .toArray(),
     });
   }
   prefetched.clear();
@@ -476,13 +481,13 @@ export function prefetch(parts: ReadonlyArray<Part>, extra: () => void) {
   for (const part of missing) {
     const entry: Prefetched = { part, outcome: "pending" };
     prefetched.set(part.hash, entry);
-    void quietly(
-      fetchPart(part, "low").then(() => {
-        if (entry.outcome === "pending") {
-          entry.outcome = "arrived";
-        }
-      }),
-    );
+    const arrive = async () => {
+      await fetchPart(part, "low");
+      if (entry.outcome === "pending") {
+        entry.outcome = "arrived";
+      }
+    };
+    void quietly(arrive());
   }
   extra();
 }
@@ -829,7 +834,8 @@ function intended(event: Event) {
     node != null;
     node = node.parentElement
   ) {
-    for (const run of intents.get(node) ?? []) {
+    const runs = intents.get(node) ?? [];
+    for (const run of runs) {
       run();
     }
   }

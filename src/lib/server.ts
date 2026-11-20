@@ -8,9 +8,9 @@ import { render } from "svelte/server";
 import type { Adopted, Fetch, Fresh, Island, Scope, Shell } from "./part.js";
 import type { RebuildOptions } from "./rebuild.js";
 import type { Store } from "./stores.js";
+import { coded } from "./errors.js";
 import Frame from "./frame.svelte";
 import { isPackable, pack, plainKey } from "./pack.js";
-import { coded } from "./errors.js";
 import {
   Part,
   provide,
@@ -75,28 +75,33 @@ declare const __SVELTE_ISLANDS_CSR__:
   | Record<string, boolean | null>
   | undefined;
 
+function definedCsr() {
+  // eslint-disable-next-line unicorn/no-typeof-undefined
+  if (typeof __SVELTE_ISLANDS_CSR__ === "undefined") {
+    return null;
+  }
+  return __SVELTE_ISLANDS_CSR__;
+}
+
 function csrOf(id: string | null) {
   const routes =
     (globalThis as { __svelteIslandsCsr?: Record<string, boolean | null> })
-      .__svelteIslandsCsr ??
-    (typeof __SVELTE_ISLANDS_CSR__ === "undefined"
-      ? null
-      : __SVELTE_ISLANDS_CSR__);
+      .__svelteIslandsCsr ?? definedCsr();
   return id == null ? null : (routes?.[id] ?? null);
 }
 
-function isShellPage(html: string, event: RequestEvent) {
+function isShellPage(html: string, routeId: string | null) {
   const isNative = NATIVE.test(html);
-  const csr = csrOf(event.route.id);
+  const csr = csrOf(routeId);
   if (csr == null) {
     return !isNative;
   }
   if (dev && csr !== isNative) {
-    warnOnce(`csr:${event.route.id ?? ""}`, () => {
+    warnOnce(`csr:${routeId ?? ""}`, () => {
       console.warn(
         coded(
           "islands_csr_mismatch",
-          `The route ${event.route.id ?? ""} sets csr = ${String(csr)}, but its HTML says otherwise. Islands follow csr = ${String(csr)}. If you changed SvelteKit, please report this.`,
+          `The route ${routeId ?? ""} sets csr = ${String(csr)}, but its HTML says otherwise. Islands follow csr = ${String(csr)}. If you changed SvelteKit, please report this.`,
         ),
       );
     });
@@ -573,9 +578,6 @@ function adopt(
 ): Adopted | null {
   const { part: origin, key, render: mode, as, module } = island;
   track(event.locals).islands++;
-  const isDeferred = mode === "deferred" && !origin.isPrivate;
-  const isFresh = mode === "fresh";
-  const ssr = mode !== "client";
   if (as === "tbody" && mode !== "server") {
     throw new Error(
       coded(
@@ -584,10 +586,13 @@ function adopt(
       ),
     );
   }
+  const isDeferred = mode === "deferred" && !origin.isPrivate;
+  const isFresh = mode === "fresh";
+  const isSsr = mode !== "client";
   const { loaded } = origin;
   if (
     loaded == null ||
-    (origin.isInline && ssr && !isDeferred && !isFresh && module == null)
+    (isSsr && !isDeferred && !isFresh && module == null && origin.isInline)
   ) {
     return null;
   }
@@ -630,7 +635,7 @@ function adopt(
         html: shell(),
       };
     }
-    if (!ssr) {
+    if (!isSsr) {
       const outlined = outlineFor(event, `${origin.hash}:${key}`, html, key);
       return {
         state: "client",
@@ -988,7 +993,7 @@ function shellOf(shells: ReadonlyArray<Shell>) {
     if (values == null) {
       return null;
     }
-    const marked =
+    const marked: unknown =
       island.scope == null ? null : Reflect.get(island.scope, SCOPE);
     const sent: NonNullable<Sent["scope"]> = { at: null, names: [], own: {} };
     let shared: Record<string, unknown> | null = null;
@@ -1061,7 +1066,8 @@ function inject(html: string, event: RequestEvent) {
   }
   let inline = 0;
   let external = 0;
-  for (const sent of found?.parts ?? []) {
+  const parts = found?.parts ?? [];
+  for (const sent of parts) {
     if (sent.isInline) {
       inline += sent.bytes;
     } else {
@@ -1077,7 +1083,7 @@ function inject(html: string, event: RequestEvent) {
       "svelte-islands.page.external_bytes": external,
     },
     (span) => {
-      const isShell = isShellPage(html, event);
+      const isShell = isShellPage(html, event.route.id);
       span?.setAttribute("svelte-islands.page.shell", isShell);
       return injected(html, isShell, found);
     },

@@ -18,11 +18,11 @@ function isValid(code: string) {
 function exportsOnce(code: string, name: string) {
   const declared = code.match(
     new RegExp(
-      `export\\s+(?:const|(?:async\\s+)?function)\\s+${name}\\b`,
+      String.raw`export\s+(?:const|(?:async\s+)?function)\s+${name}\b`,
       "gu",
     ),
   );
-  const listed = code.match(new RegExp(`\\bas\\s+${name}\\b`, "gu"));
+  const listed = code.match(new RegExp(String.raw`\bas\s+${name}\b`, "gu"));
   return (declared?.length ?? 0) + (listed?.length ?? 0) === 1;
 }
 
@@ -125,7 +125,12 @@ describe("init in an app", () => {
         `import { sveltekit } from "@sveltejs/kit/vite";\n\nexport default { plugins: [sveltekit({ paths: { base: "/docs" } })] };\n`,
       );
       const lines: Array<string> = [];
-      const io = { out: (line: string) => lines.push(line), err: () => {} };
+      const io = {
+        out: (line: string) => {
+          lines.push(line);
+        },
+        err: () => {},
+      };
       expect(await run([root, "--store", "r2"], io)).toBe(0);
       expect(await readFile(path.join(root, "src/hooks.js"), "utf8")).toContain(
         'islands({ prefix: "/docs/_parts/" })',

@@ -67,7 +67,7 @@ function call(
         ? found.handler
         : null;
   if (typeof handler !== "function") {
-    throw new Error(`the plugin has no ${hook} hook`);
+    throw new TypeError(`the plugin has no ${hook} hook`);
   }
   return Reflect.apply(handler, context, args);
 }
@@ -123,7 +123,7 @@ describe("the Vite plugin", () => {
     const context = { environment: environment("client"), warn: vi.fn() };
     const page = path.join(root, "src/routes/+page.svelte");
     const result = call(main, "transform", context, PAGE, page);
-    expect(result).toMatchObject({ code: expect.stringContaining("module=") });
+    expect(result).toHaveProperty("code", expect.stringContaining("module="));
     expect(context.warn).not.toHaveBeenCalled();
     expect(
       call(
@@ -222,7 +222,7 @@ describe("the Vite plugin", () => {
       {},
       { root, command: "serve", plugins: [main] },
     );
-    const info = vi.fn();
+    const info = vi.fn<(line: string) => void>();
     const context = {
       environment: { ...environment("client"), logger: { info } },
       warn: vi.fn(),

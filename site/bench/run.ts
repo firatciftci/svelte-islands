@@ -546,11 +546,7 @@ async function walk(page: Page, meter: Meter, plan: Plan) {
   return { atLoad, nodesAtLoad, harbor, berth, second, atEnd, reading };
 }
 
-async function visit(
-  browser: Browser,
-  engine: Engine,
-  plan: Plan,
-) {
+async function visit(browser: Browser, engine: Engine, plan: Plan) {
   const profile = CONDITIONS[plan.condition];
   const context = await browser.newContext({
     viewport: profile.viewport,
@@ -578,8 +574,7 @@ async function visit(
     trace = chromiumRun ? await browser.stopTracing() : null;
     await context.close();
   }
-  const { atLoad, nodesAtLoad, harbor, berth, second, atEnd, reading } =
-    walked;
+  const { atLoad, nodesAtLoad, harbor, berth, second, atEnd, reading } = walked;
 
   const tasks = chromiumRun ? reading.longTasks : null;
   const fcp = reading.fcp;

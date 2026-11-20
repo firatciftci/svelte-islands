@@ -70,7 +70,7 @@ function fresh(text: string, name: string) {
   let candidate = name;
   for (
     let count = 2;
-    new RegExp(`\\b${candidate}\\b`, "u").test(text);
+    new RegExp(String.raw`\b${candidate}\b`, "u").test(text);
     count++
   ) {
     candidate = `${name}${count}`;
@@ -99,7 +99,7 @@ function exported(
   wrap: (local: string) => string,
 ) {
   const declared = new RegExp(
-    `export\\s+(const\\s+${name}\\b|(async\\s+)?function\\s+${name}\\b)`,
+    String.raw`export\s+(const\s+${name}\b|(async\s+)?function\s+${name}\b)`,
     "u",
   );
   const found = declared.exec(text);
@@ -118,7 +118,7 @@ function exported(
   const entry = listed(text, name);
   if (entry != null) {
     const local = fresh(text, `${name}WithIslands`);
-    const replaced = `${text.slice(0, entry.start)}${entry.entry.replace(/\S.*\S|\S/u, `${local} as ${name}`)}${text.slice(entry.start + entry.entry.length)}`;
+    const replaced = `${text.slice(0, entry.start)}${entry.entry.replace(/\S.*\S|\S/u, () => `${local} as ${name}`)}${text.slice(entry.start + entry.entry.length)}`;
     return appended(
       afterImports(replaced, line),
       `const ${local} = ${wrap(entry.local)};`,
@@ -335,7 +335,7 @@ export async function run(
   try {
     parsed = parse(args);
   } catch (error) {
-    err(error instanceof Error ? error.message : String(error));
+    err(messageOf(error));
     err(USAGE);
     return 2;
   }
@@ -363,24 +363,11 @@ export async function run(
   );
   const { base, isUnread } = baseOf(configs);
   const prefix = base == null || base === "" ? null : `${base}/_parts/`;
+  const steps = stepsFor(root, { prefix, store });
   let isClean = true;
-  for (const step of stepsFor(root, { prefix, store })) {
-    const file = path.join(root, step.file);
-    const before = await contents(file);
-    try {
-      const after = step.change(before);
-      if (after == null) {
-        out(`unchanged: ${step.file}`);
-        continue;
-      }
-      await mkdir(path.dirname(file), { recursive: true });
-      await writeFile(file, after);
-      out(`${before == null ? "created" : "updated"}: ${step.file}`);
-    } catch (error) {
+  for (const step of steps) {
+    if (!(await isStepClean(root, step, { out, err }))) {
       isClean = false;
-      err(
-        `skipped: ${step.file}: ${error instanceof Error ? error.message : String(error)}`,
-      );
     }
   }
   if (isUnread) {
@@ -393,6 +380,29 @@ export async function run(
     out(note);
   }
   return isClean ? 0 : 1;
+}
+
+async function isStepClean(root: string, step: Step, { out, err }: Output) {
+  const file = path.join(root, step.file);
+  const before = await contents(file);
+  try {
+    const after = step.change(before);
+    if (after == null) {
+      out(`unchanged: ${step.file}`);
+      return true;
+    }
+    await mkdir(path.dirname(file), { recursive: true });
+    await writeFile(file, after);
+    out(`${before == null ? "created" : "updated"}: ${step.file}`);
+    return true;
+  } catch (error) {
+    err(`skipped: ${step.file}: ${messageOf(error)}`);
+    return false;
+  }
+}
+
+function messageOf(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function parse(args: Array<string>) {

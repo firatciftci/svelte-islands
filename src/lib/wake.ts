@@ -2,9 +2,9 @@ import type { Snippet } from "svelte";
 import { flushSync, hydrate, mount, unmount } from "svelte";
 import type { Fresh, Part, Strategy } from "./part.js";
 import type { Options } from "./runtime.js";
+import { coded } from "./errors.js";
 import Frame from "./frame.svelte";
 import { emit, isObserved, worked } from "./observe.js";
-import { coded } from "./errors.js";
 import { quietly } from "./part.js";
 import {
   capture,

@@ -62,7 +62,7 @@ function missing(id: string) {
   const [before = "", after = ""] = coded(
     "islands_missing_code",
     "There's no code for the island %s in this build. The page may come from an older build, so reload it.",
-  ).split("%s");
+  ).split("%s", 2);
   return `${JSON.stringify(before)} + ${id} + ${JSON.stringify(after)}`;
 }
 
@@ -252,13 +252,15 @@ export function islands(): Array<Plugin> {
               this.warn(warning);
             }
             for (const where of extracted.inferred) {
-              if (isServe && !explained.has(where)) {
-                explained.add(where);
-                this.environment.logger.info(
-                  `svelte-islands: ${where}: the island never hydrates, because nothing in it can change`,
-                  { timestamp: true },
-                );
+              if (!isServe || explained.has(where)) {
+                continue;
               }
+
+              explained.add(where);
+              this.environment.logger.info(
+                `svelte-islands: ${where}: the island never hydrates, because nothing in it can change`,
+                { timestamp: true },
+              );
             }
           }
           for (const made of extracted.modules) {
@@ -300,7 +302,7 @@ export function islands(): Array<Plugin> {
       apply: "build",
       async buildApp(builder) {
         const { client } = builder.environments;
-        if (isClientBuilt || pages.size === 0 || client == null) {
+        if (client == null || isClientBuilt || pages.size === 0) {
           return;
         }
         client.config.build.rolldownOptions.input = [];

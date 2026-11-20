@@ -1,29 +1,35 @@
+import type * as OpenTelemetry from "@opentelemetry/api";
 import type { Attributes, Span } from "@opentelemetry/api";
 import type { RequestEvent } from "@sveltejs/kit";
 
-type Api = typeof import("@opentelemetry/api");
+type Api = typeof OpenTelemetry;
 
 const API = "@opentelemetry/api";
-let api: Api | null = null;
-let loading: Promise<void> | null = null;
+const tracing: { api: Api | null; loading: Promise<void> | null } = {
+  api: null,
+  loading: null,
+};
 
 export async function startTracing(event: RequestEvent) {
-  if (api == null && event.tracing.enabled) {
-    loading ??= import(/* @vite-ignore */ API).then(
-      (module: Api) => {
-        api = module;
-      },
-      () => {},
-    );
-    await loading;
+  if (!(tracing.api == null && event.tracing.enabled)) {
+    return;
   }
+
+  tracing.loading ??= importApi();
+  await tracing.loading;
+}
+
+async function importApi() {
+  try {
+    tracing.api = (await import(/* @vite-ignore */ API)) as Api;
+  } catch {}
 }
 
 function opened(event: RequestEvent, name: string, attributes: Attributes) {
-  if (api == null || !event.tracing.enabled) {
+  if (tracing.api == null || !event.tracing.enabled) {
     return null;
   }
-  const { context, trace, SpanStatusCode } = api;
+  const { context, trace, SpanStatusCode } = tracing.api;
   const parent = trace.setSpan(context.active(), event.tracing.current);
   const span = trace
     .getTracer("svelte-islands")

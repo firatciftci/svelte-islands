@@ -1,3 +1,4 @@
+/* eslint-disable no-console, node/no-process-env */
 import type { Rollup } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { readFileSync } from "node:fs";
@@ -110,7 +111,8 @@ async function kit(variant: Record<string, string>) {
   process.chdir(KIT);
   console.log = () => {};
   try {
-    await (await createBuilder({ logLevel: "silent" })).buildApp();
+    const builder = await createBuilder({ logLevel: "silent" });
+    await builder.buildApp();
   } finally {
     console.log = log;
     process.chdir(home);
@@ -135,7 +137,8 @@ async function kit(variant: Record<string, string>) {
         "utf8",
       );
       const listed = /export const imports = (\[.*?\]);/u.exec(node)?.[1];
-      for (const file of JSON.parse(listed ?? "[]") as Array<string>) {
+      const imported = JSON.parse(listed ?? "[]") as Array<string>;
+      for (const file of imported) {
         files.add(file);
       }
     }
@@ -196,9 +199,10 @@ for (const length of alone.modules.values()) {
   whole += length;
 }
 process.stdout.write("\n<Island> alone, by module (share of rendered code):\n");
-for (const [name, length] of [...alone.modules]
+const topModules = [...alone.modules]
   .toSorted((a, b) => b[1] - a[1])
-  .slice(0, 10)) {
+  .slice(0, 10);
+for (const [name, length] of topModules) {
   process.stdout.write(
     `  ${((length / whole) * 100).toFixed(1).padStart(5)}%  ${name}\n`,
   );

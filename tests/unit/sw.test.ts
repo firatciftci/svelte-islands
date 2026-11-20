@@ -78,7 +78,9 @@ describe("serveParts", () => {
   it("leaves other paths, other origins, other methods, and fresh requests alone", () => {
     expect(serve("/page").isHandled).toBe(false);
     expect(serve("/_parts/fresh?u=%2Fcart").isHandled).toBe(false);
-    expect(serve("/base/_parts/fresh?u=%2F", { prefix: "/base/_parts/" }).isHandled).toBe(false);
+    expect(
+      serve("/base/_parts/fresh?u=%2F", { prefix: "/base/_parts/" }).isHandled,
+    ).toBe(false);
     expect(serve("https://cdn.example.org/_parts/abc").isHandled).toBe(false);
     expect(serve("/_parts/abc", undefined, "POST").isHandled).toBe(false);
     expect(network).not.toHaveBeenCalled();

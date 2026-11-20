@@ -1,9 +1,9 @@
-import { unflatten, stringify } from "devalue";
+import type { Readable, Writable } from "node:stream";
+import { stringify, unflatten } from "devalue";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { createInterface } from "node:readline";
-import type { Readable, Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { isWithinBudget, parseBudget } from "./budget.js";
 import { inspect } from "./inspect.js";
@@ -84,7 +84,9 @@ const revivers = new Proxy<Record<string, (value: unknown) => unknown>>(
 );
 
 function customOf(value: unknown) {
-  return typeof value === "object" && value != null && MARK in value
+  return typeof value === "object" &&
+    value != null &&
+    Object.hasOwn(value, MARK)
     ? (value as { [MARK]: string; value: unknown })
     : null;
 }
@@ -129,7 +131,8 @@ async function adviseOf(input: Arguments, fetcher: Fetcher) {
     nodes?: Array<{ type: string; data?: Array<unknown> } | null>;
   };
   const merged: Record<string, unknown> = {};
-  for (const node of sent.nodes ?? []) {
+  const nodes = sent.nodes ?? [];
+  for (const node of nodes) {
     if (node?.type === "data" && node.data != null) {
       Object.assign(merged, unflatten(node.data, revivers));
     }
@@ -239,7 +242,14 @@ const TOOLS: Array<Tool> = [
       const isWithin = await isWithinBudget(
         pageUrl(input),
         budget,
-        { out: (line) => pages.push(line), err: (line) => problems.push(line) },
+        {
+          out: (line) => {
+            pages.push(line);
+          },
+          err: (line) => {
+            problems.push(line);
+          },
+        },
         fetcher,
       );
       return { isWithinBudget: isWithin, pages, problems };
@@ -320,7 +330,7 @@ async function answer(request: Request, fetcher: Fetcher) {
       const tool = TOOLS.find((each) => each.name === name);
       if (tool == null) {
         throw Object.assign(new Error(`Unknown tool: ${String(name)}`), {
-          code: -32602,
+          code: -32_602,
         });
       }
       const input = request.params?.arguments;
@@ -348,7 +358,7 @@ async function answer(request: Request, fetcher: Fetcher) {
     }
     default: {
       throw Object.assign(new Error(`Unknown method: ${request.method}`), {
-        code: -32601,
+        code: -32_601,
       });
     }
   }
@@ -379,8 +389,30 @@ export async function serve(
   const send = (message: unknown) => {
     output.write(`${JSON.stringify(message)}\n`);
   };
+  const respond = async (request: Request, id: string | number) => {
+    try {
+      const result = await answer(request, fetcher);
+      send({ jsonrpc: "2.0", id, result });
+    } catch (error) {
+      send({
+        jsonrpc: "2.0",
+        id,
+        error: {
+          code:
+            typeof error === "object" &&
+            error != null &&
+            "code" in error &&
+            typeof error.code === "number"
+              ? error.code
+              : -32_603,
+          message: error instanceof Error ? error.message : String(error),
+        },
+      });
+    }
+  };
   const pending: Array<Promise<void>> = [];
-  for await (const line of createInterface({ input, crlfDelay: Infinity })) {
+  const lines = createInterface({ input, crlfDelay: Infinity });
+  for await (const line of lines) {
     if (line.trim() === "") {
       continue;
     }
@@ -391,7 +423,7 @@ export async function serve(
       send({
         jsonrpc: "2.0",
         id: null,
-        error: { code: -32700, message: "Parse error" },
+        error: { code: -32_700, message: "Parse error" },
       });
       continue;
     }
@@ -399,7 +431,7 @@ export async function serve(
       send({
         jsonrpc: "2.0",
         id: null,
-        error: { code: -32600, message: "Invalid request" },
+        error: { code: -32_600, message: "Invalid request" },
       });
       continue;
     }
@@ -407,29 +439,7 @@ export async function serve(
     if (id == null) {
       continue;
     }
-    pending.push(
-      answer(request, fetcher).then(
-        (result) => {
-          send({ jsonrpc: "2.0", id, result });
-        },
-        (error: unknown) => {
-          send({
-            jsonrpc: "2.0",
-            id,
-            error: {
-              code:
-                typeof error === "object" &&
-                error != null &&
-                "code" in error &&
-                typeof error.code === "number"
-                  ? error.code
-                  : -32603,
-              message: error instanceof Error ? error.message : String(error),
-            },
-          });
-        },
-      ),
-    );
+    pending.push(respond(request, id));
   }
   await Promise.all(pending);
 }

@@ -1,6 +1,6 @@
 import type { RequestEvent } from "@sveltejs/kit";
-import { brotliDecompressSync } from "node:zlib";
 import type { Snippet } from "svelte";
+import { brotliDecompressSync } from "node:zlib";
 import { createRawSnippet } from "svelte";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type * as PartModule from "#lib/part.js";
@@ -1300,13 +1300,17 @@ describe("tracing", () => {
     );
     expect(spans[0]?.attributes).toMatchObject({
       "svelte-islands.part.serialize.name": "rows",
-      "svelte-islands.part.serialize.bytes": expect.any(Number),
     });
+    expect(
+      spans[0]?.attributes["svelte-islands.part.serialize.bytes"],
+    ).toBeTypeOf("number");
     expect(spans[1]?.attributes).toMatchObject({
       "svelte-islands.page.islands": 0,
-      "svelte-islands.page.external_bytes": expect.any(Number),
       "svelte-islands.page.shell": true,
     });
+    expect(
+      spans[1]?.attributes["svelte-islands.page.external_bytes"],
+    ).toBeTypeOf("number");
   });
 
   it("records each fresh request with its outcome", async () => {

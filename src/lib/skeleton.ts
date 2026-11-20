@@ -266,7 +266,7 @@ function text(node: string, out: Out) {
   }
   put(
     out,
-    
+
     `${spaced.startsWith(" ") ? " " : ""}<span class="island-bone" style="--n:${Math.min(trimmed.length, 48)}"></span>${spaced.endsWith(" ") ? " " : ""}`,
   );
 }
