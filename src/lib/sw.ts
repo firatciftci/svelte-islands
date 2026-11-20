@@ -42,7 +42,8 @@ async function keep(
  * });
  * ```
  *
- * Private parts never reach this cache, because they have no URL.
+ * Private parts never reach this cache, because they have no URL, and fresh
+ * islands' requests go to the network, because their answers are personal.
  *
  * @param event The service worker's fetch event.
  * @param options Where parts live and how many to keep.
@@ -74,7 +75,8 @@ export function serveParts(
   if (
     request.method !== "GET" ||
     url.origin !== location.origin ||
-    !url.pathname.startsWith(prefix)
+    !url.pathname.startsWith(prefix) ||
+    url.pathname === `${prefix}fresh`
   ) {
     return false;
   }
