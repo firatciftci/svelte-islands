@@ -198,6 +198,22 @@ describe("init", () => {
     expect(() => vite("export default {};")).toThrow(/sveltekit\(\)/u);
   });
 
+  it("isn't thrown off by parentheses in strings and comments", () => {
+    const config = `import { sveltekit } from "@sveltejs/kit/vite";\n// see :)\nexport default {\n  plugins: [sveltekit({ kit: { files: { lib: "src/(lib" } } }) /* ) */],\n};\n`;
+    expect(vite(config)).toContain(
+      'plugins: [sveltekit({ kit: { files: { lib: "src/(lib" } } }), islands() /* ) */]',
+    );
+    expect(() => vite(`${config}// islands() is commented out\n`)).not.toThrow();
+  });
+
+  it("leaves a config alone that calls a foreign islands()", () => {
+    expect(() =>
+      vite(
+        `import { sveltekit } from "@sveltejs/kit/vite";\nimport { islands } from "./islands.js";\nexport default { plugins: [sveltekit(), islands()] };\n`,
+      ),
+    ).toThrow(/already calls islands\(\)/u);
+  });
+
   it("imports the stylesheet in the root layout", () => {
     expect(
       layout(

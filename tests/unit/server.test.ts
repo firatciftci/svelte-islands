@@ -901,7 +901,7 @@ describe("pages without SvelteKit's client", () => {
       };
     });
     await load(false);
-    const handler = server.islandsHandle();
+    const handler = server.handle();
     await page(handler, `<html><body>${KIT}</body></html>`, () => {
       const made = server.part("twice", { rows: "x".repeat(8000) });
       for (const key of ["first", "second"]) {

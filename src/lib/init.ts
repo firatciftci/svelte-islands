@@ -3,6 +3,8 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { parseArgs } from "node:util";
+import { parse as parseSvelte } from "svelte/compiler";
+import { children, type Node, nodesOf } from "./extract.js";
 
 const USAGE = `Usage: svelte-islands init [<directory>] [--store redis|r2|none]
 
@@ -32,20 +34,29 @@ const TERMINAL: Output = {
   },
 };
 
-function closing(text: string, open: number) {
-  let depth = 0;
-  for (let index = open; index < text.length; index += 1) {
-    const character = text[index];
-    if (character === "(") {
-      depth += 1;
-    } else if (character === ")") {
-      depth -= 1;
-      if (depth === 0) {
-        return index;
-      }
-    }
+const OPEN = '<script lang="ts">';
+
+function callsIn(text: string, name: string) {
+  let root: ReturnType<typeof parseSvelte>;
+  try {
+    root = parseSvelte(`${OPEN}${text}</script>`, { modern: true });
+  } catch {
+    return null;
   }
-  return -1;
+  const found: Array<{ start: number; end: number }> = [];
+  const visit = (node: Node) => {
+    const callee = node.type === "CallExpression" ? (node.callee as Node) : null;
+    if (callee?.type === "Identifier" && callee.name === name) {
+      found.push({ start: node.start - OPEN.length, end: node.end - OPEN.length });
+    }
+    for (const child of children(node)) {
+      visit(child);
+    }
+  };
+  for (const statement of nodesOf(root.instance?.content.body ?? [])) {
+    visit(statement);
+  }
+  return found;
 }
 
 function appended(text: string, block: string) {
@@ -246,8 +257,13 @@ export function vite(text: string | null) {
   if (text.includes("svelte-islands/vite")) {
     return null;
   }
-  const call = text.indexOf("sveltekit(");
-  const end = call === -1 ? -1 : closing(text, call + "sveltekit".length);
+  if ((callsIn(text, "islands") ?? []).length > 0) {
+    throw new Error(
+      "the Vite config already calls islands(), but doesn't import it from svelte-islands/vite, so check it yourself",
+    );
+  }
+  const [call] = callsIn(text, "sveltekit") ?? [];
+  const end = call == null ? -1 : call.end - 1;
   if (end === -1) {
     throw new Error(
       "can't find sveltekit() in the Vite config, so add islands() from svelte-islands/vite next to it yourself",

@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { parse } from "svelte/compiler";
 import { coded } from "./errors.js";
 
-type Node = { type: string; start: number; end: number } & Record<
+export type Node = { type: string; start: number; end: number } & Record<
   string,
   unknown
 >;
@@ -98,7 +98,7 @@ function asNode(value: object): Node {
   return value as Node;
 }
 
-function nodesOf(values: ReadonlyArray<object>): Array<Node> {
+export function nodesOf(values: ReadonlyArray<object>): Array<Node> {
   return values.map((value) => asNode(value));
 }
 
@@ -124,7 +124,7 @@ function isNode(value: unknown): value is Node {
   );
 }
 
-function children(node: Node): Array<Node> {
+export function children(node: Node): Array<Node> {
   const found: Array<Node> = [];
   for (const [key, value] of Object.entries(node)) {
     if (SKIPPED_KEYS.has(key)) {
