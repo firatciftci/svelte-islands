@@ -128,6 +128,7 @@ const requests = new WeakMap<
     early: Set<string>;
     shells: Array<Shell>;
     islands: number;
+    prefixes: Map<string, number>;
     isHeaded: boolean;
     isPersonal: boolean;
     isStreamed: boolean;
@@ -291,6 +292,7 @@ function track(locals: object) {
       early: new Set(),
       shells: [],
       islands: 0,
+      prefixes: new Map(),
       isHeaded: false,
       isPersonal: false,
       isStreamed: false,
@@ -596,7 +598,11 @@ function adopt(
   ) {
     return null;
   }
-  const prefix = `s${origin.hash.slice(0, 6).replaceAll("-", "_")}`;
+  const prefixes = track(event.locals).prefixes;
+  const base = `s${origin.hash.slice(0, 6).replaceAll("-", "_")}`;
+  const seen = prefixes.get(base) ?? 0;
+  prefixes.set(base, seen + 1);
+  const prefix = seen === 0 ? base : `${base}_${seen}`;
   let drawn: { result: string; reads: Set<Part> } | null = null;
   const draw = () =>
     (drawn ??= reading(() =>

@@ -886,6 +886,50 @@ describe("pages without SvelteKit's client", () => {
     }));
   }
 
+  it("gives each island of one part its own id prefix", async () => {
+    const prefixes: Array<string> = [];
+    vi.doMock("svelte/server", async (original) => {
+      const actual = await original<typeof import("svelte/server")>();
+      return {
+        ...actual,
+        render: ((component, options) => {
+          if (typeof options?.idPrefix === "string") {
+            prefixes.push(options.idPrefix);
+          }
+          return actual.render(component, options);
+        }) satisfies typeof actual.render,
+      };
+    });
+    await load(false);
+    const handler = server.islandsHandle();
+    await page(handler, `<html><body>${KIT}</body></html>`, () => {
+      const made = server.part("twice", { rows: "x".repeat(8000) });
+      for (const key of ["first", "second"]) {
+        part.scope()?.adopt({
+          part: made,
+          key,
+          render: "server",
+          as: "div",
+          body: raw("<p>twice</p>"),
+          className: null,
+          why: null,
+          module: "abc123",
+          hydrate: null,
+          reveal: "visible",
+          margin: null,
+          media: null,
+          prefetch: true,
+          scope: null,
+          context: new Map(),
+          page: null,
+        });
+      }
+    });
+    vi.doUnmock("svelte/server");
+    expect(prefixes).toHaveLength(2);
+    expect(prefixes[1]).toBe(`${prefixes[0] ?? ""}_1`);
+  });
+
   describe("the route map", () => {
     const routes = globalThis as {
       __svelteIslandsCsr?: Record<string, boolean | null>;
