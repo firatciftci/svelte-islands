@@ -35,6 +35,7 @@
 - `serveParts` from `svelte-islands/sw` no longer caches the answers to fresh islands' requests; it cached them by path, so a service worker could hand one visitor's fresh values to the next visit, even to a different visitor
 - two islands of the same part on one page now get different id prefixes, so `$props.id()` inside them no longer hands both the same ids
 - `init` finds `sveltekit()` in the Vite config with a parser, so a parenthesis inside a string or comment no longer makes it write `islands()` in the wrong place, and it leaves a config alone that already calls an `islands()` imported from somewhere else
+- with `experimental.async`, a click that wakes an island now reaches it when the component uses `await` in its script; the click was replayed before the `await` finished, so the handler ran against state that didn't exist yet and the click was lost
 
 ## 1.0.1
 

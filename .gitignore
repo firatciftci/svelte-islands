@@ -35,3 +35,4 @@ vite.config.ts.timestamp-*
 
 # Benchmark traces, published as a release asset
 /docs/benchmark-raw/*.gz
+/tests/unit/dom/.async-card

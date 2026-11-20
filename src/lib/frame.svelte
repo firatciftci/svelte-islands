@@ -5,8 +5,17 @@
     body,
     value,
     scope,
-  }: { body: Snippet<[never, never]>; value: unknown; scope?: unknown } =
-    $props();
+    onready,
+  }: {
+    body: Snippet<[never, never]>;
+    value: unknown;
+    scope?: unknown;
+    onready?: () => void;
+  } = $props();
+
+  $effect(() => {
+    onready?.();
+  });
 </script>
 
 {@render body(value as never, scope as never)}

@@ -1,5 +1,9 @@
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { createRawSnippet, flushSync } from "svelte";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { compile } from "svelte/compiler";
+import { render as renderServer } from "svelte/server";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Body, Wake } from "#lib/wake.js";
 import { Part } from "#lib/part.js";
 import { Gone } from "#lib/runtime.js";
@@ -11,6 +15,8 @@ const fake = vi.hoisted(() => ({
   loaded: [] as Array<string>,
   values: new Map<string, unknown>(),
   failure: null as Error | null,
+  holding: false,
+  release: () => {},
 }));
 
 vi.mock("#lib/runtime.js", () => {
@@ -48,8 +54,10 @@ vi.mock("#lib/runtime.js", () => {
     loadSoon: value,
     loadNow: () => null,
     intercept: () => ({
-      isHolding: () => false,
-      release: nothing,
+      isHolding: () => fake.holding,
+      release: () => {
+        fake.release();
+      },
       stop: nothing,
     }),
     capture: () => nothing,
@@ -92,6 +100,47 @@ function wakeOf(part: Part, overrides: Partial<Wake> = {}): Wake {
   };
 }
 
+const ASYNC = path.resolve("tests/unit/dom/.async-card");
+
+async function asyncCard() {
+  const card = `<script>
+  const words = $derived(await new Promise((resolve) => setTimeout(() => resolve("arrived"), 10)));
+  let count = $state(0);
+</script>
+<p>{words}</p><button type="button" onclick={() => { count++; }}>Clicked {count}</button>`;
+  const snippets = `<script module>
+  import Card from "./Card.TARGET.js";
+  export { card };
+</script>
+{#snippet card()}<Card />{/snippet}`;
+  const frame = await readFile(path.resolve("src/lib/frame.svelte"), "utf8");
+  await mkdir(ASYNC, { recursive: true });
+  for (const target of ["client", "server"] as const) {
+    const write = async (name: string, source: string) => {
+      const { code } = compile(source.replace("TARGET", target), {
+        filename: `${name}.svelte`,
+        generate: target,
+        experimental: { async: true },
+      }).js;
+      await writeFile(path.join(ASYNC, `${name}.${target}.js`), code);
+    };
+    await write("Card", card);
+    await write("Snippets", snippets);
+    await write("Frame", frame);
+  }
+  const load = async <T>(name: string) =>
+    (await import(/* @vite-ignore */ path.join(ASYNC, name))) as T;
+  const server = await load<{ card: Body }>("Snippets.server.js");
+  const Frame = await load<{ default: Parameters<typeof renderServer>[0] }>(
+    "Frame.server.js",
+  );
+  const { body: html } = await renderServer(Frame.default, {
+    props: { body: server.card, value: null },
+  });
+  const client = await load<{ card: Body }>("Snippets.client.js");
+  return { body: client.card, html };
+}
+
 function islandWith(html: string, state: string) {
   const target = document.createElement("div");
   target.dataset.islandState = state;
@@ -121,11 +170,17 @@ beforeEach(() => {
   fake.loaded = [];
   fake.values.clear();
   fake.failure = null;
+  fake.holding = false;
+  fake.release = () => {};
   document.body.replaceChildren();
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
+});
+
+afterAll(async () => {
+  await rm(ASYNC, { recursive: true, force: true });
 });
 
 describe("codeOf", () => {
@@ -158,6 +213,27 @@ describe("awaken", () => {
     expect(fake.loaded).toStrictEqual(["rows"]);
     stop();
     expect(fake.stopped).toBeGreaterThan(0);
+  });
+
+  it("replays a held click only once an async component's work resolves", async () => {
+    const { body, html } = await asyncCard();
+    const part = partOf("card", 0);
+    const target = islandWith(html, "static");
+    const pressed: Array<string> = [];
+    fake.holding = true;
+    fake.release = () => {
+      const button = target.querySelector("button");
+      button?.click();
+      flushSync();
+      pressed.push(button?.textContent ?? "");
+    };
+    awaken(target, wakeOf(part, { code: codeOf(body, undefined) }), {
+      rouse: () => {},
+    });
+    await fire();
+    await vi.waitFor(() => {
+      expect(pressed).toStrictEqual(["Clicked 1"]);
+    });
   });
 
   it("leaves the server HTML alone when it's stopped before the data arrives", async () => {

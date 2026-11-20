@@ -249,9 +249,25 @@ export function awaken(target: HTMLElement, wake: Wake, control: Control) {
     stopPrefetch();
     const restore = keepFields(target);
     const started = performance.now();
+    let isReady = false;
+    let isPlaced = false;
+    const release = () => {
+      if (isReady && isPlaced) {
+        isReady = false;
+        held?.release();
+      }
+    };
     instance = hydrate(Frame, {
       target,
-      props: { body, value, scope: wake.scope },
+      props: {
+        body,
+        value,
+        scope: wake.scope,
+        onready: () => {
+          isReady = true;
+          queueMicrotask(release);
+        },
+      },
       context: wake.context,
     });
     target.dataset.islandState = "live";
@@ -263,7 +279,8 @@ export function awaken(target: HTMLElement, wake: Wake, control: Control) {
     if (held?.isHolding() === true) {
       flushSync();
     }
-    held?.release();
+    isPlaced = true;
+    release();
   };
   const stop = arm(
     target,
