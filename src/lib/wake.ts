@@ -252,10 +252,12 @@ export function awaken(target: HTMLElement, wake: Wake, control: Control) {
     let isReady = false;
     let isPlaced = false;
     const release = () => {
-      if (isReady && isPlaced) {
-        isReady = false;
-        held?.release();
+      if (!(isReady && isPlaced)) {
+        return;
       }
+
+      isReady = false;
+      held?.release();
     };
     instance = hydrate(Frame, {
       target,

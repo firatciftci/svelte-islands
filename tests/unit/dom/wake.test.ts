@@ -4,7 +4,15 @@ import path from "node:path";
 import { createRawSnippet, flushSync } from "svelte";
 import { compile } from "svelte/compiler";
 import { render as renderServer } from "svelte/server";
-import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import type { Body, Wake } from "#lib/wake.js";
 import { Part } from "#lib/part.js";
 import { Gone } from "#lib/runtime.js";
@@ -118,11 +126,14 @@ async function asyncCard() {
   await mkdir(ASYNC, { recursive: true });
   for (const target of ["client", "server"] as const) {
     const write = async (name: string, source: string) => {
-      const { code } = compile(source.replace("TARGET", target), {
-        filename: `${name}.svelte`,
-        generate: target,
-        experimental: { async: true },
-      }).js;
+      const { code } = compile(
+        source.replace("TARGET", () => target),
+        {
+          filename: `${name}.svelte`,
+          generate: target,
+          experimental: { async: true },
+        },
+      ).js;
       await writeFile(path.join(ASYNC, `${name}.${target}.js`), code);
     };
     await write("Card", card);
@@ -132,9 +143,9 @@ async function asyncCard() {
   const load = async <T>(name: string) =>
     (await import(/* @vite-ignore */ path.join(ASYNC, name))) as T;
   const server = await load<{ card: Body }>("Snippets.server.js");
-  const Frame = await load<{ default: Component<{ body: Body; value: unknown }> }>(
-    "Frame.server.js",
-  );
+  const Frame = await load<{
+    default: Component<{ body: Body; value: unknown }>;
+  }>("Frame.server.js");
   const { body: html } = await renderServer(Frame.default, {
     props: { body: server.card, value: null },
   });
