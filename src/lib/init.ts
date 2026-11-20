@@ -1,10 +1,12 @@
+import type { AST } from "svelte/compiler";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { parseArgs } from "node:util";
 import { parse as parseSvelte } from "svelte/compiler";
-import { children, type Node, nodesOf } from "./extract.js";
+import type { Node } from "./extract.js";
+import { children, nodesOf } from "./extract.js";
 
 const USAGE = `Usage: svelte-islands init [<directory>] [--store redis|r2|none]
 
@@ -37,7 +39,7 @@ const TERMINAL: Output = {
 const OPEN = '<script lang="ts">';
 
 function callsIn(text: string, name: string) {
-  let root: ReturnType<typeof parseSvelte>;
+  let root: AST.Root;
   try {
     root = parseSvelte(`${OPEN}${text}</script>`, { modern: true });
   } catch {
@@ -45,15 +47,20 @@ function callsIn(text: string, name: string) {
   }
   const found: Array<{ start: number; end: number }> = [];
   const visit = (node: Node) => {
-    const callee = node.type === "CallExpression" ? (node.callee as Node) : null;
+    const callee =
+      node.type === "CallExpression" ? (node.callee as Node) : null;
     if (callee?.type === "Identifier" && callee.name === name) {
-      found.push({ start: node.start - OPEN.length, end: node.end - OPEN.length });
+      found.push({
+        start: node.start - OPEN.length,
+        end: node.end - OPEN.length,
+      });
     }
     for (const child of children(node)) {
       visit(child);
     }
   };
-  for (const statement of nodesOf(root.instance?.content.body ?? [])) {
+  const statements = nodesOf(root.instance?.content.body ?? []);
+  for (const statement of statements) {
     visit(statement);
   }
   return found;

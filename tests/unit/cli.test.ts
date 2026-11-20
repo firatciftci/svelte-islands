@@ -203,7 +203,9 @@ describe("init", () => {
     expect(vite(config)).toContain(
       'plugins: [sveltekit({ kit: { files: { lib: "src/(lib" } } }), islands() /* ) */]',
     );
-    expect(() => vite(`${config}// islands() is commented out\n`)).not.toThrow();
+    expect(() =>
+      vite(`${config}// islands() is commented out\n`),
+    ).not.toThrow();
   });
 
   it("leaves a config alone that calls a foreign islands()", () => {
