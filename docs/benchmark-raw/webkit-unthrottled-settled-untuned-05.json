@@ -1,0 +1,130 @@
+{
+  "engine": "webkit",
+  "browserVersion": "27.2",
+  "condition": "unthrottled",
+  "mode": "settled",
+  "variant": "untuned",
+  "run": 5,
+  "bytesMethod": "playwright-request-sizes",
+  "trace": null,
+  "metrics": {
+    "html": 101785,
+    "bytesAtLoad": 259277,
+    "bytesAtEnd": 259277,
+    "fcp": 272,
+    "domNodes": 18856,
+    "longTasks": null,
+    "overrun": null,
+    "tbt": null,
+    "harborVisible": 17,
+    "harborEvent": null,
+    "berthVisible": 250,
+    "berthEvent": null,
+    "secondVisible": 277,
+    "secondEvent": null
+  },
+  "timeline": {
+    "end": 11430,
+    "fcp": 272,
+    "firstInput": 2399,
+    "longTasks": null,
+    "requests": [
+      [
+        4,
+        9
+      ],
+      [
+        4,
+        9
+      ],
+      [
+        4,
+        9
+      ],
+      [
+        4,
+        9
+      ],
+      [
+        4,
+        10
+      ],
+      [
+        4,
+        10
+      ],
+      [
+        4,
+        10
+      ],
+      [
+        4,
+        10
+      ],
+      [
+        4,
+        11
+      ],
+      [
+        4,
+        11
+      ],
+      [
+        4,
+        11
+      ],
+      [
+        4,
+        11
+      ],
+      [
+        4,
+        12
+      ],
+      [
+        4,
+        12
+      ],
+      [
+        4,
+        12
+      ],
+      [
+        4,
+        12
+      ],
+      [
+        5,
+        12
+      ],
+      [
+        5,
+        12
+      ],
+      [
+        5,
+        12
+      ],
+      [
+        5,
+        12
+      ],
+      [
+        53,
+        54
+      ],
+      [
+        53,
+        54
+      ],
+      [
+        293,
+        294
+      ],
+      [
+        293,
+        294
+      ]
+    ]
+  }
+}

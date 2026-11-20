@@ -128,7 +128,7 @@ An island's data in svelte-islands is a [part](../20-core-concepts/10-parts.md):
 
 In ogygia and Mochi, an island's data is its props, serialized for that instance.
 
-On the [benchmark](../70-appendix/60-benchmark.md) page, moving two tables and a chart into islands cut the HTML from 99 KB to 5 KB, and blocking time from 214 ms to 0. That compares against plain SvelteKit, not against the other two.
+On the [benchmark](../70-appendix/60-benchmark.md) page, moving two tables and a chart into islands cut the HTML from 99 KB to 5 KB, and blocking time on slow 4G from about 210 ms to 0, though a visitor who sorts right after the page loads waits longer for that first sort. That compares against plain SvelteKit only.
 
 ## What comes with it
 

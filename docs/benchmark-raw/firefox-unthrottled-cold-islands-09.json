@@ -1,0 +1,194 @@
+{
+  "engine": "firefox",
+  "browserVersion": "157.0",
+  "condition": "unthrottled",
+  "mode": "cold",
+  "variant": "islands",
+  "run": 9,
+  "bytesMethod": "playwright-request-sizes",
+  "trace": null,
+  "metrics": {
+    "html": 5117,
+    "bytesAtLoad": 177592,
+    "bytesAtEnd": 288518,
+    "fcp": 31,
+    "domNodes": 1022,
+    "longTasks": null,
+    "overrun": null,
+    "tbt": null,
+    "harborVisible": 13,
+    "harborEvent": null,
+    "berthVisible": 76,
+    "berthEvent": null,
+    "secondVisible": 57,
+    "secondEvent": null
+  },
+  "timeline": {
+    "end": 5886,
+    "fcp": 31,
+    "firstInput": 106,
+    "longTasks": null,
+    "requests": [
+      [
+        3,
+        9
+      ],
+      [
+        3,
+        9
+      ],
+      [
+        3,
+        9
+      ],
+      [
+        3,
+        9
+      ],
+      [
+        3,
+        9
+      ],
+      [
+        3,
+        10
+      ],
+      [
+        3,
+        10
+      ],
+      [
+        3,
+        10
+      ],
+      [
+        3,
+        10
+      ],
+      [
+        3,
+        10
+      ],
+      [
+        3,
+        11
+      ],
+      [
+        3,
+        11
+      ],
+      [
+        3,
+        11
+      ],
+      [
+        3,
+        11
+      ],
+      [
+        3,
+        12
+      ],
+      [
+        3,
+        12
+      ],
+      [
+        3,
+        12
+      ],
+      [
+        3,
+        12
+      ],
+      [
+        3,
+        12
+      ],
+      [
+        3,
+        12
+      ],
+      [
+        3,
+        12
+      ],
+      [
+        7,
+        33
+      ],
+      [
+        7,
+        33
+      ],
+      [
+        21,
+        22
+      ],
+      [
+        21,
+        23
+      ],
+      [
+        28,
+        29
+      ],
+      [
+        29,
+        29
+      ],
+      [
+        38,
+        40
+      ],
+      [
+        38,
+        40
+      ],
+      [
+        41,
+        41
+      ],
+      [
+        41,
+        42
+      ],
+      [
+        41,
+        42
+      ],
+      [
+        41,
+        42
+      ],
+      [
+        53,
+        54
+      ],
+      [
+        53,
+        54
+      ],
+      [
+        64,
+        65
+      ],
+      [
+        64,
+        66
+      ],
+      [
+        247,
+        248
+      ],
+      [
+        304,
+        306
+      ],
+      [
+        304,
+        306
+      ]
+    ]
+  }
+}

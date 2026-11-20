@@ -1,0 +1,130 @@
+{
+  "engine": "webkit",
+  "browserVersion": "27.2",
+  "condition": "unthrottled",
+  "mode": "settled",
+  "variant": "tuned",
+  "run": 15,
+  "bytesMethod": "playwright-request-sizes",
+  "trace": null,
+  "metrics": {
+    "html": 48571,
+    "bytesAtLoad": 206299,
+    "bytesAtEnd": 206299,
+    "fcp": 48,
+    "domNodes": 1458,
+    "longTasks": null,
+    "overrun": null,
+    "tbt": null,
+    "harborVisible": 17,
+    "harborEvent": null,
+    "berthVisible": 32,
+    "berthEvent": null,
+    "secondVisible": 32,
+    "secondEvent": null
+  },
+  "timeline": {
+    "end": 10674,
+    "fcp": 48,
+    "firstInput": 2148,
+    "longTasks": null,
+    "requests": [
+      [
+        3,
+        8
+      ],
+      [
+        4,
+        9
+      ],
+      [
+        4,
+        9
+      ],
+      [
+        4,
+        9
+      ],
+      [
+        4,
+        9
+      ],
+      [
+        4,
+        9
+      ],
+      [
+        4,
+        9
+      ],
+      [
+        4,
+        10
+      ],
+      [
+        4,
+        10
+      ],
+      [
+        4,
+        10
+      ],
+      [
+        4,
+        10
+      ],
+      [
+        4,
+        10
+      ],
+      [
+        4,
+        11
+      ],
+      [
+        4,
+        11
+      ],
+      [
+        4,
+        11
+      ],
+      [
+        4,
+        11
+      ],
+      [
+        4,
+        11
+      ],
+      [
+        4,
+        11
+      ],
+      [
+        4,
+        11
+      ],
+      [
+        4,
+        12
+      ],
+      [
+        24,
+        25
+      ],
+      [
+        24,
+        25
+      ],
+      [
+        57,
+        59
+      ],
+      [
+        58,
+        59
+      ]
+    ]
+  }
+}

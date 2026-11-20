@@ -1,0 +1,178 @@
+{
+  "engine": "webkit",
+  "browserVersion": "27.2",
+  "condition": "unthrottled",
+  "mode": "settled",
+  "variant": "islands",
+  "run": 8,
+  "bytesMethod": "playwright-request-sizes",
+  "trace": null,
+  "metrics": {
+    "html": 5130,
+    "bytesAtLoad": 179054,
+    "bytesAtEnd": 274759,
+    "fcp": 41,
+    "domNodes": 1009,
+    "longTasks": null,
+    "overrun": null,
+    "tbt": null,
+    "harborVisible": 28,
+    "harborEvent": null,
+    "berthVisible": 341,
+    "berthEvent": null,
+    "secondVisible": 269,
+    "secondEvent": null
+  },
+  "timeline": {
+    "end": 11490,
+    "fcp": 41,
+    "firstInput": 2369,
+    "longTasks": null,
+    "requests": [
+      [
+        3,
+        7
+      ],
+      [
+        3,
+        8
+      ],
+      [
+        3,
+        8
+      ],
+      [
+        3,
+        9
+      ],
+      [
+        3,
+        9
+      ],
+      [
+        3,
+        9
+      ],
+      [
+        3,
+        9
+      ],
+      [
+        3,
+        9
+      ],
+      [
+        3,
+        9
+      ],
+      [
+        3,
+        10
+      ],
+      [
+        3,
+        10
+      ],
+      [
+        3,
+        10
+      ],
+      [
+        3,
+        10
+      ],
+      [
+        3,
+        10
+      ],
+      [
+        3,
+        10
+      ],
+      [
+        3,
+        11
+      ],
+      [
+        3,
+        11
+      ],
+      [
+        3,
+        11
+      ],
+      [
+        3,
+        11
+      ],
+      [
+        3,
+        11
+      ],
+      [
+        3,
+        11
+      ],
+      [
+        24,
+        26
+      ],
+      [
+        25,
+        26
+      ],
+      [
+        49,
+        50
+      ],
+      [
+        49,
+        50
+      ],
+      [
+        63,
+        65
+      ],
+      [
+        63,
+        65
+      ],
+      [
+        63,
+        65
+      ],
+      [
+        63,
+        65
+      ],
+      [
+        259,
+        261
+      ],
+      [
+        260,
+        262
+      ],
+      [
+        264,
+        266
+      ],
+      [
+        264,
+        266
+      ],
+      [
+        2529,
+        2531
+      ],
+      [
+        2873,
+        2876
+      ],
+      [
+        2875,
+        2877
+      ]
+    ]
+  }
+}

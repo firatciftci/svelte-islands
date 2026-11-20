@@ -1,60 +1,4641 @@
 {
-  "date": "November 18, 2026",
-  "machine": "Chromium 156 on Apple M5 Pro",
-  "runs": 7,
-  "versions": { "svelte": "5.57.3", "kit": "3.1.1", "node": "26.13.0" },
-  "plain": {
-    "html": 101568,
-    "total": 256201,
-    "paint": 856,
-    "tasks": 1,
-    "blocking": 214,
-    "main": 799,
-    "nodes": 34631,
-    "firstSort": 39,
-    "placesSort": 257,
-    "secondSort": 273,
-    "totalAfter": 256201
+  "date": "November 20, 2026",
+  "machine": "Chromium 156.0.8078.4 on Apple M5 Pro",
+  "runs": 15,
+  "seed": 20261119,
+  "resamples": 2000,
+  "git": {
+    "commit": "9fc1f09f1a2401627230cd49b1157d7b6cfaf94a",
+    "dirty": false
   },
-  "islands": {
-    "html": 4924,
-    "total": 174187,
-    "paint": 488,
-    "tasks": 0,
-    "blocking": 0,
-    "main": 179,
-    "nodes": 2126,
-    "firstSort": 41,
-    "placesSort": 263,
-    "secondSort": 275,
-    "totalAfter": 269270
-  },
-  "ranges": {
-    "plain": {
-      "html": [101568, 101568],
-      "total": [256201, 256201],
-      "paint": [844, 888],
-      "tasks": [1, 1],
-      "blocking": [210, 241],
-      "main": [779, 895],
-      "nodes": [34631, 34631],
-      "firstSort": [37, 49],
-      "placesSort": [233, 278],
-      "secondSort": [263, 302],
-      "totalAfter": [256201, 256201]
+  "environment": {
+    "os": "macOS 27.2.1",
+    "cpu": "Apple M5 Pro, 18 logical cores",
+    "browsers": {
+      "chromium": "156.0.8078.4",
+      "firefox": "157.0",
+      "webkit": "27.2"
     },
-    "islands": {
-      "html": [4924, 4924],
-      "total": [174187, 174187],
-      "paint": [484, 500],
-      "tasks": [0, 0],
-      "blocking": [0, 0],
-      "main": [173, 208],
-      "nodes": [2126, 2126],
-      "firstSort": [40, 44],
-      "placesSort": [244, 300],
-      "secondSort": [253, 296],
-      "totalAfter": [269270, 269270]
+    "packages": { "svelte": "5.57.3", "kit": "3.1.1", "node": "26.13.0" }
+  },
+  "method": {
+    "cold": "No settle time: wait for the load event, then sort as soon as each header button exists.",
+    "settled": "Wait for the network to go idle, then 1.5 s, before each step (the first sort, the berth sorts, and the scroll to the berths).",
+    "window": "Each visit ends 5 s after the last sort's visible change. Long-task time covers navigation through that end point, so the sorts count as work in the window.",
+    "overrun": "Sum of (duration - 50 ms) over every long task in the window. Previously called blocking time.",
+    "tbt": "Sum of (duration - 50 ms) over long tasks that start at or after First Contentful Paint and before the first sort's pointerdown, so it measures the load and not the sorts. There's no TTI to end the window, because the visits don't idle for 5 s before sorting (Lighthouse dropped TTI in version 10). This window leans toward islands, which put off their work until the first interaction, so compare pages by long-task time and the sort timings, and read TBT as the cost of the load alone.",
+    "visible": "Time from pointerdown to the first frame after aria-sort changes on the target header, as before.",
+    "event": "Largest Event Timing duration among entries that start at or after the pointerdown, with durationThreshold 16 ms. Interactions under 16 ms are not reported, so they are recorded as 0. Chromium only.",
+    "bytes": "Chromium: CDP Network.loadingFinished encodedDataLength, with the main document counted as HTML. Firefox and WebKit: Playwright request.sizes(), response body plus response headers.",
+    "statistics": "Medians use the true median. IQR is Q3 minus Q1 with linear interpolation. Intervals are percentile bootstrap 95% intervals over 2000 resamples, seeded with the seed above; difference intervals resample each group separately."
+  },
+  "conditions": {
+    "slow-4g": {
+      "label": "Slow 4G",
+      "viewport": { "width": 1280, "height": 800 },
+      "mobile": false,
+      "cpu": 4,
+      "network": { "latency": 150, "downloadKbps": 1638.4, "uploadKbps": 750 }
+    },
+    "slow-3g": {
+      "label": "Slow 3G",
+      "viewport": { "width": 1280, "height": 800 },
+      "mobile": false,
+      "cpu": 4,
+      "network": { "latency": 400, "downloadKbps": 500, "uploadKbps": 500 }
+    },
+    "unthrottled": {
+      "label": "Unthrottled",
+      "viewport": { "width": 1280, "height": 800 },
+      "mobile": false,
+      "cpu": 1,
+      "network": null
+    },
+    "mobile-slow-4g": {
+      "label": "Mobile viewport, slow 4G",
+      "viewport": { "width": 390, "height": 844 },
+      "mobile": true,
+      "cpu": 4,
+      "network": { "latency": 150, "downloadKbps": 1638.4, "uploadKbps": 750 }
     }
-  }
+  },
+  "plain": { "html": 101785, "total": 259277, "tasks": 3, "blocking": 596 },
+  "islands": { "html": 5130, "total": 179054, "tasks": 4, "blocking": 681 },
+  "cells": [
+    {
+      "engine": "chromium",
+      "condition": "slow-4g",
+      "mode": "cold",
+      "variant": "islands",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": { "median": 5130, "iqr": 0, "interval": [5130, 5130], "n": 15 },
+        "bytesAtLoad": {
+          "median": 106039,
+          "iqr": 0,
+          "interval": [106039, 106039],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 274759,
+          "iqr": 0,
+          "interval": [274759, 274759],
+          "n": 15
+        },
+        "fcp": { "median": 500, "iqr": 8, "interval": [496, 504], "n": 15 },
+        "domNodes": {
+          "median": 1024,
+          "iqr": 0,
+          "interval": [1024, 1024],
+          "n": 15
+        },
+        "longTasks": { "median": 4, "iqr": 0, "interval": [4, 4], "n": 15 },
+        "overrun": {
+          "median": 661,
+          "iqr": 39,
+          "interval": [651, 679],
+          "n": 15
+        },
+        "tbt": { "median": 0, "iqr": 0, "interval": [0, 0], "n": 15 },
+        "harborVisible": {
+          "median": 213.30000001192093,
+          "iqr": 7.349999964237213,
+          "interval": [210.4000000357628, 216.39999997615814],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 16,
+          "iqr": 0,
+          "interval": [16, 16],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 512,
+          "iqr": 32.05000001192093,
+          "interval": [506.7999999523163, 530.6474999874806],
+          "n": 15
+        },
+        "berthEvent": { "median": 16, "iqr": 0, "interval": [16, 16], "n": 15 },
+        "secondVisible": {
+          "median": 243.89999997615814,
+          "iqr": 14.799999952316284,
+          "interval": [240.4000000357628, 257.39999997615814],
+          "n": 15
+        },
+        "secondEvent": {
+          "median": 248,
+          "iqr": 16,
+          "interval": [240, 256],
+          "n": 15
+        }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "slow-4g",
+      "mode": "cold",
+      "variant": "untuned",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": {
+          "median": 101785,
+          "iqr": 0,
+          "interval": [101785, 101785],
+          "n": 15
+        },
+        "bytesAtLoad": {
+          "median": 194587,
+          "iqr": 0,
+          "interval": [194587, 194587],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 259277,
+          "iqr": 0,
+          "interval": [259277, 259277],
+          "n": 15
+        },
+        "fcp": { "median": 860, "iqr": 12, "interval": [856, 868], "n": 15 },
+        "domNodes": {
+          "median": 18856,
+          "iqr": 0,
+          "interval": [18856, 18856],
+          "n": 15
+        },
+        "longTasks": { "median": 3, "iqr": 0, "interval": [3, 3], "n": 15 },
+        "overrun": {
+          "median": 595,
+          "iqr": 50.5,
+          "interval": [588, 630],
+          "n": 15
+        },
+        "tbt": { "median": 210, "iqr": 23, "interval": [199, 221], "n": 15 },
+        "harborVisible": {
+          "median": 50.40000003576279,
+          "iqr": 3.099999964237213,
+          "interval": [49.30000001192093, 52.5],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 48,
+          "iqr": 8,
+          "interval": [48, 56],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 269,
+          "iqr": 27.700000017881393,
+          "interval": [261.19999998807907, 289.19999998807907],
+          "n": 15
+        },
+        "berthEvent": {
+          "median": 272,
+          "iqr": 28,
+          "interval": [263.8, 288],
+          "n": 15
+        },
+        "secondVisible": {
+          "median": 251.69999998807907,
+          "iqr": 16.150000005960464,
+          "interval": [248.30000001192093, 263.0999999642372],
+          "n": 15
+        },
+        "secondEvent": {
+          "median": 256,
+          "iqr": 20,
+          "interval": [248, 272],
+          "n": 15
+        }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "slow-4g",
+      "mode": "cold",
+      "variant": "tuned",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": {
+          "median": 48571,
+          "iqr": 0,
+          "interval": [48571, 48571],
+          "n": 15
+        },
+        "bytesAtLoad": {
+          "median": 141609,
+          "iqr": 0,
+          "interval": [141609, 141609],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 206299,
+          "iqr": 0,
+          "interval": [206299, 206299],
+          "n": 15
+        },
+        "fcp": { "median": 656, "iqr": 4, "interval": [652, 656], "n": 15 },
+        "domNodes": {
+          "median": 1458,
+          "iqr": 0,
+          "interval": [1458, 1458],
+          "n": 15
+        },
+        "longTasks": { "median": 1, "iqr": 0, "interval": [1, 1], "n": 15 },
+        "overrun": { "median": 2, "iqr": 4, "interval": [1, 5], "n": 15 },
+        "tbt": { "median": 2, "iqr": 4, "interval": [1, 5], "n": 15 },
+        "harborVisible": {
+          "median": 40.60000002384186,
+          "iqr": 4.4000000059604645,
+          "interval": [38, 42.10000002384186],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 40,
+          "iqr": 4,
+          "interval": [40, 40],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 33.5,
+          "iqr": 1.899999976158142,
+          "interval": [33, 34.89999997615814],
+          "n": 15
+        },
+        "berthEvent": { "median": 32, "iqr": 0, "interval": [32, 32], "n": 15 },
+        "secondVisible": {
+          "median": 31.5,
+          "iqr": 1.949999988079071,
+          "interval": [30, 32],
+          "n": 15
+        },
+        "secondEvent": { "median": 32, "iqr": 0, "interval": [32, 32], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "slow-4g",
+      "mode": "cold",
+      "variant": "lazy",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": { "median": 6765, "iqr": 0, "interval": [6765, 6765], "n": 15 },
+        "bytesAtLoad": {
+          "median": 100117,
+          "iqr": 0,
+          "interval": [100117, 100117],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 223661,
+          "iqr": 0,
+          "interval": [223661, 223661],
+          "n": 15
+        },
+        "fcp": { "median": 496, "iqr": 8, "interval": [492, 500], "n": 15 },
+        "domNodes": {
+          "median": 844,
+          "iqr": 0,
+          "interval": [844, 844],
+          "n": 15
+        },
+        "longTasks": { "median": 3, "iqr": 0, "interval": [3, 3], "n": 15 },
+        "overrun": {
+          "median": 566,
+          "iqr": 41.5,
+          "interval": [545, 586],
+          "n": 15
+        },
+        "tbt": { "median": 0, "iqr": 0, "interval": [0, 0], "n": 15 },
+        "harborVisible": {
+          "median": 39.5,
+          "iqr": 3.5,
+          "interval": [37.19999998807907, 40.80000001192093],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 40,
+          "iqr": 0,
+          "interval": [40, 40],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 275.80000001192093,
+          "iqr": 22.849999964237213,
+          "interval": [261.60000002384186, 287.19999998807907],
+          "n": 15
+        },
+        "berthEvent": {
+          "median": 272,
+          "iqr": 24,
+          "interval": [264, 288],
+          "n": 15
+        },
+        "secondVisible": {
+          "median": 252.80000001192093,
+          "iqr": 13.900000005960464,
+          "interval": [245, 257.2374999999987],
+          "n": 15
+        },
+        "secondEvent": {
+          "median": 256,
+          "iqr": 12,
+          "interval": [248, 256],
+          "n": 15
+        }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "slow-4g",
+      "mode": "settled",
+      "variant": "islands",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": { "median": 5130, "iqr": 0, "interval": [5130, 5130], "n": 15 },
+        "bytesAtLoad": {
+          "median": 179054,
+          "iqr": 0,
+          "interval": [179054, 179054],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 274759,
+          "iqr": 0,
+          "interval": [274759, 274759],
+          "n": 15
+        },
+        "fcp": { "median": 496, "iqr": 8, "interval": [492, 500], "n": 15 },
+        "domNodes": {
+          "median": 1009,
+          "iqr": 0,
+          "interval": [1009, 1009],
+          "n": 15
+        },
+        "longTasks": { "median": 4, "iqr": 0, "interval": [4, 4], "n": 15 },
+        "overrun": {
+          "median": 681,
+          "iqr": 58.5,
+          "interval": [667, 727],
+          "n": 15
+        },
+        "tbt": { "median": 0, "iqr": 0, "interval": [0, 0], "n": 15 },
+        "harborVisible": {
+          "median": 46.40000003576279,
+          "iqr": 1.6500000059604645,
+          "interval": [45.5, 46.90000003576279],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 16,
+          "iqr": 0,
+          "interval": [16, 16],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 271.19999998807907,
+          "iqr": 23.44999998807907,
+          "interval": [265.5, 287.5],
+          "n": 15
+        },
+        "berthEvent": {
+          "median": 272,
+          "iqr": 24,
+          "interval": [271.8, 296],
+          "n": 15
+        },
+        "secondVisible": {
+          "median": 254.4000000357628,
+          "iqr": 5.599999964237213,
+          "interval": [251.10000002384186, 257.0999999642372],
+          "n": 15
+        },
+        "secondEvent": {
+          "median": 256,
+          "iqr": 0,
+          "interval": [256, 256],
+          "n": 15
+        }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "slow-4g",
+      "mode": "settled",
+      "variant": "untuned",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": {
+          "median": 101785,
+          "iqr": 0,
+          "interval": [101785, 101785],
+          "n": 15
+        },
+        "bytesAtLoad": {
+          "median": 259277,
+          "iqr": 0,
+          "interval": [259277, 259277],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 259277,
+          "iqr": 0,
+          "interval": [259277, 259277],
+          "n": 15
+        },
+        "fcp": { "median": 860, "iqr": 18, "interval": [856, 876], "n": 15 },
+        "domNodes": {
+          "median": 18856,
+          "iqr": 0,
+          "interval": [18856, 18856],
+          "n": 15
+        },
+        "longTasks": { "median": 3, "iqr": 0, "interval": [3, 3], "n": 15 },
+        "overrun": {
+          "median": 596,
+          "iqr": 23,
+          "interval": [592, 616],
+          "n": 15
+        },
+        "tbt": { "median": 215, "iqr": 21, "interval": [202, 223], "n": 15 },
+        "harborVisible": {
+          "median": 52.10000002384186,
+          "iqr": 3.199999988079071,
+          "interval": [49.80000001192093, 53.19999998807907],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 48,
+          "iqr": 8,
+          "interval": [48, 56],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 262,
+          "iqr": 15.449999988079071,
+          "interval": [256.4000000357628, 272.2000000476837],
+          "n": 15
+        },
+        "berthEvent": {
+          "median": 264,
+          "iqr": 16,
+          "interval": [256, 272],
+          "n": 15
+        },
+        "secondVisible": {
+          "median": 255.4000000357628,
+          "iqr": 19.350000023841858,
+          "interval": [250, 270.10000002384186],
+          "n": 15
+        },
+        "secondEvent": {
+          "median": 256,
+          "iqr": 16,
+          "interval": [256, 272],
+          "n": 15
+        }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "slow-4g",
+      "mode": "settled",
+      "variant": "tuned",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": {
+          "median": 48571,
+          "iqr": 0,
+          "interval": [48571, 48571],
+          "n": 15
+        },
+        "bytesAtLoad": {
+          "median": 206299,
+          "iqr": 0,
+          "interval": [206299, 206299],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 206299,
+          "iqr": 0,
+          "interval": [206299, 206299],
+          "n": 15
+        },
+        "fcp": { "median": 656, "iqr": 10, "interval": [656, 664], "n": 15 },
+        "domNodes": {
+          "median": 1458,
+          "iqr": 0,
+          "interval": [1458, 1458],
+          "n": 15
+        },
+        "longTasks": { "median": 1, "iqr": 0, "interval": [1, 1], "n": 15 },
+        "overrun": { "median": 2, "iqr": 3.5, "interval": [1, 4], "n": 15 },
+        "tbt": { "median": 2, "iqr": 3.5, "interval": [1, 4], "n": 15 },
+        "harborVisible": {
+          "median": 39.69999998807907,
+          "iqr": 3.1500000059604645,
+          "interval": [38.799999952316284, 41.19999998807907],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 40,
+          "iqr": 0,
+          "interval": [40, 40],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 34.89999997615814,
+          "iqr": 2.050000011920929,
+          "interval": [33.69999998807907, 35.80000001192093],
+          "n": 15
+        },
+        "berthEvent": { "median": 32, "iqr": 8, "interval": [32, 40], "n": 15 },
+        "secondVisible": {
+          "median": 31.19999998807907,
+          "iqr": 1.8499999642372131,
+          "interval": [30.400000035762787, 32.19999998807907],
+          "n": 15
+        },
+        "secondEvent": { "median": 32, "iqr": 0, "interval": [32, 32], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "slow-4g",
+      "mode": "settled",
+      "variant": "lazy",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": { "median": 6765, "iqr": 0, "interval": [6765, 6765], "n": 15 },
+        "bytesAtLoad": {
+          "median": 164807,
+          "iqr": 0,
+          "interval": [164807, 164807],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 223661,
+          "iqr": 0,
+          "interval": [223661, 223661],
+          "n": 15
+        },
+        "fcp": { "median": 496, "iqr": 6, "interval": [488, 496], "n": 15 },
+        "domNodes": {
+          "median": 844,
+          "iqr": 0,
+          "interval": [844, 844],
+          "n": 15
+        },
+        "longTasks": { "median": 3, "iqr": 0, "interval": [3, 3], "n": 15 },
+        "overrun": {
+          "median": 574,
+          "iqr": 32.5,
+          "interval": [559, 592],
+          "n": 15
+        },
+        "tbt": { "median": 0, "iqr": 0, "interval": [0, 0], "n": 15 },
+        "harborVisible": {
+          "median": 38.40000003576279,
+          "iqr": 3.700000047683716,
+          "interval": [37.59999996423721, 40.90000003576279],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 40,
+          "iqr": 0,
+          "interval": [40, 40],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 276.39999997615814,
+          "iqr": 15.199999988079071,
+          "interval": [271.60000002384186, 284.60000002384186],
+          "n": 15
+        },
+        "berthEvent": {
+          "median": 280,
+          "iqr": 16,
+          "interval": [272, 288],
+          "n": 15
+        },
+        "secondVisible": {
+          "median": 259,
+          "iqr": 7.549999982118607,
+          "interval": [258, 266.0999999642372],
+          "n": 15
+        },
+        "secondEvent": {
+          "median": 256,
+          "iqr": 8,
+          "interval": [256, 264],
+          "n": 15
+        }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "slow-3g",
+      "mode": "cold",
+      "variant": "islands",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": { "median": 5130, "iqr": 0, "interval": [5130, 5130], "n": 15 },
+        "bytesAtLoad": {
+          "median": 107581,
+          "iqr": 1542,
+          "interval": [106039, 107581],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 274759,
+          "iqr": 0,
+          "interval": [274759, 274759],
+          "n": 15
+        },
+        "fcp": { "median": 1280, "iqr": 20, "interval": [1276, 1296], "n": 15 },
+        "domNodes": {
+          "median": 1024,
+          "iqr": 0,
+          "interval": [1024, 1024],
+          "n": 15
+        },
+        "longTasks": { "median": 4, "iqr": 0, "interval": [4, 4], "n": 15 },
+        "overrun": {
+          "median": 654,
+          "iqr": 24,
+          "interval": [647, 667.0499999999997],
+          "n": 15
+        },
+        "tbt": { "median": 0, "iqr": 0, "interval": [0, 0], "n": 15 },
+        "harborVisible": {
+          "median": 334.5999999642372,
+          "iqr": 91.80000001192093,
+          "interval": [331.5999999642372, 421.4000000357628],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 16,
+          "iqr": 0,
+          "interval": [16, 16],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 1078.199999988079,
+          "iqr": 17.150000035762787,
+          "interval": [1071.9, 1085.6000000238419],
+          "n": 15
+        },
+        "berthEvent": { "median": 16, "iqr": 0, "interval": [16, 16], "n": 15 },
+        "secondVisible": {
+          "median": 241.19999998807907,
+          "iqr": 7.800000011920929,
+          "interval": [236.5, 244],
+          "n": 15
+        },
+        "secondEvent": {
+          "median": 240,
+          "iqr": 8,
+          "interval": [240, 248],
+          "n": 15
+        }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "slow-3g",
+      "mode": "cold",
+      "variant": "untuned",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": {
+          "median": 101785,
+          "iqr": 0,
+          "interval": [101785, 101785],
+          "n": 15
+        },
+        "bytesAtLoad": {
+          "median": 194587,
+          "iqr": 0,
+          "interval": [194587, 194587],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 259277,
+          "iqr": 0,
+          "interval": [259277, 259277],
+          "n": 15
+        },
+        "fcp": { "median": 2024, "iqr": 6, "interval": [2024, 2028], "n": 15 },
+        "domNodes": {
+          "median": 18856,
+          "iqr": 0,
+          "interval": [18856, 18856],
+          "n": 15
+        },
+        "longTasks": { "median": 3, "iqr": 0, "interval": [3, 3], "n": 15 },
+        "overrun": {
+          "median": 578,
+          "iqr": 17,
+          "interval": [568, 587],
+          "n": 15
+        },
+        "tbt": { "median": 202, "iqr": 8.5, "interval": [199, 209], "n": 15 },
+        "harborVisible": {
+          "median": 50.69999998807907,
+          "iqr": 2.7999999821186066,
+          "interval": [49.60000002384186, 52.5],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 48,
+          "iqr": 8,
+          "interval": [48, 56],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 262.2000000476837,
+          "iqr": 4.649999976158142,
+          "interval": [260.5, 264.19999998807907],
+          "n": 15
+        },
+        "berthEvent": {
+          "median": 264,
+          "iqr": 0,
+          "interval": [264, 264],
+          "n": 15
+        },
+        "secondVisible": {
+          "median": 244.39999997615814,
+          "iqr": 3.9999999701976776,
+          "interval": [241.4000000357628, 245],
+          "n": 15
+        },
+        "secondEvent": {
+          "median": 248,
+          "iqr": 4,
+          "interval": [247.8, 248],
+          "n": 15
+        }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "slow-3g",
+      "mode": "cold",
+      "variant": "tuned",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": {
+          "median": 48571,
+          "iqr": 0,
+          "interval": [48571, 48571],
+          "n": 15
+        },
+        "bytesAtLoad": {
+          "median": 141609,
+          "iqr": 0,
+          "interval": [141609, 141609],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 206299,
+          "iqr": 0,
+          "interval": [206299, 206299],
+          "n": 15
+        },
+        "fcp": { "median": 1892, "iqr": 4, "interval": [1888, 1892], "n": 15 },
+        "domNodes": {
+          "median": 1458,
+          "iqr": 0,
+          "interval": [1458, 1458],
+          "n": 15
+        },
+        "longTasks": { "median": 1, "iqr": 0, "interval": [1, 1], "n": 15 },
+        "overrun": { "median": 2, "iqr": 1, "interval": [2, 3], "n": 15 },
+        "tbt": { "median": 2, "iqr": 1, "interval": [2, 3], "n": 15 },
+        "harborVisible": {
+          "median": 40,
+          "iqr": 5.950000047683716,
+          "interval": [36.799999952316284, 43.30000001192093],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 40,
+          "iqr": 0,
+          "interval": [40, 40],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 32.80000001192093,
+          "iqr": 1.600000023841858,
+          "interval": [32.19999998807907, 33.80000001192093],
+          "n": 15
+        },
+        "berthEvent": { "median": 32, "iqr": 0, "interval": [32, 32], "n": 15 },
+        "secondVisible": {
+          "median": 30.399999976158142,
+          "iqr": 1.600000023841858,
+          "interval": [29.5, 30.900000035762787],
+          "n": 15
+        },
+        "secondEvent": { "median": 32, "iqr": 0, "interval": [32, 32], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "slow-3g",
+      "mode": "cold",
+      "variant": "lazy",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": { "median": 6765, "iqr": 0, "interval": [6765, 6765], "n": 15 },
+        "bytesAtLoad": {
+          "median": 100117,
+          "iqr": 0,
+          "interval": [100117, 100117],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 223661,
+          "iqr": 0,
+          "interval": [223661, 223661],
+          "n": 15
+        },
+        "fcp": { "median": 1276, "iqr": 2, "interval": [1272, 1276], "n": 15 },
+        "domNodes": {
+          "median": 844,
+          "iqr": 0,
+          "interval": [844, 844],
+          "n": 15
+        },
+        "longTasks": { "median": 3, "iqr": 0, "interval": [3, 3], "n": 15 },
+        "overrun": {
+          "median": 555,
+          "iqr": 14.5,
+          "interval": [553, 567],
+          "n": 15
+        },
+        "tbt": { "median": 0, "iqr": 0, "interval": [0, 0], "n": 15 },
+        "harborVisible": {
+          "median": 37.89999997615814,
+          "iqr": 3.7999999821186066,
+          "interval": [37.19999998807907, 39.89999997615814],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 40,
+          "iqr": 0,
+          "interval": [40, 40],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 270.2999999523163,
+          "iqr": 8.800000041723251,
+          "interval": [265.2999999523163, 274.5],
+          "n": 15
+        },
+        "berthEvent": {
+          "median": 272,
+          "iqr": 8,
+          "interval": [264, 272],
+          "n": 15
+        },
+        "secondVisible": {
+          "median": 255.39999997615814,
+          "iqr": 9.14999994635582,
+          "interval": [252, 262.7999999523163],
+          "n": 15
+        },
+        "secondEvent": {
+          "median": 256,
+          "iqr": 8,
+          "interval": [256, 264],
+          "n": 15
+        }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "slow-3g",
+      "mode": "settled",
+      "variant": "islands",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": { "median": 5130, "iqr": 0, "interval": [5130, 5130], "n": 15 },
+        "bytesAtLoad": {
+          "median": 179054,
+          "iqr": 0,
+          "interval": [179054, 179054],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 274759,
+          "iqr": 0,
+          "interval": [274759, 274759],
+          "n": 15
+        },
+        "fcp": { "median": 1276, "iqr": 8, "interval": [1272, 1280], "n": 15 },
+        "domNodes": {
+          "median": 1009,
+          "iqr": 0,
+          "interval": [1009, 1009],
+          "n": 15
+        },
+        "longTasks": { "median": 4, "iqr": 0, "interval": [4, 4], "n": 15 },
+        "overrun": {
+          "median": 649,
+          "iqr": 14.5,
+          "interval": [642, 658],
+          "n": 15
+        },
+        "tbt": { "median": 0, "iqr": 0, "interval": [0, 0], "n": 15 },
+        "harborVisible": {
+          "median": 45.89999997615814,
+          "iqr": 1.050000011920929,
+          "interval": [45, 46.39999997615814],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 16,
+          "iqr": 0,
+          "interval": [16, 16],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 1318.4000000357628,
+          "iqr": 23.549999982118607,
+          "interval": [1311.8999999761581, 1333.0999999642372],
+          "n": 15
+        },
+        "berthEvent": { "median": 16, "iqr": 0, "interval": [16, 16], "n": 15 },
+        "secondVisible": {
+          "median": 239.39999997615814,
+          "iqr": 5.100000023841858,
+          "interval": [236.19999998807907, 241.60000002384186],
+          "n": 15
+        },
+        "secondEvent": {
+          "median": 240,
+          "iqr": 0,
+          "interval": [240, 240],
+          "n": 15
+        }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "slow-3g",
+      "mode": "settled",
+      "variant": "untuned",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": {
+          "median": 101785,
+          "iqr": 0,
+          "interval": [101785, 101785],
+          "n": 15
+        },
+        "bytesAtLoad": {
+          "median": 259277,
+          "iqr": 0,
+          "interval": [259277, 259277],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 259277,
+          "iqr": 0,
+          "interval": [259277, 259277],
+          "n": 15
+        },
+        "fcp": { "median": 2024, "iqr": 8, "interval": [2024, 2032], "n": 15 },
+        "domNodes": {
+          "median": 18856,
+          "iqr": 0,
+          "interval": [18856, 18856],
+          "n": 15
+        },
+        "longTasks": { "median": 3, "iqr": 0, "interval": [3, 3], "n": 15 },
+        "overrun": {
+          "median": 574,
+          "iqr": 22,
+          "interval": [567, 592],
+          "n": 15
+        },
+        "tbt": { "median": 201, "iqr": 3, "interval": [200, 204], "n": 15 },
+        "harborVisible": {
+          "median": 52.700000047683716,
+          "iqr": 5.200000017881393,
+          "interval": [49.60000002384186, 54.30000001192093],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 56,
+          "iqr": 8,
+          "interval": [48, 56],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 260.5,
+          "iqr": 11.25,
+          "interval": [259.30000001192093, 266.60000002384186],
+          "n": 15
+        },
+        "berthEvent": {
+          "median": 264,
+          "iqr": 12,
+          "interval": [256, 272],
+          "n": 15
+        },
+        "secondVisible": {
+          "median": 244.69999998807907,
+          "iqr": 12.349999994039536,
+          "interval": [237.5, 249.69999998807907],
+          "n": 15
+        },
+        "secondEvent": {
+          "median": 248,
+          "iqr": 12,
+          "interval": [240, 256],
+          "n": 15
+        }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "slow-3g",
+      "mode": "settled",
+      "variant": "tuned",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": {
+          "median": 48571,
+          "iqr": 0,
+          "interval": [48571, 48571],
+          "n": 15
+        },
+        "bytesAtLoad": {
+          "median": 206299,
+          "iqr": 0,
+          "interval": [206299, 206299],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 206299,
+          "iqr": 0,
+          "interval": [206299, 206299],
+          "n": 15
+        },
+        "fcp": { "median": 1892, "iqr": 6, "interval": [1888, 1896], "n": 15 },
+        "domNodes": {
+          "median": 1458,
+          "iqr": 0,
+          "interval": [1458, 1458],
+          "n": 15
+        },
+        "longTasks": { "median": 1, "iqr": 0, "interval": [1, 1], "n": 15 },
+        "overrun": { "median": 5, "iqr": 4, "interval": [2, 6], "n": 15 },
+        "tbt": { "median": 5, "iqr": 4, "interval": [2, 6], "n": 15 },
+        "harborVisible": {
+          "median": 40,
+          "iqr": 3.0999999940395355,
+          "interval": [39.08999996483326, 42.59999996423721],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 40,
+          "iqr": 0,
+          "interval": [40, 40],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 33.30000001192093,
+          "iqr": 3.0000000298023224,
+          "interval": [32.09999996423721, 34.40000003576279],
+          "n": 15
+        },
+        "berthEvent": { "median": 32, "iqr": 4, "interval": [32, 40], "n": 15 },
+        "secondVisible": {
+          "median": 31.399999976158142,
+          "iqr": 1.199999988079071,
+          "interval": [30.5, 31.69999998807907],
+          "n": 15
+        },
+        "secondEvent": { "median": 32, "iqr": 0, "interval": [32, 32], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "slow-3g",
+      "mode": "settled",
+      "variant": "lazy",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": { "median": 6765, "iqr": 0, "interval": [6765, 6765], "n": 15 },
+        "bytesAtLoad": {
+          "median": 164807,
+          "iqr": 0,
+          "interval": [164807, 164807],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 223661,
+          "iqr": 0,
+          "interval": [223661, 223661],
+          "n": 15
+        },
+        "fcp": { "median": 1276, "iqr": 14, "interval": [1276, 1296], "n": 15 },
+        "domNodes": {
+          "median": 844,
+          "iqr": 0,
+          "interval": [844, 844],
+          "n": 15
+        },
+        "longTasks": { "median": 3, "iqr": 0, "interval": [3, 3], "n": 15 },
+        "overrun": {
+          "median": 553,
+          "iqr": 23,
+          "interval": [542, 560],
+          "n": 15
+        },
+        "tbt": { "median": 0, "iqr": 0, "interval": [0, 0], "n": 15 },
+        "harborVisible": {
+          "median": 38.80000001192093,
+          "iqr": 2.4999999701976776,
+          "interval": [37.60000002384186, 39.59999996423721],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 40,
+          "iqr": 0,
+          "interval": [40, 40],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 268,
+          "iqr": 11.400000005960464,
+          "interval": [262.19999998807907, 273.69999998807907],
+          "n": 15
+        },
+        "berthEvent": {
+          "median": 272,
+          "iqr": 8,
+          "interval": [264, 272],
+          "n": 15
+        },
+        "secondVisible": {
+          "median": 252.60000002384186,
+          "iqr": 11.400000005960464,
+          "interval": [246.69999998807907, 254.9000000357628],
+          "n": 15
+        },
+        "secondEvent": {
+          "median": 256,
+          "iqr": 12,
+          "interval": [248, 256],
+          "n": 15
+        }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "unthrottled",
+      "mode": "cold",
+      "variant": "islands",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": { "median": 5130, "iqr": 0, "interval": [5130, 5130], "n": 15 },
+        "bytesAtLoad": {
+          "median": 105343,
+          "iqr": 0,
+          "interval": [105343, 105343],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 274759,
+          "iqr": 0,
+          "interval": [274759, 274759],
+          "n": 15
+        },
+        "fcp": { "median": 28, "iqr": 0, "interval": [28, 28], "n": 15 },
+        "domNodes": {
+          "median": 1018,
+          "iqr": 0,
+          "interval": [1018, 1018],
+          "n": 15
+        },
+        "longTasks": { "median": 3, "iqr": 1, "interval": [3, 4], "n": 15 },
+        "overrun": { "median": 23, "iqr": 5, "interval": [19, 24], "n": 15 },
+        "tbt": { "median": 0, "iqr": 0, "interval": [0, 0], "n": 15 },
+        "harborVisible": {
+          "median": 35.700000047683716,
+          "iqr": 0.4000000059604645,
+          "interval": [35.69999998807907, 36.10000002384186],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 16,
+          "iqr": 0,
+          "interval": [16, 16],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 64,
+          "iqr": 2.5999999940395355,
+          "interval": [62.30000001192093, 64.30000001192093],
+          "n": 15
+        },
+        "berthEvent": { "median": 64, "iqr": 0, "interval": [64, 64], "n": 15 },
+        "secondVisible": {
+          "median": 62.60000002384186,
+          "iqr": 0.7499999701976776,
+          "interval": [62.40000003576279, 63],
+          "n": 15
+        },
+        "secondEvent": { "median": 64, "iqr": 0, "interval": [64, 64], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "unthrottled",
+      "mode": "cold",
+      "variant": "untuned",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": {
+          "median": 101785,
+          "iqr": 0,
+          "interval": [101785, 101785],
+          "n": 15
+        },
+        "bytesAtLoad": {
+          "median": 193891,
+          "iqr": 32345,
+          "interval": [193891, 258581],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 259277,
+          "iqr": 0,
+          "interval": [259277, 259277],
+          "n": 15
+        },
+        "fcp": { "median": 72, "iqr": 0, "interval": [72, 72], "n": 15 },
+        "domNodes": {
+          "median": 18855,
+          "iqr": 0,
+          "interval": [18855, 18855],
+          "n": 15
+        },
+        "longTasks": { "median": 3, "iqr": 0, "interval": [3, 3], "n": 15 },
+        "overrun": { "median": 19, "iqr": 6, "interval": [16, 21], "n": 15 },
+        "tbt": { "median": 8, "iqr": 1, "interval": [7, 8], "n": 15 },
+        "harborVisible": {
+          "median": 28.69999998807907,
+          "iqr": 1.0999999642372131,
+          "interval": [28.400000035762787, 29.899999976158142],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 32,
+          "iqr": 0,
+          "interval": [32, 32],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 63.299999952316284,
+          "iqr": 2.5499999821186066,
+          "interval": [62, 64.19999998807907],
+          "n": 15
+        },
+        "berthEvent": { "median": 64, "iqr": 0, "interval": [64, 64], "n": 15 },
+        "secondVisible": {
+          "median": 56.5,
+          "iqr": 1.6500000059604645,
+          "interval": [56.200000047683716, 57.60000002384186],
+          "n": 15
+        },
+        "secondEvent": { "median": 56, "iqr": 8, "interval": [56, 64], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "unthrottled",
+      "mode": "cold",
+      "variant": "tuned",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": {
+          "median": 48571,
+          "iqr": 0,
+          "interval": [48571, 48571],
+          "n": 15
+        },
+        "bytesAtLoad": {
+          "median": 140913,
+          "iqr": 0,
+          "interval": [140913, 140913],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 206299,
+          "iqr": 0,
+          "interval": [206299, 206299],
+          "n": 15
+        },
+        "fcp": { "median": 28, "iqr": 0, "interval": [28, 28], "n": 15 },
+        "domNodes": {
+          "median": 1457,
+          "iqr": 0,
+          "interval": [1457, 1457],
+          "n": 15
+        },
+        "longTasks": { "median": 0, "iqr": 0, "interval": [0, 0], "n": 15 },
+        "overrun": { "median": 0, "iqr": 0, "interval": [0, 0], "n": 15 },
+        "tbt": { "median": 0, "iqr": 0, "interval": [0, 0], "n": 15 },
+        "harborVisible": {
+          "median": 29.600000023841858,
+          "iqr": 2.5500000417232513,
+          "interval": [28.599999964237213, 30.5],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 32,
+          "iqr": 0,
+          "interval": [32, 32],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 17.80000001192093,
+          "iqr": 0.3500000238418579,
+          "interval": [17.5, 17.900000035762787],
+          "n": 15
+        },
+        "berthEvent": { "median": 16, "iqr": 4, "interval": [16, 24], "n": 15 },
+        "secondVisible": {
+          "median": 16.899999976158142,
+          "iqr": 1.399999976158142,
+          "interval": [16.39750003516674, 17.799999952316284],
+          "n": 15
+        },
+        "secondEvent": { "median": 16, "iqr": 0, "interval": [16, 16], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "unthrottled",
+      "mode": "cold",
+      "variant": "lazy",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": { "median": 6765, "iqr": 0, "interval": [6765, 6765], "n": 15 },
+        "bytesAtLoad": {
+          "median": 99421,
+          "iqr": 0,
+          "interval": [99421, 99421],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 223661,
+          "iqr": 0,
+          "interval": [223661, 223661],
+          "n": 15
+        },
+        "fcp": { "median": 28, "iqr": 0, "interval": [28, 28], "n": 15 },
+        "domNodes": {
+          "median": 843,
+          "iqr": 0,
+          "interval": [843, 843],
+          "n": 15
+        },
+        "longTasks": { "median": 3, "iqr": 0, "interval": [3, 3], "n": 15 },
+        "overrun": { "median": 25, "iqr": 5.5, "interval": [24, 31], "n": 15 },
+        "tbt": { "median": 0, "iqr": 0, "interval": [0, 0], "n": 15 },
+        "harborVisible": {
+          "median": 29.5,
+          "iqr": 0.9500000476837158,
+          "interval": [29.097499965131284, 30.100000023841858],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 32,
+          "iqr": 0,
+          "interval": [32, 32],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 62.80000001192093,
+          "iqr": 1.7500000596046448,
+          "interval": [62.299999952316284, 64],
+          "n": 15
+        },
+        "berthEvent": { "median": 64, "iqr": 0, "interval": [64, 64], "n": 15 },
+        "secondVisible": {
+          "median": 58.69999998807907,
+          "iqr": 1.399999976158142,
+          "interval": [58.40000003576279, 59.89999997615814],
+          "n": 15
+        },
+        "secondEvent": { "median": 64, "iqr": 8, "interval": [56, 64], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "unthrottled",
+      "mode": "settled",
+      "variant": "islands",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": { "median": 5130, "iqr": 0, "interval": [5130, 5130], "n": 15 },
+        "bytesAtLoad": {
+          "median": 179054,
+          "iqr": 0,
+          "interval": [179054, 179054],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 274759,
+          "iqr": 0,
+          "interval": [274759, 274759],
+          "n": 15
+        },
+        "fcp": { "median": 28, "iqr": 0, "interval": [28, 28], "n": 15 },
+        "domNodes": {
+          "median": 1009,
+          "iqr": 0,
+          "interval": [1009, 1009],
+          "n": 15
+        },
+        "longTasks": { "median": 4, "iqr": 1, "interval": [3, 4], "n": 15 },
+        "overrun": { "median": 26, "iqr": 5.5, "interval": [24, 29], "n": 15 },
+        "tbt": { "median": 0, "iqr": 0, "interval": [0, 0], "n": 15 },
+        "harborVisible": {
+          "median": 36.200000047683716,
+          "iqr": 0.9500000178813934,
+          "interval": [36, 37],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 16,
+          "iqr": 0,
+          "interval": [16, 16],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 66.5,
+          "iqr": 2.25,
+          "interval": [65.30000001192093, 67.69999998807907],
+          "n": 15
+        },
+        "berthEvent": { "median": 72, "iqr": 4, "interval": [72, 72], "n": 15 },
+        "secondVisible": {
+          "median": 62.69999998807907,
+          "iqr": 3.399999976158142,
+          "interval": [61.40000003576279, 64.89999997615814],
+          "n": 15
+        },
+        "secondEvent": { "median": 64, "iqr": 0, "interval": [64, 64], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "unthrottled",
+      "mode": "settled",
+      "variant": "untuned",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": {
+          "median": 101785,
+          "iqr": 0,
+          "interval": [101785, 101785],
+          "n": 15
+        },
+        "bytesAtLoad": {
+          "median": 259277,
+          "iqr": 0,
+          "interval": [259277, 259277],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 259277,
+          "iqr": 0,
+          "interval": [259277, 259277],
+          "n": 15
+        },
+        "fcp": { "median": 72, "iqr": 0, "interval": [72, 72], "n": 15 },
+        "domNodes": {
+          "median": 18856,
+          "iqr": 0,
+          "interval": [18856, 18856],
+          "n": 15
+        },
+        "longTasks": { "median": 3, "iqr": 0, "interval": [3, 3], "n": 15 },
+        "overrun": { "median": 25, "iqr": 6.5, "interval": [20, 26], "n": 15 },
+        "tbt": { "median": 8, "iqr": 1.5, "interval": [8, 9], "n": 15 },
+        "harborVisible": {
+          "median": 29.69999998807907,
+          "iqr": 1.4000000059604645,
+          "interval": [28.399999976158142, 30.600000023841858],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 32,
+          "iqr": 0,
+          "interval": [32, 32],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 65.90000003576279,
+          "iqr": 1.199999988079071,
+          "interval": [65.69999998807907, 66.69999998807907],
+          "n": 15
+        },
+        "berthEvent": { "median": 72, "iqr": 4, "interval": [64, 72], "n": 15 },
+        "secondVisible": {
+          "median": 59.80000001192093,
+          "iqr": 3.0999999940395355,
+          "interval": [58, 61.59999996423721],
+          "n": 15
+        },
+        "secondEvent": { "median": 64, "iqr": 0, "interval": [64, 64], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "unthrottled",
+      "mode": "settled",
+      "variant": "tuned",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": {
+          "median": 48571,
+          "iqr": 0,
+          "interval": [48571, 48571],
+          "n": 15
+        },
+        "bytesAtLoad": {
+          "median": 206299,
+          "iqr": 0,
+          "interval": [206299, 206299],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 206299,
+          "iqr": 0,
+          "interval": [206299, 206299],
+          "n": 15
+        },
+        "fcp": { "median": 28, "iqr": 0, "interval": [28, 28], "n": 15 },
+        "domNodes": {
+          "median": 1458,
+          "iqr": 0,
+          "interval": [1458, 1458],
+          "n": 15
+        },
+        "longTasks": { "median": 0, "iqr": 0, "interval": [0, 0], "n": 15 },
+        "overrun": { "median": 0, "iqr": 0, "interval": [0, 0], "n": 15 },
+        "tbt": { "median": 0, "iqr": 0, "interval": [0, 0], "n": 15 },
+        "harborVisible": {
+          "median": 30.899999976158142,
+          "iqr": 4.299999952316284,
+          "interval": [27.5, 31.799999952316284],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 32,
+          "iqr": 0,
+          "interval": [32, 32],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 17.899999976158142,
+          "iqr": 0.75,
+          "interval": [17.399999976158142, 18.19999998807907],
+          "n": 15
+        },
+        "berthEvent": { "median": 16, "iqr": 8, "interval": [16, 24], "n": 15 },
+        "secondVisible": {
+          "median": 16.5,
+          "iqr": 1.2000000178813934,
+          "interval": [16.399999976158142, 17.5],
+          "n": 15
+        },
+        "secondEvent": { "median": 16, "iqr": 0, "interval": [16, 16], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "unthrottled",
+      "mode": "settled",
+      "variant": "lazy",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": { "median": 6765, "iqr": 0, "interval": [6765, 6765], "n": 15 },
+        "bytesAtLoad": {
+          "median": 164807,
+          "iqr": 0,
+          "interval": [164807, 164807],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 223661,
+          "iqr": 0,
+          "interval": [223661, 223661],
+          "n": 15
+        },
+        "fcp": { "median": 28, "iqr": 0, "interval": [28, 28], "n": 15 },
+        "domNodes": {
+          "median": 844,
+          "iqr": 0,
+          "interval": [844, 844],
+          "n": 15
+        },
+        "longTasks": { "median": 3, "iqr": 0, "interval": [3, 3], "n": 15 },
+        "overrun": { "median": 43, "iqr": 6, "interval": [41, 46], "n": 15 },
+        "tbt": { "median": 0, "iqr": 0, "interval": [0, 0], "n": 15 },
+        "harborVisible": {
+          "median": 32.799999952316284,
+          "iqr": 4.0999999940395355,
+          "interval": [29, 34.5],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 32,
+          "iqr": 0,
+          "interval": [32, 32],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 70.39999997615814,
+          "iqr": 3.449999988079071,
+          "interval": [68.80000001192093, 72.19999998807907],
+          "n": 15
+        },
+        "berthEvent": { "median": 72, "iqr": 0, "interval": [72, 72], "n": 15 },
+        "secondVisible": {
+          "median": 62.19999998807907,
+          "iqr": 2.449999988079071,
+          "interval": [60, 62.80000001192093],
+          "n": 15
+        },
+        "secondEvent": { "median": 64, "iqr": 0, "interval": [64, 64], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "mobile-slow-4g",
+      "mode": "cold",
+      "variant": "islands",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": { "median": 5130, "iqr": 0, "interval": [5130, 5130], "n": 15 },
+        "bytesAtLoad": {
+          "median": 106039,
+          "iqr": 0,
+          "interval": [106039, 106039],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 274759,
+          "iqr": 0,
+          "interval": [274759, 274759],
+          "n": 15
+        },
+        "fcp": { "median": 500, "iqr": 8, "interval": [496, 504], "n": 15 },
+        "domNodes": {
+          "median": 1024,
+          "iqr": 0,
+          "interval": [1024, 1024],
+          "n": 15
+        },
+        "longTasks": { "median": 7, "iqr": 0, "interval": [7, 7], "n": 15 },
+        "overrun": {
+          "median": 593,
+          "iqr": 21,
+          "interval": [587, 607],
+          "n": 15
+        },
+        "tbt": { "median": 0, "iqr": 0, "interval": [0, 0], "n": 15 },
+        "harborVisible": {
+          "median": 206,
+          "iqr": 10.400000005960464,
+          "interval": [202.80000001192093, 218.60000002384186],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 16,
+          "iqr": 0,
+          "interval": [16, 16],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 285.0999999642372,
+          "iqr": 22.599999994039536,
+          "interval": [272.60000002384186, 294.2000000476837],
+          "n": 15
+        },
+        "berthEvent": {
+          "median": 288,
+          "iqr": 24,
+          "interval": [272, 296],
+          "n": 15
+        },
+        "secondVisible": {
+          "median": 257.4000000357628,
+          "iqr": 7.25,
+          "interval": [254.89999997615814, 260.80000001192093],
+          "n": 15
+        },
+        "secondEvent": {
+          "median": 256,
+          "iqr": 8,
+          "interval": [256, 264],
+          "n": 15
+        }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "mobile-slow-4g",
+      "mode": "cold",
+      "variant": "untuned",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": {
+          "median": 101785,
+          "iqr": 0,
+          "interval": [101785, 101785],
+          "n": 15
+        },
+        "bytesAtLoad": {
+          "median": 194587,
+          "iqr": 0,
+          "interval": [194587, 194587],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 259277,
+          "iqr": 0,
+          "interval": [259277, 259277],
+          "n": 15
+        },
+        "fcp": { "median": 804, "iqr": 12, "interval": [800, 812], "n": 15 },
+        "domNodes": {
+          "median": 18856,
+          "iqr": 0,
+          "interval": [18856, 18856],
+          "n": 15
+        },
+        "longTasks": { "median": 6, "iqr": 0, "interval": [6, 6], "n": 15 },
+        "overrun": {
+          "median": 539,
+          "iqr": 24.5,
+          "interval": [536, 555],
+          "n": 15
+        },
+        "tbt": {
+          "median": 201,
+          "iqr": 7.5,
+          "interval": [197, 203.0749999999996],
+          "n": 15
+        },
+        "harborVisible": {
+          "median": 108.5,
+          "iqr": 5.9000000059604645,
+          "interval": [106, 111.19999998807907],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 112,
+          "iqr": 8,
+          "interval": [104, 112],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 263.80000001192093,
+          "iqr": 9.75,
+          "interval": [256.80000001192093, 269],
+          "n": 15
+        },
+        "berthEvent": {
+          "median": 264,
+          "iqr": 12,
+          "interval": [256, 272],
+          "n": 15
+        },
+        "secondVisible": {
+          "median": 247.30000001192093,
+          "iqr": 3.4500000178813934,
+          "interval": [245.8974999770522, 249.20000004768372],
+          "n": 15
+        },
+        "secondEvent": {
+          "median": 248,
+          "iqr": 0,
+          "interval": [248, 248],
+          "n": 15
+        }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "mobile-slow-4g",
+      "mode": "cold",
+      "variant": "tuned",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": {
+          "median": 48571,
+          "iqr": 0,
+          "interval": [48571, 48571],
+          "n": 15
+        },
+        "bytesAtLoad": {
+          "median": 141609,
+          "iqr": 0,
+          "interval": [141609, 141609],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 206299,
+          "iqr": 0,
+          "interval": [206299, 206299],
+          "n": 15
+        },
+        "fcp": { "median": 648, "iqr": 4, "interval": [644, 648], "n": 15 },
+        "domNodes": {
+          "median": 1458,
+          "iqr": 0,
+          "interval": [1458, 1458],
+          "n": 15
+        },
+        "longTasks": { "median": 1, "iqr": 0, "interval": [1, 1], "n": 15 },
+        "overrun": { "median": 3, "iqr": 1.5, "interval": [1, 3], "n": 15 },
+        "tbt": { "median": 3, "iqr": 1.5, "interval": [2, 3], "n": 15 },
+        "harborVisible": {
+          "median": 33.89999997615814,
+          "iqr": 2.550000011920929,
+          "interval": [33.30000001192093, 35.60000002384186],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 32,
+          "iqr": 0,
+          "interval": [32, 32],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 28.099999964237213,
+          "iqr": 0.8500000536441803,
+          "interval": [27.799999952316284, 28.400000035762787],
+          "n": 15
+        },
+        "berthEvent": { "median": 32, "iqr": 0, "interval": [32, 32], "n": 15 },
+        "secondVisible": {
+          "median": 26.100000023841858,
+          "iqr": 1.1500000059604645,
+          "interval": [25.700000047683716, 26.80000001192093],
+          "n": 15
+        },
+        "secondEvent": { "median": 24, "iqr": 0, "interval": [24, 24], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "mobile-slow-4g",
+      "mode": "cold",
+      "variant": "lazy",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": { "median": 6765, "iqr": 0, "interval": [6765, 6765], "n": 15 },
+        "bytesAtLoad": {
+          "median": 100117,
+          "iqr": 0,
+          "interval": [100117, 100117],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 223661,
+          "iqr": 0,
+          "interval": [223661, 223661],
+          "n": 15
+        },
+        "fcp": { "median": 496, "iqr": 6, "interval": [496, 500], "n": 15 },
+        "domNodes": {
+          "median": 844,
+          "iqr": 0,
+          "interval": [844, 844],
+          "n": 15
+        },
+        "longTasks": { "median": 5, "iqr": 0, "interval": [5, 5], "n": 15 },
+        "overrun": {
+          "median": 497,
+          "iqr": 15,
+          "interval": [489, 503],
+          "n": 15
+        },
+        "tbt": { "median": 0, "iqr": 0, "interval": [0, 0], "n": 15 },
+        "harborVisible": {
+          "median": 34.60000002384186,
+          "iqr": 3.9999999701976776,
+          "interval": [32.80000001192093, 36.299999952316284],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 32,
+          "iqr": 8,
+          "interval": [32, 40],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 277.19999998807907,
+          "iqr": 15.650000005960464,
+          "interval": [275.19999998807907, 289.5],
+          "n": 15
+        },
+        "berthEvent": {
+          "median": 280,
+          "iqr": 16,
+          "interval": [272, 288],
+          "n": 15
+        },
+        "secondVisible": {
+          "median": 255.39999997615814,
+          "iqr": 8.299999982118607,
+          "interval": [253, 260.64249996542907],
+          "n": 15
+        },
+        "secondEvent": {
+          "median": 256,
+          "iqr": 8,
+          "interval": [256, 264],
+          "n": 15
+        }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "mobile-slow-4g",
+      "mode": "settled",
+      "variant": "islands",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": { "median": 5130, "iqr": 0, "interval": [5130, 5130], "n": 15 },
+        "bytesAtLoad": {
+          "median": 179054,
+          "iqr": 0,
+          "interval": [179054, 179054],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 274759,
+          "iqr": 0,
+          "interval": [274759, 274759],
+          "n": 15
+        },
+        "fcp": { "median": 500, "iqr": 8, "interval": [496, 504], "n": 15 },
+        "domNodes": {
+          "median": 1009,
+          "iqr": 0,
+          "interval": [1009, 1009],
+          "n": 15
+        },
+        "longTasks": { "median": 7, "iqr": 0, "interval": [7, 7], "n": 15 },
+        "overrun": {
+          "median": 594,
+          "iqr": 30.5,
+          "interval": [584, 618],
+          "n": 15
+        },
+        "tbt": { "median": 0, "iqr": 0, "interval": [0, 0], "n": 15 },
+        "harborVisible": {
+          "median": 42.69999998807907,
+          "iqr": 1.0999999940395355,
+          "interval": [42.40000003576279, 43.5],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 16,
+          "iqr": 0,
+          "interval": [16, 16],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 275.4000000357628,
+          "iqr": 17.099999964237213,
+          "interval": [268.4000000357628, 284.19999998807907],
+          "n": 15
+        },
+        "berthEvent": {
+          "median": 280,
+          "iqr": 16,
+          "interval": [272, 288],
+          "n": 15
+        },
+        "secondVisible": {
+          "median": 260.10000002384186,
+          "iqr": 4.999999970197678,
+          "interval": [259.4000000357628, 261.60000002384186],
+          "n": 15
+        },
+        "secondEvent": {
+          "median": 264,
+          "iqr": 8,
+          "interval": [256, 264],
+          "n": 15
+        }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "mobile-slow-4g",
+      "mode": "settled",
+      "variant": "untuned",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": {
+          "median": 101785,
+          "iqr": 0,
+          "interval": [101785, 101785],
+          "n": 15
+        },
+        "bytesAtLoad": {
+          "median": 259277,
+          "iqr": 0,
+          "interval": [259277, 259277],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 259277,
+          "iqr": 0,
+          "interval": [259277, 259277],
+          "n": 15
+        },
+        "fcp": { "median": 812, "iqr": 16, "interval": [804, 820], "n": 15 },
+        "domNodes": {
+          "median": 18856,
+          "iqr": 0,
+          "interval": [18856, 18856],
+          "n": 15
+        },
+        "longTasks": { "median": 6, "iqr": 0, "interval": [6, 6], "n": 15 },
+        "overrun": {
+          "median": 543,
+          "iqr": 33,
+          "interval": [536, 580],
+          "n": 15
+        },
+        "tbt": {
+          "median": 201,
+          "iqr": 4.5,
+          "interval": [199.975, 205],
+          "n": 15
+        },
+        "harborVisible": {
+          "median": 105.69999998807907,
+          "iqr": 4.949999988079071,
+          "interval": [104.10000002384186, 109],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 104,
+          "iqr": 8,
+          "interval": [104, 112],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 265.89999997615814,
+          "iqr": 9.150000005960464,
+          "interval": [263.39999997615814, 270.30000001192093],
+          "n": 15
+        },
+        "berthEvent": {
+          "median": 264,
+          "iqr": 8,
+          "interval": [264, 272],
+          "n": 15
+        },
+        "secondVisible": {
+          "median": 250.80000001192093,
+          "iqr": 6.399999976158142,
+          "interval": [247.60000002384186, 254.4000000357628],
+          "n": 15
+        },
+        "secondEvent": {
+          "median": 248,
+          "iqr": 8,
+          "interval": [248, 256],
+          "n": 15
+        }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "mobile-slow-4g",
+      "mode": "settled",
+      "variant": "tuned",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": {
+          "median": 48571,
+          "iqr": 0,
+          "interval": [48571, 48571],
+          "n": 15
+        },
+        "bytesAtLoad": {
+          "median": 206299,
+          "iqr": 0,
+          "interval": [206299, 206299],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 206299,
+          "iqr": 0,
+          "interval": [206299, 206299],
+          "n": 15
+        },
+        "fcp": { "median": 648, "iqr": 4, "interval": [644, 648], "n": 15 },
+        "domNodes": {
+          "median": 1458,
+          "iqr": 0,
+          "interval": [1458, 1458],
+          "n": 15
+        },
+        "longTasks": { "median": 1, "iqr": 0, "interval": [1, 1], "n": 15 },
+        "overrun": { "median": 2, "iqr": 2, "interval": [2, 3], "n": 15 },
+        "tbt": { "median": 2, "iqr": 2, "interval": [2, 3], "n": 15 },
+        "harborVisible": {
+          "median": 35.09999996423721,
+          "iqr": 3.899999976158142,
+          "interval": [33.200000047683716, 37],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 32,
+          "iqr": 8,
+          "interval": [32, 40],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 28.599999964237213,
+          "iqr": 1.2499999701976776,
+          "interval": [27.900000035762787, 29.5],
+          "n": 15
+        },
+        "berthEvent": { "median": 32, "iqr": 0, "interval": [32, 32], "n": 15 },
+        "secondVisible": {
+          "median": 26.299999952316284,
+          "iqr": 1.199999988079071,
+          "interval": [26.100000023841858, 27.399999976158142],
+          "n": 15
+        },
+        "secondEvent": { "median": 24, "iqr": 0, "interval": [24, 24], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "mobile-slow-4g",
+      "mode": "settled",
+      "variant": "lazy",
+      "bytesMethod": "cdp-network-loadingFinished",
+      "runs": 15,
+      "metrics": {
+        "html": { "median": 6765, "iqr": 0, "interval": [6765, 6765], "n": 15 },
+        "bytesAtLoad": {
+          "median": 164807,
+          "iqr": 0,
+          "interval": [164807, 164807],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 223661,
+          "iqr": 0,
+          "interval": [223661, 223661],
+          "n": 15
+        },
+        "fcp": { "median": 500, "iqr": 12, "interval": [496, 508], "n": 15 },
+        "domNodes": {
+          "median": 844,
+          "iqr": 0,
+          "interval": [844, 844],
+          "n": 15
+        },
+        "longTasks": { "median": 5, "iqr": 0, "interval": [5, 5], "n": 15 },
+        "overrun": {
+          "median": 501,
+          "iqr": 18,
+          "interval": [492, 510],
+          "n": 15
+        },
+        "tbt": { "median": 0, "iqr": 0, "interval": [0, 0], "n": 15 },
+        "harborVisible": {
+          "median": 35.200000047683716,
+          "iqr": 3.599999964237213,
+          "interval": [33.39999997615814, 37.299999952316284],
+          "n": 15
+        },
+        "harborEvent": {
+          "median": 32,
+          "iqr": 8,
+          "interval": [32, 40],
+          "n": 15
+        },
+        "berthVisible": {
+          "median": 279.39999997615814,
+          "iqr": 7.25,
+          "interval": [278, 285.2000000476837],
+          "n": 15
+        },
+        "berthEvent": {
+          "median": 280,
+          "iqr": 8,
+          "interval": [280, 288],
+          "n": 15
+        },
+        "secondVisible": {
+          "median": 258.19999998807907,
+          "iqr": 10.5,
+          "interval": [254.60000002384186, 269.10000002384186],
+          "n": 15
+        },
+        "secondEvent": {
+          "median": 256,
+          "iqr": 12,
+          "interval": [256, 272],
+          "n": 15
+        }
+      }
+    },
+    {
+      "engine": "firefox",
+      "condition": "unthrottled",
+      "mode": "cold",
+      "variant": "islands",
+      "bytesMethod": "playwright-request-sizes",
+      "runs": 15,
+      "metrics": {
+        "html": { "median": 5117, "iqr": 0, "interval": [5117, 5117], "n": 15 },
+        "bytesAtLoad": {
+          "median": 177592,
+          "iqr": 3186.5,
+          "interval": [177592, 181201],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 288518,
+          "iqr": 192,
+          "interval": [288518, 288518],
+          "n": 15
+        },
+        "fcp": { "median": 35, "iqr": 6.5, "interval": [32, 38], "n": 15 },
+        "domNodes": {
+          "median": 1022,
+          "iqr": 14,
+          "interval": [1009, 1022],
+          "n": 15
+        },
+        "longTasks": null,
+        "overrun": null,
+        "tbt": null,
+        "harborVisible": {
+          "median": 13,
+          "iqr": 1,
+          "interval": [12, 13],
+          "n": 15
+        },
+        "harborEvent": null,
+        "berthVisible": {
+          "median": 64,
+          "iqr": 6,
+          "interval": [62, 70],
+          "n": 15
+        },
+        "berthEvent": null,
+        "secondVisible": {
+          "median": 57,
+          "iqr": 5,
+          "interval": [57, 60],
+          "n": 15
+        },
+        "secondEvent": null
+      }
+    },
+    {
+      "engine": "firefox",
+      "condition": "unthrottled",
+      "mode": "cold",
+      "variant": "untuned",
+      "bytesMethod": "playwright-request-sizes",
+      "runs": 15,
+      "metrics": {
+        "html": {
+          "median": 101771,
+          "iqr": 0,
+          "interval": [101771, 101771],
+          "n": 15
+        },
+        "bytesAtLoad": {
+          "median": 266152,
+          "iqr": 0,
+          "interval": [266152, 266152],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 273178,
+          "iqr": 7026,
+          "interval": [266152, 273178],
+          "n": 15
+        },
+        "fcp": { "median": 105, "iqr": 22, "interval": [99, 131], "n": 15 },
+        "domNodes": {
+          "median": 18856,
+          "iqr": 0,
+          "interval": [18856, 18856],
+          "n": 15
+        },
+        "longTasks": null,
+        "overrun": null,
+        "tbt": null,
+        "harborVisible": {
+          "median": 10,
+          "iqr": 1,
+          "interval": [10, 11],
+          "n": 15
+        },
+        "harborEvent": null,
+        "berthVisible": {
+          "median": 68,
+          "iqr": 4,
+          "interval": [65, 69],
+          "n": 15
+        },
+        "berthEvent": null,
+        "secondVisible": {
+          "median": 57,
+          "iqr": 4.5,
+          "interval": [56, 60],
+          "n": 15
+        },
+        "secondEvent": null
+      }
+    },
+    {
+      "engine": "firefox",
+      "condition": "unthrottled",
+      "mode": "cold",
+      "variant": "tuned",
+      "bytesMethod": "playwright-request-sizes",
+      "runs": 15,
+      "metrics": {
+        "html": {
+          "median": 48558,
+          "iqr": 0,
+          "interval": [48558, 48558],
+          "n": 15
+        },
+        "bytesAtLoad": {
+          "median": 213175,
+          "iqr": 0,
+          "interval": [213175, 213175],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 220201,
+          "iqr": 0,
+          "interval": [220201, 220201],
+          "n": 15
+        },
+        "fcp": { "median": 43, "iqr": 5, "interval": [41, 46], "n": 15 },
+        "domNodes": {
+          "median": 1458,
+          "iqr": 0,
+          "interval": [1458, 1458],
+          "n": 15
+        },
+        "longTasks": null,
+        "overrun": null,
+        "tbt": null,
+        "harborVisible": {
+          "median": 11,
+          "iqr": 1,
+          "interval": [10, 11],
+          "n": 15
+        },
+        "harborEvent": null,
+        "berthVisible": {
+          "median": 10,
+          "iqr": 1.5,
+          "interval": [9, 11],
+          "n": 15
+        },
+        "berthEvent": null,
+        "secondVisible": {
+          "median": 10,
+          "iqr": 1,
+          "interval": [9, 10],
+          "n": 15
+        },
+        "secondEvent": null
+      }
+    },
+    {
+      "engine": "firefox",
+      "condition": "unthrottled",
+      "mode": "cold",
+      "variant": "lazy",
+      "bytesMethod": "playwright-request-sizes",
+      "runs": 15,
+      "metrics": {
+        "html": { "median": 6752, "iqr": 0, "interval": [6752, 6752], "n": 15 },
+        "bytesAtLoad": {
+          "median": 171672,
+          "iqr": 0,
+          "interval": [171672, 171672],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 237539,
+          "iqr": 0,
+          "interval": [237539, 237539],
+          "n": 15
+        },
+        "fcp": { "median": 38, "iqr": 6, "interval": [34, 39], "n": 15 },
+        "domNodes": {
+          "median": 844,
+          "iqr": 0,
+          "interval": [844, 844],
+          "n": 15
+        },
+        "longTasks": null,
+        "overrun": null,
+        "tbt": null,
+        "harborVisible": {
+          "median": 10,
+          "iqr": 1,
+          "interval": [10, 11],
+          "n": 15
+        },
+        "harborEvent": null,
+        "berthVisible": {
+          "median": 64,
+          "iqr": 7,
+          "interval": [60, 67],
+          "n": 15
+        },
+        "berthEvent": null,
+        "secondVisible": {
+          "median": 57,
+          "iqr": 4,
+          "interval": [56, 60],
+          "n": 15
+        },
+        "secondEvent": null
+      }
+    },
+    {
+      "engine": "firefox",
+      "condition": "unthrottled",
+      "mode": "settled",
+      "variant": "islands",
+      "bytesMethod": "playwright-request-sizes",
+      "runs": 15,
+      "metrics": {
+        "html": { "median": 5117, "iqr": 0, "interval": [5117, 5117], "n": 15 },
+        "bytesAtLoad": {
+          "median": 192850,
+          "iqr": 0,
+          "interval": [192850, 192850],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 288518,
+          "iqr": 0,
+          "interval": [288518, 288518],
+          "n": 15
+        },
+        "fcp": { "median": 36, "iqr": 5, "interval": [32, 37], "n": 15 },
+        "domNodes": {
+          "median": 1009,
+          "iqr": 0,
+          "interval": [1009, 1009],
+          "n": 15
+        },
+        "longTasks": null,
+        "overrun": null,
+        "tbt": null,
+        "harborVisible": {
+          "median": 19,
+          "iqr": 4,
+          "interval": [15, 19],
+          "n": 15
+        },
+        "harborEvent": null,
+        "berthVisible": {
+          "median": 63,
+          "iqr": 7.5,
+          "interval": [62, 69],
+          "n": 15
+        },
+        "berthEvent": null,
+        "secondVisible": {
+          "median": 58,
+          "iqr": 2.5,
+          "interval": [57, 60],
+          "n": 15
+        },
+        "secondEvent": null
+      }
+    },
+    {
+      "engine": "firefox",
+      "condition": "unthrottled",
+      "mode": "settled",
+      "variant": "untuned",
+      "bytesMethod": "playwright-request-sizes",
+      "runs": 15,
+      "metrics": {
+        "html": {
+          "median": 101771,
+          "iqr": 0,
+          "interval": [101771, 101771],
+          "n": 15
+        },
+        "bytesAtLoad": {
+          "median": 273178,
+          "iqr": 0,
+          "interval": [273178, 273178],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 273178,
+          "iqr": 0,
+          "interval": [273178, 273178],
+          "n": 15
+        },
+        "fcp": { "median": 106, "iqr": 32, "interval": [100, 132], "n": 15 },
+        "domNodes": {
+          "median": 18856,
+          "iqr": 0,
+          "interval": [18856, 18856],
+          "n": 15
+        },
+        "longTasks": null,
+        "overrun": null,
+        "tbt": null,
+        "harborVisible": {
+          "median": 11,
+          "iqr": 1.5,
+          "interval": [11, 12],
+          "n": 15
+        },
+        "harborEvent": null,
+        "berthVisible": {
+          "median": 63,
+          "iqr": 4,
+          "interval": [62, 65],
+          "n": 15
+        },
+        "berthEvent": null,
+        "secondVisible": {
+          "median": 58,
+          "iqr": 3,
+          "interval": [56, 59],
+          "n": 15
+        },
+        "secondEvent": null
+      }
+    },
+    {
+      "engine": "firefox",
+      "condition": "unthrottled",
+      "mode": "settled",
+      "variant": "tuned",
+      "bytesMethod": "playwright-request-sizes",
+      "runs": 15,
+      "metrics": {
+        "html": {
+          "median": 48558,
+          "iqr": 0,
+          "interval": [48558, 48558],
+          "n": 15
+        },
+        "bytesAtLoad": {
+          "median": 220201,
+          "iqr": 0,
+          "interval": [220201, 220201],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 220201,
+          "iqr": 0,
+          "interval": [220201, 220201],
+          "n": 15
+        },
+        "fcp": { "median": 43, "iqr": 4.5, "interval": [42, 44], "n": 15 },
+        "domNodes": {
+          "median": 1458,
+          "iqr": 0,
+          "interval": [1458, 1458],
+          "n": 15
+        },
+        "longTasks": null,
+        "overrun": null,
+        "tbt": null,
+        "harborVisible": {
+          "median": 13,
+          "iqr": 4,
+          "interval": [10, 14],
+          "n": 15
+        },
+        "harborEvent": null,
+        "berthVisible": {
+          "median": 13,
+          "iqr": 4,
+          "interval": [10, 14],
+          "n": 15
+        },
+        "berthEvent": null,
+        "secondVisible": {
+          "median": 11,
+          "iqr": 1.5,
+          "interval": [11, 13],
+          "n": 15
+        },
+        "secondEvent": null
+      }
+    },
+    {
+      "engine": "firefox",
+      "condition": "unthrottled",
+      "mode": "settled",
+      "variant": "lazy",
+      "bytesMethod": "playwright-request-sizes",
+      "runs": 15,
+      "metrics": {
+        "html": { "median": 6752, "iqr": 0, "interval": [6752, 6752], "n": 15 },
+        "bytesAtLoad": {
+          "median": 178698,
+          "iqr": 0,
+          "interval": [178698, 178698],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 237539,
+          "iqr": 0,
+          "interval": [237539, 237539],
+          "n": 15
+        },
+        "fcp": { "median": 37, "iqr": 8, "interval": [31, 40], "n": 15 },
+        "domNodes": {
+          "median": 844,
+          "iqr": 0,
+          "interval": [844, 844],
+          "n": 15
+        },
+        "longTasks": null,
+        "overrun": null,
+        "tbt": null,
+        "harborVisible": {
+          "median": 14,
+          "iqr": 3.5,
+          "interval": [12, 15],
+          "n": 15
+        },
+        "harborEvent": null,
+        "berthVisible": {
+          "median": 63,
+          "iqr": 4.5,
+          "interval": [61, 66],
+          "n": 15
+        },
+        "berthEvent": null,
+        "secondVisible": {
+          "median": 60,
+          "iqr": 7.5,
+          "interval": [57, 65],
+          "n": 15
+        },
+        "secondEvent": null
+      }
+    },
+    {
+      "engine": "webkit",
+      "condition": "unthrottled",
+      "mode": "cold",
+      "variant": "islands",
+      "bytesMethod": "playwright-request-sizes",
+      "runs": 15,
+      "metrics": {
+        "html": { "median": 5130, "iqr": 0, "interval": [5130, 5130], "n": 15 },
+        "bytesAtLoad": {
+          "median": 170033,
+          "iqr": 0,
+          "interval": [170033, 170033],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 274759,
+          "iqr": 0,
+          "interval": [274759, 274759],
+          "n": 15
+        },
+        "fcp": { "median": 41, "iqr": 3.5, "interval": [40, 43], "n": 15 },
+        "domNodes": {
+          "median": 1016,
+          "iqr": 0,
+          "interval": [1016, 1016],
+          "n": 15
+        },
+        "longTasks": null,
+        "overrun": null,
+        "tbt": null,
+        "harborVisible": {
+          "median": 16,
+          "iqr": 1.5,
+          "interval": [16, 17],
+          "n": 15
+        },
+        "harborEvent": null,
+        "berthVisible": {
+          "median": 354,
+          "iqr": 17.5,
+          "interval": [349, 366],
+          "n": 15
+        },
+        "berthEvent": null,
+        "secondVisible": {
+          "median": 277,
+          "iqr": 8.5,
+          "interval": [272, 281],
+          "n": 15
+        },
+        "secondEvent": null
+      }
+    },
+    {
+      "engine": "webkit",
+      "condition": "unthrottled",
+      "mode": "cold",
+      "variant": "untuned",
+      "bytesMethod": "playwright-request-sizes",
+      "runs": 15,
+      "metrics": {
+        "html": {
+          "median": 101785,
+          "iqr": 0,
+          "interval": [101785, 101785],
+          "n": 15
+        },
+        "bytesAtLoad": {
+          "median": 258581,
+          "iqr": 0,
+          "interval": [258581, 258581],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 259277,
+          "iqr": 0,
+          "interval": [259277, 259277],
+          "n": 15
+        },
+        "fcp": { "median": 273, "iqr": 12, "interval": [269, 280], "n": 15 },
+        "domNodes": {
+          "median": 18853,
+          "iqr": 0,
+          "interval": [18853, 18853],
+          "n": 15
+        },
+        "longTasks": null,
+        "overrun": null,
+        "tbt": null,
+        "harborVisible": {
+          "median": 15,
+          "iqr": 0.5,
+          "interval": [15, 15],
+          "n": 15
+        },
+        "harborEvent": null,
+        "berthVisible": {
+          "median": 245,
+          "iqr": 3,
+          "interval": [244, 246],
+          "n": 15
+        },
+        "berthEvent": null,
+        "secondVisible": {
+          "median": 270,
+          "iqr": 9.5,
+          "interval": [264, 273],
+          "n": 15
+        },
+        "secondEvent": null
+      }
+    },
+    {
+      "engine": "webkit",
+      "condition": "unthrottled",
+      "mode": "cold",
+      "variant": "tuned",
+      "bytesMethod": "playwright-request-sizes",
+      "runs": 15,
+      "metrics": {
+        "html": {
+          "median": 48571,
+          "iqr": 0,
+          "interval": [48571, 48571],
+          "n": 15
+        },
+        "bytesAtLoad": {
+          "median": 205603,
+          "iqr": 0,
+          "interval": [205603, 205603],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 206299,
+          "iqr": 0,
+          "interval": [206299, 206299],
+          "n": 15
+        },
+        "fcp": { "median": 48, "iqr": 2, "interval": [47, 49], "n": 15 },
+        "domNodes": {
+          "median": 1455,
+          "iqr": 0,
+          "interval": [1455, 1455],
+          "n": 15
+        },
+        "longTasks": null,
+        "overrun": null,
+        "tbt": null,
+        "harborVisible": {
+          "median": 16,
+          "iqr": 0.5,
+          "interval": [15, 16],
+          "n": 15
+        },
+        "harborEvent": null,
+        "berthVisible": {
+          "median": 17,
+          "iqr": 2,
+          "interval": [16, 18],
+          "n": 15
+        },
+        "berthEvent": null,
+        "secondVisible": {
+          "median": 16,
+          "iqr": 1,
+          "interval": [15, 16],
+          "n": 15
+        },
+        "secondEvent": null
+      }
+    },
+    {
+      "engine": "webkit",
+      "condition": "unthrottled",
+      "mode": "cold",
+      "variant": "lazy",
+      "bytesMethod": "playwright-request-sizes",
+      "runs": 15,
+      "metrics": {
+        "html": { "median": 6765, "iqr": 0, "interval": [6765, 6765], "n": 15 },
+        "bytesAtLoad": {
+          "median": 164111,
+          "iqr": 0,
+          "interval": [164111, 164111],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 223661,
+          "iqr": 0,
+          "interval": [223661, 223661],
+          "n": 15
+        },
+        "fcp": { "median": 38, "iqr": 1, "interval": [38, 39], "n": 15 },
+        "domNodes": {
+          "median": 841,
+          "iqr": 0,
+          "interval": [841, 841],
+          "n": 15
+        },
+        "longTasks": null,
+        "overrun": null,
+        "tbt": null,
+        "harborVisible": {
+          "median": 16,
+          "iqr": 0,
+          "interval": [16, 16],
+          "n": 15
+        },
+        "harborEvent": null,
+        "berthVisible": {
+          "median": 254,
+          "iqr": 3.5,
+          "interval": [252, 255],
+          "n": 15
+        },
+        "berthEvent": null,
+        "secondVisible": {
+          "median": 276,
+          "iqr": 13.5,
+          "interval": [269, 283],
+          "n": 15
+        },
+        "secondEvent": null
+      }
+    },
+    {
+      "engine": "webkit",
+      "condition": "unthrottled",
+      "mode": "settled",
+      "variant": "islands",
+      "bytesMethod": "playwright-request-sizes",
+      "runs": 15,
+      "metrics": {
+        "html": { "median": 5130, "iqr": 0, "interval": [5130, 5130], "n": 15 },
+        "bytesAtLoad": {
+          "median": 179054,
+          "iqr": 0,
+          "interval": [179054, 179054],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 274759,
+          "iqr": 0,
+          "interval": [274759, 274759],
+          "n": 15
+        },
+        "fcp": { "median": 39, "iqr": 1.5, "interval": [39, 41], "n": 15 },
+        "domNodes": {
+          "median": 1009,
+          "iqr": 0,
+          "interval": [1009, 1009],
+          "n": 15
+        },
+        "longTasks": null,
+        "overrun": null,
+        "tbt": null,
+        "harborVisible": {
+          "median": 22,
+          "iqr": 5.5,
+          "interval": [17, 24],
+          "n": 15
+        },
+        "harborEvent": null,
+        "berthVisible": {
+          "median": 356,
+          "iqr": 4,
+          "interval": [354, 358],
+          "n": 15
+        },
+        "berthEvent": null,
+        "secondVisible": {
+          "median": 270,
+          "iqr": 3.5,
+          "interval": [268, 272],
+          "n": 15
+        },
+        "secondEvent": null
+      }
+    },
+    {
+      "engine": "webkit",
+      "condition": "unthrottled",
+      "mode": "settled",
+      "variant": "untuned",
+      "bytesMethod": "playwright-request-sizes",
+      "runs": 15,
+      "metrics": {
+        "html": {
+          "median": 101785,
+          "iqr": 0,
+          "interval": [101785, 101785],
+          "n": 15
+        },
+        "bytesAtLoad": {
+          "median": 259277,
+          "iqr": 0,
+          "interval": [259277, 259277],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 259277,
+          "iqr": 0,
+          "interval": [259277, 259277],
+          "n": 15
+        },
+        "fcp": { "median": 274, "iqr": 3, "interval": [273, 276], "n": 15 },
+        "domNodes": {
+          "median": 18856,
+          "iqr": 0,
+          "interval": [18856, 18856],
+          "n": 15
+        },
+        "longTasks": null,
+        "overrun": null,
+        "tbt": null,
+        "harborVisible": {
+          "median": 16,
+          "iqr": 0.5,
+          "interval": [16, 16],
+          "n": 15
+        },
+        "harborEvent": null,
+        "berthVisible": {
+          "median": 250,
+          "iqr": 2.5,
+          "interval": [248, 251],
+          "n": 15
+        },
+        "berthEvent": null,
+        "secondVisible": {
+          "median": 273,
+          "iqr": 6.5,
+          "interval": [268.975, 275],
+          "n": 15
+        },
+        "secondEvent": null
+      }
+    },
+    {
+      "engine": "webkit",
+      "condition": "unthrottled",
+      "mode": "settled",
+      "variant": "tuned",
+      "bytesMethod": "playwright-request-sizes",
+      "runs": 15,
+      "metrics": {
+        "html": {
+          "median": 48571,
+          "iqr": 0,
+          "interval": [48571, 48571],
+          "n": 15
+        },
+        "bytesAtLoad": {
+          "median": 206299,
+          "iqr": 0,
+          "interval": [206299, 206299],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 206299,
+          "iqr": 0,
+          "interval": [206299, 206299],
+          "n": 15
+        },
+        "fcp": { "median": 48, "iqr": 1, "interval": [47, 48], "n": 15 },
+        "domNodes": {
+          "median": 1458,
+          "iqr": 0,
+          "interval": [1458, 1458],
+          "n": 15
+        },
+        "longTasks": null,
+        "overrun": null,
+        "tbt": null,
+        "harborVisible": {
+          "median": 17,
+          "iqr": 0.5,
+          "interval": [16, 17],
+          "n": 15
+        },
+        "harborEvent": null,
+        "berthVisible": {
+          "median": 28,
+          "iqr": 6,
+          "interval": [24, 30],
+          "n": 15
+        },
+        "berthEvent": null,
+        "secondVisible": {
+          "median": 25,
+          "iqr": 13,
+          "interval": [18, 31],
+          "n": 15
+        },
+        "secondEvent": null
+      }
+    },
+    {
+      "engine": "webkit",
+      "condition": "unthrottled",
+      "mode": "settled",
+      "variant": "lazy",
+      "bytesMethod": "playwright-request-sizes",
+      "runs": 15,
+      "metrics": {
+        "html": { "median": 6765, "iqr": 0, "interval": [6765, 6765], "n": 15 },
+        "bytesAtLoad": {
+          "median": 164807,
+          "iqr": 0,
+          "interval": [164807, 164807],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "median": 223661,
+          "iqr": 0,
+          "interval": [223661, 223661],
+          "n": 15
+        },
+        "fcp": { "median": 39, "iqr": 3, "interval": [38, 41], "n": 15 },
+        "domNodes": {
+          "median": 844,
+          "iqr": 0,
+          "interval": [844, 844],
+          "n": 15
+        },
+        "longTasks": null,
+        "overrun": null,
+        "tbt": null,
+        "harborVisible": {
+          "median": 16,
+          "iqr": 1,
+          "interval": [16, 17],
+          "n": 15
+        },
+        "harborEvent": null,
+        "berthVisible": {
+          "median": 258,
+          "iqr": 9,
+          "interval": [255, 264],
+          "n": 15
+        },
+        "berthEvent": null,
+        "secondVisible": {
+          "median": 270,
+          "iqr": 5,
+          "interval": [269, 273],
+          "n": 15
+        },
+        "secondEvent": null
+      }
+    }
+  ],
+  "differences": [
+    {
+      "engine": "chromium",
+      "condition": "slow-4g",
+      "mode": "cold",
+      "baseline": "untuned",
+      "metrics": {
+        "html": { "difference": -96655, "interval": [-96655, -96655], "n": 15 },
+        "bytesAtLoad": {
+          "difference": -88548,
+          "interval": [-88548, -88548],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 15482,
+          "interval": [15482, 15482],
+          "n": 15
+        },
+        "fcp": { "difference": -360, "interval": [-372, -356], "n": 15 },
+        "domNodes": {
+          "difference": -17832,
+          "interval": [-17832, -17832],
+          "n": 15
+        },
+        "longTasks": { "difference": 1, "interval": [1, 1], "n": 15 },
+        "overrun": { "difference": 66, "interval": [22, 92], "n": 15 },
+        "tbt": { "difference": -210, "interval": [-221, -200], "n": 15 },
+        "harborVisible": {
+          "difference": 162.89999997615814,
+          "interval": [158.39999997615814, 166.4049999773502],
+          "n": 15
+        },
+        "harborEvent": { "difference": -32, "interval": [-40, -32], "n": 15 },
+        "berthVisible": {
+          "difference": 243,
+          "interval": [226.30000001192093, 269.49999994039536],
+          "n": 15
+        },
+        "berthEvent": {
+          "difference": -256,
+          "interval": [-272, -247.8000000000011],
+          "n": 15
+        },
+        "secondVisible": {
+          "difference": -7.800000011920929,
+          "interval": [-22, 4.899999976158142],
+          "n": 15
+        },
+        "secondEvent": { "difference": -8, "interval": [-24, 8], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "slow-4g",
+      "mode": "cold",
+      "baseline": "tuned",
+      "metrics": {
+        "html": { "difference": -43441, "interval": [-43441, -43441], "n": 15 },
+        "bytesAtLoad": {
+          "difference": -35570,
+          "interval": [-35570, -35570],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 68460,
+          "interval": [68460, 68460],
+          "n": 15
+        },
+        "fcp": { "difference": -156, "interval": [-160, -148], "n": 15 },
+        "domNodes": { "difference": -434, "interval": [-434, -434], "n": 15 },
+        "longTasks": { "difference": 3, "interval": [3, 3], "n": 15 },
+        "overrun": { "difference": 659, "interval": [646, 678], "n": 15 },
+        "tbt": { "difference": -2, "interval": [-5, -1], "n": 15 },
+        "harborVisible": {
+          "difference": 172.69999998807907,
+          "interval": [168.39999997615814, 176.69999998807907],
+          "n": 15
+        },
+        "harborEvent": { "difference": -24, "interval": [-32, -24], "n": 15 },
+        "berthVisible": {
+          "difference": 478.5,
+          "interval": [472.7999999523163, 513.2999999523163],
+          "n": 15
+        },
+        "berthEvent": { "difference": -16, "interval": [-16, -16], "n": 15 },
+        "secondVisible": {
+          "difference": 212.39999997615814,
+          "interval": [208.89999997615814, 223.29999995231628],
+          "n": 15
+        },
+        "secondEvent": { "difference": 216, "interval": [208, 224], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "slow-4g",
+      "mode": "cold",
+      "baseline": "lazy",
+      "metrics": {
+        "html": { "difference": -1635, "interval": [-1635, -1635], "n": 15 },
+        "bytesAtLoad": {
+          "difference": 5922,
+          "interval": [5922, 5922],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 51098,
+          "interval": [51098, 51098],
+          "n": 15
+        },
+        "fcp": { "difference": 4, "interval": [-4, 12], "n": 15 },
+        "domNodes": { "difference": 180, "interval": [180, 180], "n": 15 },
+        "longTasks": { "difference": 1, "interval": [1, 1], "n": 15 },
+        "overrun": { "difference": 95, "interval": [71, 134], "n": 15 },
+        "tbt": { "difference": 0, "interval": [0, 0], "n": 15 },
+        "harborVisible": {
+          "difference": 173.80000001192093,
+          "interval": [169.80000001192093, 178.39999997615814],
+          "n": 15
+        },
+        "harborEvent": { "difference": -24, "interval": [-24, -24], "n": 15 },
+        "berthVisible": {
+          "difference": 236.19999998807907,
+          "interval": [223.29999995231628, 268.19999998807907],
+          "n": 15
+        },
+        "berthEvent": { "difference": -256, "interval": [-272, -248], "n": 15 },
+        "secondVisible": {
+          "difference": -8.900000035762787,
+          "interval": [-19.899999976158142, 2.199999988079071],
+          "n": 15
+        },
+        "secondEvent": { "difference": -8, "interval": [-16, 8], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "slow-4g",
+      "mode": "settled",
+      "baseline": "untuned",
+      "metrics": {
+        "html": { "difference": -96655, "interval": [-96655, -96655], "n": 15 },
+        "bytesAtLoad": {
+          "difference": -80223,
+          "interval": [-80223, -80223],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 15482,
+          "interval": [15482, 15482],
+          "n": 15
+        },
+        "fcp": { "difference": -364, "interval": [-380, -360], "n": 15 },
+        "domNodes": {
+          "difference": -17847,
+          "interval": [-17847, -17847],
+          "n": 15
+        },
+        "longTasks": { "difference": 1, "interval": [1, 1], "n": 15 },
+        "overrun": { "difference": 85, "interval": [59, 132], "n": 15 },
+        "tbt": { "difference": -215, "interval": [-222, -201], "n": 15 },
+        "harborVisible": {
+          "difference": -5.699999988079071,
+          "interval": [-7.102500022947788, -2.900000035762787],
+          "n": 15
+        },
+        "harborEvent": { "difference": -32, "interval": [-40, -32], "n": 15 },
+        "berthVisible": {
+          "difference": 9.199999988079071,
+          "interval": [-4.600000023841858, 29.400000035762787],
+          "n": 15
+        },
+        "berthEvent": { "difference": 8, "interval": [0, 24], "n": 15 },
+        "secondVisible": {
+          "difference": -1,
+          "interval": [-11.200000047683716, 7.402499976754175],
+          "n": 15
+        },
+        "secondEvent": { "difference": 0, "interval": [-16, 8], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "slow-4g",
+      "mode": "settled",
+      "baseline": "tuned",
+      "metrics": {
+        "html": { "difference": -43441, "interval": [-43441, -43441], "n": 15 },
+        "bytesAtLoad": {
+          "difference": -27245,
+          "interval": [-27245, -27245],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 68460,
+          "interval": [68460, 68460],
+          "n": 15
+        },
+        "fcp": { "difference": -160, "interval": [-172, -156], "n": 15 },
+        "domNodes": { "difference": -449, "interval": [-449, -449], "n": 15 },
+        "longTasks": { "difference": 3, "interval": [3, 3], "n": 15 },
+        "overrun": { "difference": 679, "interval": [664, 723], "n": 15 },
+        "tbt": { "difference": -2, "interval": [-5, -1], "n": 15 },
+        "harborVisible": {
+          "difference": 6.700000047683716,
+          "interval": [4.400000035762787, 8.100000083446503],
+          "n": 15
+        },
+        "harborEvent": { "difference": -24, "interval": [-24, -24], "n": 15 },
+        "berthVisible": {
+          "difference": 236.30000001192093,
+          "interval": [230.89999997615814, 253.80000001192093],
+          "n": 15
+        },
+        "berthEvent": { "difference": 240, "interval": [232, 256], "n": 15 },
+        "secondVisible": {
+          "difference": 223.20000004768372,
+          "interval": [220.50000005960464, 226.5],
+          "n": 15
+        },
+        "secondEvent": { "difference": 224, "interval": [224, 224], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "slow-4g",
+      "mode": "settled",
+      "baseline": "lazy",
+      "metrics": {
+        "html": { "difference": -1635, "interval": [-1635, -1635], "n": 15 },
+        "bytesAtLoad": {
+          "difference": 14247,
+          "interval": [14247, 14247],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 51098,
+          "interval": [51098, 51098],
+          "n": 15
+        },
+        "fcp": { "difference": 0, "interval": [-4, 4], "n": 15 },
+        "domNodes": { "difference": 165, "interval": [165, 165], "n": 15 },
+        "longTasks": { "difference": 1, "interval": [1, 1], "n": 15 },
+        "overrun": { "difference": 107, "interval": [78, 157], "n": 15 },
+        "tbt": { "difference": 0, "interval": [0, 0], "n": 15 },
+        "harborVisible": {
+          "difference": 8,
+          "interval": [4.899999976158142, 9.30750007033344],
+          "n": 15
+        },
+        "harborEvent": { "difference": -24, "interval": [-24, -24], "n": 15 },
+        "berthVisible": {
+          "difference": -5.199999988079071,
+          "interval": [-17, 14.899999976158142],
+          "n": 15
+        },
+        "berthEvent": { "difference": -8, "interval": [-16, 16], "n": 15 },
+        "secondVisible": {
+          "difference": -4.599999964237213,
+          "interval": [-10.105000022053718, -1.100000023841858],
+          "n": 15
+        },
+        "secondEvent": { "difference": 0, "interval": [-8, 0], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "slow-3g",
+      "mode": "cold",
+      "baseline": "untuned",
+      "metrics": {
+        "html": { "difference": -96655, "interval": [-96655, -96655], "n": 15 },
+        "bytesAtLoad": {
+          "difference": -87006,
+          "interval": [-88548, -87006],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 15482,
+          "interval": [15482, 15482],
+          "n": 15
+        },
+        "fcp": { "difference": -744, "interval": [-752, -728], "n": 15 },
+        "domNodes": {
+          "difference": -17832,
+          "interval": [-17832, -17832],
+          "n": 15
+        },
+        "longTasks": { "difference": 1, "interval": [1, 1], "n": 15 },
+        "overrun": { "difference": 76, "interval": [64, 95], "n": 15 },
+        "tbt": { "difference": -202, "interval": [-209, -200], "n": 15 },
+        "harborVisible": {
+          "difference": 283.89999997615814,
+          "interval": [277.7000000476837, 371.2000000476837],
+          "n": 15
+        },
+        "harborEvent": { "difference": -32, "interval": [-40, -32], "n": 15 },
+        "berthVisible": {
+          "difference": 815.9999999403954,
+          "interval": [807.5, 825.1025000229478],
+          "n": 15
+        },
+        "berthEvent": { "difference": -248, "interval": [-248, -248], "n": 15 },
+        "secondVisible": {
+          "difference": -3.199999988079071,
+          "interval": [-8.100000023841858, 1.5],
+          "n": 15
+        },
+        "secondEvent": { "difference": -8, "interval": [-8, 0], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "slow-3g",
+      "mode": "cold",
+      "baseline": "tuned",
+      "metrics": {
+        "html": { "difference": -43441, "interval": [-43441, -43441], "n": 15 },
+        "bytesAtLoad": {
+          "difference": -34028,
+          "interval": [-35570, -34028],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 68460,
+          "interval": [68460, 68460],
+          "n": 15
+        },
+        "fcp": { "difference": -612, "interval": [-616, -596], "n": 15 },
+        "domNodes": { "difference": -434, "interval": [-434, -434], "n": 15 },
+        "longTasks": { "difference": 3, "interval": [3, 3], "n": 15 },
+        "overrun": { "difference": 652, "interval": [639, 666], "n": 15 },
+        "tbt": { "difference": -2, "interval": [-3, -2], "n": 15 },
+        "harborVisible": {
+          "difference": 294.5999999642372,
+          "interval": [289.0999999642372, 381.89999997615814],
+          "n": 15
+        },
+        "harborEvent": { "difference": -24, "interval": [-24, -24], "n": 15 },
+        "berthVisible": {
+          "difference": 1045.3999999761581,
+          "interval": [1035.199999988079, 1055.5000000014902],
+          "n": 15
+        },
+        "berthEvent": { "difference": -16, "interval": [-16, -16], "n": 15 },
+        "secondVisible": {
+          "difference": 210.80000001192093,
+          "interval": [205.99749999940394, 214.19999998807907],
+          "n": 15
+        },
+        "secondEvent": { "difference": 208, "interval": [208, 216], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "slow-3g",
+      "mode": "cold",
+      "baseline": "lazy",
+      "metrics": {
+        "html": { "difference": -1635, "interval": [-1635, -1635], "n": 15 },
+        "bytesAtLoad": {
+          "difference": 7464,
+          "interval": [5922, 7464],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 51098,
+          "interval": [51098, 51098],
+          "n": 15
+        },
+        "fcp": { "difference": 4, "interval": [0, 20], "n": 15 },
+        "domNodes": { "difference": 180, "interval": [180, 180], "n": 15 },
+        "longTasks": { "difference": 1, "interval": [1, 1], "n": 15 },
+        "overrun": { "difference": 99, "interval": [84, 114], "n": 15 },
+        "tbt": { "difference": 0, "interval": [0, 0], "n": 15 },
+        "harborVisible": {
+          "difference": 296.69999998807907,
+          "interval": [291.69999998807907, 384],
+          "n": 15
+        },
+        "harborEvent": { "difference": -24, "interval": [-24, -24], "n": 15 },
+        "berthVisible": {
+          "difference": 807.9000000357628,
+          "interval": [799.3999999761581, 818.9000000357628],
+          "n": 15
+        },
+        "berthEvent": { "difference": -256, "interval": [-256, -248], "n": 15 },
+        "secondVisible": {
+          "difference": -14.199999988079071,
+          "interval": [-22.299999952316284, -9.992499999702018],
+          "n": 15
+        },
+        "secondEvent": { "difference": -16, "interval": [-24, -8], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "slow-3g",
+      "mode": "settled",
+      "baseline": "untuned",
+      "metrics": {
+        "html": { "difference": -96655, "interval": [-96655, -96655], "n": 15 },
+        "bytesAtLoad": {
+          "difference": -80223,
+          "interval": [-80223, -80223],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 15482,
+          "interval": [15482, 15482],
+          "n": 15
+        },
+        "fcp": { "difference": -748, "interval": [-756, -744], "n": 15 },
+        "domNodes": {
+          "difference": -17847,
+          "interval": [-17847, -17847],
+          "n": 15
+        },
+        "longTasks": { "difference": 1, "interval": [1, 1], "n": 15 },
+        "overrun": { "difference": 75, "interval": [59, 85], "n": 15 },
+        "tbt": {
+          "difference": -201,
+          "interval": [-203, -200.97500000000014],
+          "n": 15
+        },
+        "harborVisible": {
+          "difference": -6.800000071525574,
+          "interval": [-8.899999977648259, -3.399999976158142],
+          "n": 15
+        },
+        "harborEvent": { "difference": -40, "interval": [-40, -32], "n": 15 },
+        "berthVisible": {
+          "difference": 1057.9000000357628,
+          "interval": [1047.9650000587105, 1073.7999999523163],
+          "n": 15
+        },
+        "berthEvent": { "difference": -248, "interval": [-256, -248], "n": 15 },
+        "secondVisible": {
+          "difference": -5.300000011920929,
+          "interval": [-10.300000011920929, 3],
+          "n": 15
+        },
+        "secondEvent": { "difference": -8, "interval": [-16, 0], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "slow-3g",
+      "mode": "settled",
+      "baseline": "tuned",
+      "metrics": {
+        "html": { "difference": -43441, "interval": [-43441, -43441], "n": 15 },
+        "bytesAtLoad": {
+          "difference": -27245,
+          "interval": [-27245, -27245],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 68460,
+          "interval": [68460, 68460],
+          "n": 15
+        },
+        "fcp": { "difference": -616, "interval": [-620, -608], "n": 15 },
+        "domNodes": { "difference": -449, "interval": [-449, -449], "n": 15 },
+        "longTasks": { "difference": 3, "interval": [3, 3], "n": 15 },
+        "overrun": { "difference": 644, "interval": [636.975, 652], "n": 15 },
+        "tbt": { "difference": -5, "interval": [-6, -2], "n": 15 },
+        "harborVisible": {
+          "difference": 5.899999976158142,
+          "interval": [3.897499977052212, 6.900000035762787],
+          "n": 15
+        },
+        "harborEvent": { "difference": -24, "interval": [-24, -24], "n": 15 },
+        "berthVisible": {
+          "difference": 1285.1000000238419,
+          "interval": [1277.4999999403954, 1301.3024999529123],
+          "n": 15
+        },
+        "berthEvent": { "difference": -16, "interval": [-16, -16], "n": 15 },
+        "secondVisible": {
+          "difference": 208,
+          "interval": [205.30000001192093, 210.50250005871055],
+          "n": 15
+        },
+        "secondEvent": { "difference": 208, "interval": [208, 208], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "slow-3g",
+      "mode": "settled",
+      "baseline": "lazy",
+      "metrics": {
+        "html": { "difference": -1635, "interval": [-1635, -1635], "n": 15 },
+        "bytesAtLoad": {
+          "difference": 14247,
+          "interval": [14247, 14247],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 51098,
+          "interval": [51098, 51098],
+          "n": 15
+        },
+        "fcp": { "difference": 0, "interval": [-16, 4], "n": 15 },
+        "domNodes": { "difference": 165, "interval": [165, 165], "n": 15 },
+        "longTasks": { "difference": 1, "interval": [1, 1], "n": 15 },
+        "overrun": { "difference": 96, "interval": [82, 110], "n": 15 },
+        "tbt": { "difference": 0, "interval": [0, 0], "n": 15 },
+        "harborVisible": {
+          "difference": 7.099999964237213,
+          "interval": [5.599999964237213, 8.399999976158142],
+          "n": 15
+        },
+        "harborEvent": { "difference": -24, "interval": [-24, -24], "n": 15 },
+        "berthVisible": {
+          "difference": 1050.4000000357628,
+          "interval": [1040.3999999761581, 1070.6999999299646],
+          "n": 15
+        },
+        "berthEvent": { "difference": -256, "interval": [-256, -248], "n": 15 },
+        "secondVisible": {
+          "difference": -13.200000047683716,
+          "interval": [-17.900000035762787, -7.300000011920929],
+          "n": 15
+        },
+        "secondEvent": { "difference": -16, "interval": [-24, -8], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "unthrottled",
+      "mode": "cold",
+      "baseline": "untuned",
+      "metrics": {
+        "html": { "difference": -96655, "interval": [-96655, -96655], "n": 15 },
+        "bytesAtLoad": {
+          "difference": -88548,
+          "interval": [-153238, -88548],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 15482,
+          "interval": [15482, 15482],
+          "n": 15
+        },
+        "fcp": { "difference": -44, "interval": [-44, -44], "n": 15 },
+        "domNodes": {
+          "difference": -17837,
+          "interval": [-17837, -17837],
+          "n": 15
+        },
+        "longTasks": { "difference": 0, "interval": [0, 1], "n": 15 },
+        "overrun": { "difference": 4, "interval": [-1, 8], "n": 15 },
+        "tbt": { "difference": -8, "interval": [-8, -7], "n": 15 },
+        "harborVisible": {
+          "difference": 7.000000059604645,
+          "interval": [6, 7.399999976158142],
+          "n": 15
+        },
+        "harborEvent": { "difference": -16, "interval": [-16, -16], "n": 15 },
+        "berthVisible": {
+          "difference": 0.7000000476837158,
+          "interval": [-1.699999988079071, 2.300000011920929],
+          "n": 15
+        },
+        "berthEvent": { "difference": 0, "interval": [0, 0], "n": 15 },
+        "secondVisible": {
+          "difference": 6.100000023841858,
+          "interval": [4.800000011920929, 6.700000047683716],
+          "n": 15
+        },
+        "secondEvent": { "difference": 8, "interval": [0, 8], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "unthrottled",
+      "mode": "cold",
+      "baseline": "tuned",
+      "metrics": {
+        "html": { "difference": -43441, "interval": [-43441, -43441], "n": 15 },
+        "bytesAtLoad": {
+          "difference": -35570,
+          "interval": [-35570, -35570],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 68460,
+          "interval": [68460, 68460],
+          "n": 15
+        },
+        "fcp": { "difference": 0, "interval": [0, 0], "n": 15 },
+        "domNodes": { "difference": -439, "interval": [-439, -439], "n": 15 },
+        "longTasks": { "difference": 3, "interval": [3, 4], "n": 15 },
+        "overrun": { "difference": 23, "interval": [20, 25], "n": 15 },
+        "tbt": { "difference": 0, "interval": [0, 0], "n": 15 },
+        "harborVisible": {
+          "difference": 6.100000023841858,
+          "interval": [5.199999986588955, 8.199999988079071],
+          "n": 15
+        },
+        "harborEvent": { "difference": -16, "interval": [-16, -16], "n": 15 },
+        "berthVisible": {
+          "difference": 46.19999998807907,
+          "interval": [44.39999997615814, 46.80000001192093],
+          "n": 15
+        },
+        "berthEvent": { "difference": 48, "interval": [48, 48], "n": 15 },
+        "secondVisible": {
+          "difference": 45.700000047683716,
+          "interval": [44.799999952316284, 46.5],
+          "n": 15
+        },
+        "secondEvent": { "difference": 48, "interval": [48, 48], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "unthrottled",
+      "mode": "cold",
+      "baseline": "lazy",
+      "metrics": {
+        "html": { "difference": -1635, "interval": [-1635, -1635], "n": 15 },
+        "bytesAtLoad": {
+          "difference": 5922,
+          "interval": [5922, 5922],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 51098,
+          "interval": [51098, 51098],
+          "n": 15
+        },
+        "fcp": { "difference": 0, "interval": [0, 0], "n": 15 },
+        "domNodes": { "difference": 175, "interval": [175, 175], "n": 15 },
+        "longTasks": { "difference": 0, "interval": [0, 1], "n": 15 },
+        "overrun": { "difference": -2, "interval": [-7, 0], "n": 15 },
+        "tbt": { "difference": 0, "interval": [0, 0], "n": 15 },
+        "harborVisible": {
+          "difference": 6.200000047683716,
+          "interval": [5.799999952316284, 6.900000035762787],
+          "n": 15
+        },
+        "harborEvent": { "difference": -16, "interval": [-16, -16], "n": 15 },
+        "berthVisible": {
+          "difference": 1.199999988079071,
+          "interval": [-0.7024999871850013, 2.500000001490116],
+          "n": 15
+        },
+        "berthEvent": { "difference": 0, "interval": [0, 0], "n": 15 },
+        "secondVisible": {
+          "difference": 3.900000035762787,
+          "interval": [2.700000047683716, 4.5],
+          "n": 15
+        },
+        "secondEvent": { "difference": 0, "interval": [0, 8], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "unthrottled",
+      "mode": "settled",
+      "baseline": "untuned",
+      "metrics": {
+        "html": { "difference": -96655, "interval": [-96655, -96655], "n": 15 },
+        "bytesAtLoad": {
+          "difference": -80223,
+          "interval": [-80223, -80223],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 15482,
+          "interval": [15482, 15482],
+          "n": 15
+        },
+        "fcp": { "difference": -44, "interval": [-44, -44], "n": 15 },
+        "domNodes": {
+          "difference": -17847,
+          "interval": [-17847, -17847],
+          "n": 15
+        },
+        "longTasks": { "difference": 1, "interval": [0, 1], "n": 15 },
+        "overrun": { "difference": 1, "interval": [-2, 6], "n": 15 },
+        "tbt": { "difference": -8, "interval": [-9, -7], "n": 15 },
+        "harborVisible": {
+          "difference": 6.500000059604645,
+          "interval": [5.900000035762787, 7.600000023841858],
+          "n": 15
+        },
+        "harborEvent": { "difference": -16, "interval": [-16, -16], "n": 15 },
+        "berthVisible": {
+          "difference": 0.5999999642372131,
+          "interval": [-0.5000000596046448, 1.800000011920929],
+          "n": 15
+        },
+        "berthEvent": {
+          "difference": 0,
+          "interval": [-8, 0.1999999999989086],
+          "n": 15
+        },
+        "secondVisible": {
+          "difference": 2.899999976158142,
+          "interval": [0.9000000357627869, 6.300000011920929],
+          "n": 15
+        },
+        "secondEvent": { "difference": 0, "interval": [0, 0], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "unthrottled",
+      "mode": "settled",
+      "baseline": "tuned",
+      "metrics": {
+        "html": { "difference": -43441, "interval": [-43441, -43441], "n": 15 },
+        "bytesAtLoad": {
+          "difference": -27245,
+          "interval": [-27245, -27245],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 68460,
+          "interval": [68460, 68460],
+          "n": 15
+        },
+        "fcp": { "difference": 0, "interval": [0, 0], "n": 15 },
+        "domNodes": { "difference": -449, "interval": [-449, -449], "n": 15 },
+        "longTasks": { "difference": 4, "interval": [3, 4], "n": 15 },
+        "overrun": { "difference": 26, "interval": [24, 30], "n": 15 },
+        "tbt": { "difference": 0, "interval": [0, 0], "n": 15 },
+        "harborVisible": {
+          "difference": 5.300000071525574,
+          "interval": [4.400000035762787, 8.899999977648259],
+          "n": 15
+        },
+        "harborEvent": { "difference": -16, "interval": [-16, -16], "n": 15 },
+        "berthVisible": {
+          "difference": 48.60000002384186,
+          "interval": [47.59999996423721, 50.19999998807907],
+          "n": 15
+        },
+        "berthEvent": { "difference": 56, "interval": [48, 56], "n": 15 },
+        "secondVisible": {
+          "difference": 46.19999998807907,
+          "interval": [44.700000047683716, 48.30000001192093],
+          "n": 15
+        },
+        "secondEvent": { "difference": 48, "interval": [48, 48], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "unthrottled",
+      "mode": "settled",
+      "baseline": "lazy",
+      "metrics": {
+        "html": { "difference": -1635, "interval": [-1635, -1635], "n": 15 },
+        "bytesAtLoad": {
+          "difference": 14247,
+          "interval": [14247, 14247],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 51098,
+          "interval": [51098, 51098],
+          "n": 15
+        },
+        "fcp": { "difference": 0, "interval": [0, 0], "n": 15 },
+        "domNodes": { "difference": 165, "interval": [165, 165], "n": 15 },
+        "longTasks": { "difference": 1, "interval": [0, 1], "n": 15 },
+        "overrun": { "difference": -17, "interval": [-21, -13], "n": 15 },
+        "tbt": { "difference": 0, "interval": [0, 0], "n": 15 },
+        "harborVisible": {
+          "difference": 3.4000000953674316,
+          "interval": [1.9000000357627869, 7],
+          "n": 15
+        },
+        "harborEvent": { "difference": -16, "interval": [-16, -16], "n": 15 },
+        "berthVisible": {
+          "difference": -3.899999976158142,
+          "interval": [-6.300000071525574, -1.9000000357627869],
+          "n": 15
+        },
+        "berthEvent": { "difference": 0, "interval": [-8, 0], "n": 15 },
+        "secondVisible": {
+          "difference": 0.5,
+          "interval": [-0.9999999403953552, 3.9999999403953552],
+          "n": 15
+        },
+        "secondEvent": { "difference": 0, "interval": [0, 0], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "mobile-slow-4g",
+      "mode": "cold",
+      "baseline": "untuned",
+      "metrics": {
+        "html": { "difference": -96655, "interval": [-96655, -96655], "n": 15 },
+        "bytesAtLoad": {
+          "difference": -88548,
+          "interval": [-88548, -88548],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 15482,
+          "interval": [15482, 15482],
+          "n": 15
+        },
+        "fcp": { "difference": -304, "interval": [-316, -300], "n": 15 },
+        "domNodes": {
+          "difference": -17832,
+          "interval": [-17832, -17832],
+          "n": 15
+        },
+        "longTasks": { "difference": 1, "interval": [1, 1], "n": 15 },
+        "overrun": { "difference": 54, "interval": [31.975, 68], "n": 15 },
+        "tbt": { "difference": -201, "interval": [-203, -197], "n": 15 },
+        "harborVisible": {
+          "difference": 97.5,
+          "interval": [93.3974999755621, 103.36750001162254],
+          "n": 15
+        },
+        "harborEvent": { "difference": -96, "interval": [-96, -88], "n": 15 },
+        "berthVisible": {
+          "difference": 21.299999952316284,
+          "interval": [5.500000059604645, 32.800000071525574],
+          "n": 15
+        },
+        "berthEvent": { "difference": 24, "interval": [8, 32], "n": 15 },
+        "secondVisible": {
+          "difference": 10.100000023841858,
+          "interval": [6.699999988079071, 14.900000035762787],
+          "n": 15
+        },
+        "secondEvent": { "difference": 8, "interval": [8, 16], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "mobile-slow-4g",
+      "mode": "cold",
+      "baseline": "tuned",
+      "metrics": {
+        "html": { "difference": -43441, "interval": [-43441, -43441], "n": 15 },
+        "bytesAtLoad": {
+          "difference": -35570,
+          "interval": [-35570, -35570],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 68460,
+          "interval": [68460, 68460],
+          "n": 15
+        },
+        "fcp": { "difference": -148, "interval": [-152, -140], "n": 15 },
+        "domNodes": { "difference": -434, "interval": [-434, -434], "n": 15 },
+        "longTasks": { "difference": 6, "interval": [6, 6], "n": 15 },
+        "overrun": { "difference": 590, "interval": [581, 604], "n": 15 },
+        "tbt": { "difference": -3, "interval": [-3, -2], "n": 15 },
+        "harborVisible": {
+          "difference": 172.10000002384186,
+          "interval": [169.00000005960464, 176],
+          "n": 15
+        },
+        "harborEvent": { "difference": -16, "interval": [-16, -16], "n": 15 },
+        "berthVisible": {
+          "difference": 257,
+          "interval": [244.30000001192093, 267.300000013411],
+          "n": 15
+        },
+        "berthEvent": { "difference": 256, "interval": [240, 264], "n": 15 },
+        "secondVisible": {
+          "difference": 231.30000001192093,
+          "interval": [228.89999997615814, 235.0999999642372],
+          "n": 15
+        },
+        "secondEvent": { "difference": 232, "interval": [232, 240], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "mobile-slow-4g",
+      "mode": "cold",
+      "baseline": "lazy",
+      "metrics": {
+        "html": { "difference": -1635, "interval": [-1635, -1635], "n": 15 },
+        "bytesAtLoad": {
+          "difference": 5922,
+          "interval": [5922, 5922],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 51098,
+          "interval": [51098, 51098],
+          "n": 15
+        },
+        "fcp": { "difference": 4, "interval": [-4, 8], "n": 15 },
+        "domNodes": { "difference": 180, "interval": [180, 180], "n": 15 },
+        "longTasks": { "difference": 2, "interval": [2, 2], "n": 15 },
+        "overrun": { "difference": 96, "interval": [85, 114], "n": 15 },
+        "tbt": { "difference": 0, "interval": [0, 0], "n": 15 },
+        "harborVisible": {
+          "difference": 171.39999997615814,
+          "interval": [168.19999998807907, 175.5],
+          "n": 15
+        },
+        "harborEvent": { "difference": -16, "interval": [-24, -16], "n": 15 },
+        "berthVisible": {
+          "difference": 7.899999976158142,
+          "interval": [-10.199999988079071, 17.900000035762787],
+          "n": 15
+        },
+        "berthEvent": { "difference": 8, "interval": [-8, 16], "n": 15 },
+        "secondVisible": {
+          "difference": 2.0000000596046448,
+          "interval": [-4.099999964237213, 6.700000047683716],
+          "n": 15
+        },
+        "secondEvent": { "difference": 0, "interval": [-8, 8], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "mobile-slow-4g",
+      "mode": "settled",
+      "baseline": "untuned",
+      "metrics": {
+        "html": { "difference": -96655, "interval": [-96655, -96655], "n": 15 },
+        "bytesAtLoad": {
+          "difference": -80223,
+          "interval": [-80223, -80223],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 15482,
+          "interval": [15482, 15482],
+          "n": 15
+        },
+        "fcp": { "difference": -312, "interval": [-324, -304], "n": 15 },
+        "domNodes": {
+          "difference": -17847,
+          "interval": [-17847, -17847],
+          "n": 15
+        },
+        "longTasks": { "difference": 1, "interval": [1, 1], "n": 15 },
+        "overrun": { "difference": 51, "interval": [30, 75], "n": 15 },
+        "tbt": { "difference": -201, "interval": [-203, -199], "n": 15 },
+        "harborVisible": {
+          "difference": -63,
+          "interval": [-66.39999997615814, -61.10000002384186],
+          "n": 15
+        },
+        "harborEvent": { "difference": -88, "interval": [-96, -88], "n": 15 },
+        "berthVisible": {
+          "difference": 9.500000059604645,
+          "interval": [2.5000000596046448, 23.30000001192093],
+          "n": 15
+        },
+        "berthEvent": { "difference": 16, "interval": [0, 24], "n": 15 },
+        "secondVisible": {
+          "difference": 9.300000011920929,
+          "interval": [5.600000023841858, 13.70249999016522],
+          "n": 15
+        },
+        "secondEvent": { "difference": 16, "interval": [0, 16], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "mobile-slow-4g",
+      "mode": "settled",
+      "baseline": "tuned",
+      "metrics": {
+        "html": { "difference": -43441, "interval": [-43441, -43441], "n": 15 },
+        "bytesAtLoad": {
+          "difference": -27245,
+          "interval": [-27245, -27245],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 68460,
+          "interval": [68460, 68460],
+          "n": 15
+        },
+        "fcp": { "difference": -148, "interval": [-152, -144], "n": 15 },
+        "domNodes": { "difference": -449, "interval": [-449, -449], "n": 15 },
+        "longTasks": { "difference": 6, "interval": [6, 6], "n": 15 },
+        "overrun": { "difference": 592, "interval": [582, 615], "n": 15 },
+        "tbt": { "difference": -2, "interval": [-5, -2], "n": 15 },
+        "harborVisible": {
+          "difference": 7.600000023841858,
+          "interval": [5.599999964237213, 9.600000023841858],
+          "n": 15
+        },
+        "harborEvent": { "difference": -16, "interval": [-24, -16], "n": 15 },
+        "berthVisible": {
+          "difference": 246.80000007152557,
+          "interval": [240.4925000011921, 256],
+          "n": 15
+        },
+        "berthEvent": { "difference": 248, "interval": [240, 256], "n": 15 },
+        "secondVisible": {
+          "difference": 233.80000007152557,
+          "interval": [232.20000004768372, 239.5999999642372],
+          "n": 15
+        },
+        "secondEvent": { "difference": 240, "interval": [232, 240], "n": 15 }
+      }
+    },
+    {
+      "engine": "chromium",
+      "condition": "mobile-slow-4g",
+      "mode": "settled",
+      "baseline": "lazy",
+      "metrics": {
+        "html": { "difference": -1635, "interval": [-1635, -1635], "n": 15 },
+        "bytesAtLoad": {
+          "difference": 14247,
+          "interval": [14247, 14247],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 51098,
+          "interval": [51098, 51098],
+          "n": 15
+        },
+        "fcp": { "difference": 0, "interval": [-12, 4], "n": 15 },
+        "domNodes": { "difference": 165, "interval": [165, 165], "n": 15 },
+        "longTasks": { "difference": 2, "interval": [2, 2], "n": 15 },
+        "overrun": { "difference": 93, "interval": [78, 117], "n": 15 },
+        "tbt": { "difference": 0, "interval": [0, 0], "n": 15 },
+        "harborVisible": {
+          "difference": 7.499999940395355,
+          "interval": [5.400000035762787, 9.202499988675104],
+          "n": 15
+        },
+        "harborEvent": { "difference": -16, "interval": [-24, -16], "n": 15 },
+        "berthVisible": {
+          "difference": -3.9999999403953552,
+          "interval": [-11, 6.199999988079071],
+          "n": 15
+        },
+        "berthEvent": { "difference": 0, "interval": [-16, 8], "n": 15 },
+        "secondVisible": {
+          "difference": 1.9000000357627869,
+          "interval": [-7.5, 6.600000023841858],
+          "n": 15
+        },
+        "secondEvent": { "difference": 8, "interval": [-8, 8], "n": 15 }
+      }
+    },
+    {
+      "engine": "firefox",
+      "condition": "unthrottled",
+      "mode": "cold",
+      "baseline": "untuned",
+      "metrics": {
+        "html": { "difference": -96654, "interval": [-96654, -96654], "n": 15 },
+        "bytesAtLoad": {
+          "difference": -88560,
+          "interval": [-88560, -84951],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 15340,
+          "interval": [15340, 22366],
+          "n": 15
+        },
+        "fcp": {
+          "difference": -70,
+          "interval": [-79, -61.975000000000136],
+          "n": 15
+        },
+        "domNodes": {
+          "difference": -17834,
+          "interval": [-17849, -17834],
+          "n": 15
+        },
+        "longTasks": null,
+        "overrun": null,
+        "tbt": null,
+        "harborVisible": { "difference": 3, "interval": [1, 3], "n": 15 },
+        "harborEvent": null,
+        "berthVisible": { "difference": -4, "interval": [-6, 2], "n": 15 },
+        "berthEvent": null,
+        "secondVisible": { "difference": 0, "interval": [-3, 5], "n": 15 },
+        "secondEvent": null
+      }
+    },
+    {
+      "engine": "firefox",
+      "condition": "unthrottled",
+      "mode": "cold",
+      "baseline": "tuned",
+      "metrics": {
+        "html": { "difference": -43441, "interval": [-43441, -43441], "n": 15 },
+        "bytesAtLoad": {
+          "difference": -35583,
+          "interval": [-35583, -31974],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 68317,
+          "interval": [68317, 68317],
+          "n": 15
+        },
+        "fcp": { "difference": -8, "interval": [-13, -3], "n": 15 },
+        "domNodes": { "difference": -436, "interval": [-451, -436], "n": 15 },
+        "longTasks": null,
+        "overrun": null,
+        "tbt": null,
+        "harborVisible": { "difference": 2, "interval": [1, 3], "n": 15 },
+        "harborEvent": null,
+        "berthVisible": { "difference": 54, "interval": [52, 60], "n": 15 },
+        "berthEvent": null,
+        "secondVisible": { "difference": 47, "interval": [47, 53], "n": 15 },
+        "secondEvent": null
+      }
+    },
+    {
+      "engine": "firefox",
+      "condition": "unthrottled",
+      "mode": "cold",
+      "baseline": "lazy",
+      "metrics": {
+        "html": { "difference": -1635, "interval": [-1635, -1635], "n": 15 },
+        "bytesAtLoad": {
+          "difference": 5920,
+          "interval": [5920, 8705.124999999885],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 50979,
+          "interval": [50979, 50979],
+          "n": 15
+        },
+        "fcp": { "difference": -3, "interval": [-6, 4], "n": 15 },
+        "domNodes": { "difference": 178, "interval": [163, 178], "n": 15 },
+        "longTasks": null,
+        "overrun": null,
+        "tbt": null,
+        "harborVisible": { "difference": 3, "interval": [2, 3], "n": 15 },
+        "harborEvent": null,
+        "berthVisible": { "difference": 0, "interval": [-4, 5], "n": 15 },
+        "berthEvent": null,
+        "secondVisible": { "difference": 0, "interval": [-3, 4], "n": 15 },
+        "secondEvent": null
+      }
+    },
+    {
+      "engine": "firefox",
+      "condition": "unthrottled",
+      "mode": "settled",
+      "baseline": "untuned",
+      "metrics": {
+        "html": { "difference": -96654, "interval": [-96654, -96654], "n": 15 },
+        "bytesAtLoad": {
+          "difference": -80328,
+          "interval": [-80328, -80328],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 15340,
+          "interval": [15340, 15340],
+          "n": 15
+        },
+        "fcp": { "difference": -70, "interval": [-97, -63], "n": 15 },
+        "domNodes": {
+          "difference": -17847,
+          "interval": [-17847, -17847],
+          "n": 15
+        },
+        "longTasks": null,
+        "overrun": null,
+        "tbt": null,
+        "harborVisible": { "difference": 8, "interval": [3, 8], "n": 15 },
+        "harborEvent": null,
+        "berthVisible": { "difference": 0, "interval": [-3, 6], "n": 15 },
+        "berthEvent": null,
+        "secondVisible": { "difference": 0, "interval": [-2, 2], "n": 15 },
+        "secondEvent": null
+      }
+    },
+    {
+      "engine": "firefox",
+      "condition": "unthrottled",
+      "mode": "settled",
+      "baseline": "tuned",
+      "metrics": {
+        "html": { "difference": -43441, "interval": [-43441, -43441], "n": 15 },
+        "bytesAtLoad": {
+          "difference": -27351,
+          "interval": [-27351, -27351],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 68317,
+          "interval": [68317, 68317],
+          "n": 15
+        },
+        "fcp": { "difference": -7, "interval": [-11, -5], "n": 15 },
+        "domNodes": { "difference": -449, "interval": [-449, -449], "n": 15 },
+        "longTasks": null,
+        "overrun": null,
+        "tbt": null,
+        "harborVisible": { "difference": 6, "interval": [2, 9], "n": 15 },
+        "harborEvent": null,
+        "berthVisible": { "difference": 50, "interval": [48, 57], "n": 15 },
+        "berthEvent": null,
+        "secondVisible": { "difference": 47, "interval": [45, 49], "n": 15 },
+        "secondEvent": null
+      }
+    },
+    {
+      "engine": "firefox",
+      "condition": "unthrottled",
+      "mode": "settled",
+      "baseline": "lazy",
+      "metrics": {
+        "html": { "difference": -1635, "interval": [-1635, -1635], "n": 15 },
+        "bytesAtLoad": {
+          "difference": 14152,
+          "interval": [14152, 14152],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 50979,
+          "interval": [50979, 50979],
+          "n": 15
+        },
+        "fcp": { "difference": -1, "interval": [-6, 4], "n": 15 },
+        "domNodes": { "difference": 165, "interval": [165, 165], "n": 15 },
+        "longTasks": null,
+        "overrun": null,
+        "tbt": null,
+        "harborVisible": { "difference": 5, "interval": [1, 7], "n": 15 },
+        "harborEvent": null,
+        "berthVisible": { "difference": 0, "interval": [-3, 6], "n": 15 },
+        "berthEvent": null,
+        "secondVisible": { "difference": -2, "interval": [-6, 2], "n": 15 },
+        "secondEvent": null
+      }
+    },
+    {
+      "engine": "webkit",
+      "condition": "unthrottled",
+      "mode": "cold",
+      "baseline": "untuned",
+      "metrics": {
+        "html": { "difference": -96655, "interval": [-96655, -96655], "n": 15 },
+        "bytesAtLoad": {
+          "difference": -88548,
+          "interval": [-88548, -88548],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 15482,
+          "interval": [15482, 15482],
+          "n": 15
+        },
+        "fcp": { "difference": -232, "interval": [-240, -227], "n": 15 },
+        "domNodes": {
+          "difference": -17837,
+          "interval": [-17837, -17837],
+          "n": 15
+        },
+        "longTasks": null,
+        "overrun": null,
+        "tbt": null,
+        "harborVisible": { "difference": 1, "interval": [1, 3], "n": 15 },
+        "harborEvent": null,
+        "berthVisible": { "difference": 109, "interval": [104, 122], "n": 15 },
+        "berthEvent": null,
+        "secondVisible": { "difference": 7, "interval": [2, 15], "n": 15 },
+        "secondEvent": null
+      }
+    },
+    {
+      "engine": "webkit",
+      "condition": "unthrottled",
+      "mode": "cold",
+      "baseline": "tuned",
+      "metrics": {
+        "html": { "difference": -43441, "interval": [-43441, -43441], "n": 15 },
+        "bytesAtLoad": {
+          "difference": -35570,
+          "interval": [-35570, -35570],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 68460,
+          "interval": [68460, 68460],
+          "n": 15
+        },
+        "fcp": { "difference": -7, "interval": [-9, -5], "n": 15 },
+        "domNodes": { "difference": -439, "interval": [-439, -439], "n": 15 },
+        "longTasks": null,
+        "overrun": null,
+        "tbt": null,
+        "harborVisible": { "difference": 0, "interval": [0, 2], "n": 15 },
+        "harborEvent": null,
+        "berthVisible": { "difference": 337, "interval": [332, 350], "n": 15 },
+        "berthEvent": null,
+        "secondVisible": { "difference": 261, "interval": [256, 265], "n": 15 },
+        "secondEvent": null
+      }
+    },
+    {
+      "engine": "webkit",
+      "condition": "unthrottled",
+      "mode": "cold",
+      "baseline": "lazy",
+      "metrics": {
+        "html": { "difference": -1635, "interval": [-1635, -1635], "n": 15 },
+        "bytesAtLoad": {
+          "difference": 5922,
+          "interval": [5922, 5922],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 51098,
+          "interval": [51098, 51098],
+          "n": 15
+        },
+        "fcp": { "difference": 3, "interval": [1, 5], "n": 15 },
+        "domNodes": { "difference": 175, "interval": [175, 175], "n": 15 },
+        "longTasks": null,
+        "overrun": null,
+        "tbt": null,
+        "harborVisible": { "difference": 0, "interval": [0, 1], "n": 15 },
+        "harborEvent": null,
+        "berthVisible": { "difference": 100, "interval": [95, 113], "n": 15 },
+        "berthEvent": null,
+        "secondVisible": { "difference": 1, "interval": [-9, 8], "n": 15 },
+        "secondEvent": null
+      }
+    },
+    {
+      "engine": "webkit",
+      "condition": "unthrottled",
+      "mode": "settled",
+      "baseline": "untuned",
+      "metrics": {
+        "html": { "difference": -96655, "interval": [-96655, -96655], "n": 15 },
+        "bytesAtLoad": {
+          "difference": -80223,
+          "interval": [-80223, -80223],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 15482,
+          "interval": [15482, 15482],
+          "n": 15
+        },
+        "fcp": { "difference": -235, "interval": [-236.025, -233], "n": 15 },
+        "domNodes": {
+          "difference": -17847,
+          "interval": [-17847, -17847],
+          "n": 15
+        },
+        "longTasks": null,
+        "overrun": null,
+        "tbt": null,
+        "harborVisible": { "difference": 6, "interval": [4, 8], "n": 15 },
+        "harborEvent": null,
+        "berthVisible": { "difference": 106, "interval": [103, 108], "n": 15 },
+        "berthEvent": null,
+        "secondVisible": { "difference": -3, "interval": [-6, 3], "n": 15 },
+        "secondEvent": null
+      }
+    },
+    {
+      "engine": "webkit",
+      "condition": "unthrottled",
+      "mode": "settled",
+      "baseline": "tuned",
+      "metrics": {
+        "html": { "difference": -43441, "interval": [-43441, -43441], "n": 15 },
+        "bytesAtLoad": {
+          "difference": -27245,
+          "interval": [-27245, -27245],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 68460,
+          "interval": [68460, 68460],
+          "n": 15
+        },
+        "fcp": { "difference": -9, "interval": [-9, -7], "n": 15 },
+        "domNodes": { "difference": -449, "interval": [-449, -449], "n": 15 },
+        "longTasks": null,
+        "overrun": null,
+        "tbt": null,
+        "harborVisible": { "difference": 5, "interval": [3, 7], "n": 15 },
+        "harborEvent": null,
+        "berthVisible": { "difference": 328, "interval": [325, 332], "n": 15 },
+        "berthEvent": null,
+        "secondVisible": { "difference": 245, "interval": [239, 254], "n": 15 },
+        "secondEvent": null
+      }
+    },
+    {
+      "engine": "webkit",
+      "condition": "unthrottled",
+      "mode": "settled",
+      "baseline": "lazy",
+      "metrics": {
+        "html": { "difference": -1635, "interval": [-1635, -1635], "n": 15 },
+        "bytesAtLoad": {
+          "difference": 14247,
+          "interval": [14247, 14247],
+          "n": 15
+        },
+        "bytesAtEnd": {
+          "difference": 51098,
+          "interval": [51098, 51098],
+          "n": 15
+        },
+        "fcp": { "difference": 0, "interval": [-2, 1], "n": 15 },
+        "domNodes": { "difference": 165, "interval": [165, 165], "n": 15 },
+        "longTasks": null,
+        "overrun": null,
+        "tbt": null,
+        "harborVisible": {
+          "difference": 6,
+          "interval": [2.950000000000003, 8],
+          "n": 15
+        },
+        "harborEvent": null,
+        "berthVisible": { "difference": 98, "interval": [92, 102], "n": 15 },
+        "berthEvent": null,
+        "secondVisible": { "difference": 0, "interval": [-3, 4], "n": 15 },
+        "secondEvent": null
+      }
+    }
+  ]
 }

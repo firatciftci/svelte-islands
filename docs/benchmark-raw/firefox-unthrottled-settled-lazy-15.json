@@ -1,0 +1,146 @@
+{
+  "engine": "firefox",
+  "browserVersion": "157.0",
+  "condition": "unthrottled",
+  "mode": "settled",
+  "variant": "lazy",
+  "run": 15,
+  "bytesMethod": "playwright-request-sizes",
+  "trace": null,
+  "metrics": {
+    "html": 6752,
+    "bytesAtLoad": 171672,
+    "bytesAtEnd": 230513,
+    "fcp": 28,
+    "domNodes": 844,
+    "longTasks": null,
+    "overrun": null,
+    "tbt": null,
+    "harborVisible": 15,
+    "harborEvent": null,
+    "berthVisible": 63,
+    "berthEvent": null,
+    "secondVisible": 56,
+    "secondEvent": null
+  },
+  "timeline": {
+    "end": 10820,
+    "fcp": 28,
+    "firstInput": 2131,
+    "longTasks": null,
+    "requests": [
+      [
+        3,
+        6
+      ],
+      [
+        4,
+        7
+      ],
+      [
+        4,
+        7
+      ],
+      [
+        4,
+        7
+      ],
+      [
+        4,
+        7
+      ],
+      [
+        4,
+        7
+      ],
+      [
+        4,
+        7
+      ],
+      [
+        4,
+        8
+      ],
+      [
+        4,
+        10
+      ],
+      [
+        4,
+        10
+      ],
+      [
+        4,
+        10
+      ],
+      [
+        4,
+        10
+      ],
+      [
+        4,
+        11
+      ],
+      [
+        4,
+        11
+      ],
+      [
+        4,
+        11
+      ],
+      [
+        4,
+        11
+      ],
+      [
+        4,
+        11
+      ],
+      [
+        4,
+        11
+      ],
+      [
+        4,
+        11
+      ],
+      [
+        4,
+        11
+      ],
+      [
+        4,
+        11
+      ],
+      [
+        6,
+        30
+      ],
+      [
+        6,
+        30
+      ],
+      [
+        25,
+        25
+      ],
+      [
+        25,
+        25
+      ],
+      [
+        28,
+        29
+      ],
+      [
+        28,
+        29
+      ],
+      [
+        2264,
+        2265
+      ]
+    ]
+  }
+}

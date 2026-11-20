@@ -1,0 +1,194 @@
+{
+  "engine": "firefox",
+  "browserVersion": "157.0",
+  "condition": "unthrottled",
+  "mode": "settled",
+  "variant": "islands",
+  "run": 8,
+  "bytesMethod": "playwright-request-sizes",
+  "trace": null,
+  "metrics": {
+    "html": 5117,
+    "bytesAtLoad": 192850,
+    "bytesAtEnd": 288518,
+    "fcp": 37,
+    "domNodes": 1009,
+    "longTasks": null,
+    "overrun": null,
+    "tbt": null,
+    "harborVisible": 13,
+    "harborEvent": null,
+    "berthVisible": 58,
+    "berthEvent": null,
+    "secondVisible": 57,
+    "secondEvent": null
+  },
+  "timeline": {
+    "end": 10986,
+    "fcp": 37,
+    "firstInput": 2242,
+    "longTasks": null,
+    "requests": [
+      [
+        3,
+        7
+      ],
+      [
+        3,
+        7
+      ],
+      [
+        3,
+        7
+      ],
+      [
+        3,
+        8
+      ],
+      [
+        3,
+        8
+      ],
+      [
+        3,
+        8
+      ],
+      [
+        3,
+        8
+      ],
+      [
+        3,
+        8
+      ],
+      [
+        3,
+        9
+      ],
+      [
+        3,
+        9
+      ],
+      [
+        3,
+        9
+      ],
+      [
+        3,
+        10
+      ],
+      [
+        3,
+        10
+      ],
+      [
+        3,
+        10
+      ],
+      [
+        3,
+        10
+      ],
+      [
+        3,
+        10
+      ],
+      [
+        3,
+        10
+      ],
+      [
+        3,
+        10
+      ],
+      [
+        3,
+        11
+      ],
+      [
+        3,
+        10
+      ],
+      [
+        3,
+        12
+      ],
+      [
+        6,
+        31
+      ],
+      [
+        7,
+        31
+      ],
+      [
+        27,
+        27
+      ],
+      [
+        27,
+        27
+      ],
+      [
+        29,
+        30
+      ],
+      [
+        29,
+        30
+      ],
+      [
+        39,
+        39
+      ],
+      [
+        39,
+        40
+      ],
+      [
+        39,
+        40
+      ],
+      [
+        39,
+        40
+      ],
+      [
+        40,
+        42
+      ],
+      [
+        40,
+        42
+      ],
+      [
+        47,
+        49
+      ],
+      [
+        47,
+        49
+      ],
+      [
+        145,
+        146
+      ],
+      [
+        145,
+        146
+      ],
+      [
+        2392,
+        2394
+      ],
+      [
+        2469,
+        2470
+      ],
+      [
+        2469,
+        2470
+      ]
+    ]
+  }
+}
