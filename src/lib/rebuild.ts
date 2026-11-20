@@ -6,7 +6,7 @@ export type RebuildOptions = {
   queue?: number;
   /** How long before the same page can rerun, in milliseconds. The default is `30_000`. */
   cooldown?: number;
-  /** How long each run can take, in milliseconds. The default is `30_000`. */
+  /** How long each run, and each fresh request's render, can take, in milliseconds. The default is `30_000`. */
   timeout?: number;
 };
 
@@ -19,11 +19,13 @@ export const REBUILD_DEFAULTS: Required<RebuildOptions> = {
 
 const REMEMBERED = 4096;
 
-async function deadline<T>(work: Promise<T>, limit: number) {
+class Late extends Error {}
+
+export async function deadline<T>(work: Promise<T>, limit: number) {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const late = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
-      reject(new Error(`no answer in ${limit} ms`));
+      reject(new Late(`no answer in ${limit} ms`));
     }, limit);
   });
   try {
@@ -101,9 +103,16 @@ export function rebuilds<T>(
   async function fly(key: string, run: () => Promise<T>) {
     try {
       return await turns.pass(async () => {
-        const found = await deadline(run(), limits().timeout);
-        settle(key);
-        return found;
+        try {
+          const found = await deadline(run(), limits().timeout);
+          settle(key);
+          return found;
+        } catch (error) {
+          if (error instanceof Late) {
+            settle(key);
+          }
+          throw error;
+        }
       });
     } finally {
       flights.delete(key);

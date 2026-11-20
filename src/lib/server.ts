@@ -20,7 +20,7 @@ import {
   transportClaims,
   usePacker,
 } from "./part.js";
-import { gate, REBUILD_DEFAULTS, rebuilds } from "./rebuild.js";
+import { deadline, gate, REBUILD_DEFAULTS, rebuilds } from "./rebuild.js";
 import { fallback, needsOf, reading } from "./runtime.js";
 import { outline, skeletonize } from "./skeleton.js";
 import { startTracing, traced, tracedAsync } from "./trace.js";
@@ -138,6 +138,7 @@ const requests = new WeakMap<
 const warned = new Set<string>();
 const WARNINGS = 256;
 const PAGES = 4096;
+const VIEWS = 256;
 const freshPages = new Set<string>();
 const barren = new Map<string, number>();
 const squeezed = new Map<
@@ -356,6 +357,7 @@ function outlined(identity: string, html: () => string | null, view?: string) {
   if (view != null) {
     if (made === "") {
       hollow.set(view, { count: (seen?.count ?? 0) + 1, at: Date.now() });
+      bound(hollow, PAGES);
     } else {
       hollow.delete(view);
     }
@@ -412,7 +414,9 @@ function learn(name: string, key: string, html: () => string | null) {
     return found?.html ?? null;
   }
   const isNew = known.size === 0;
+  known.delete(key);
   known.set(key, { html: shaped, at: Date.now() });
+  bound(known, VIEWS);
   if (found?.html !== shaped) {
     write(`skeletons:${name}`, JSON.stringify(flatten(known)), current());
   }
@@ -1295,9 +1299,12 @@ async function gatherFresh(target: URL, event: RequestEvent) {
       headers.set("accept-language", language);
     }
     config.prepare({ url: target, headers }, event);
-    const response = await event.fetch(target, { headers });
-    await response.arrayBuffer();
-    return { status: response.status, found };
+    const run = async () => {
+      const response = await event.fetch(target, { headers });
+      await response.arrayBuffer();
+      return response.status;
+    };
+    return { status: await deadline(run(), limits().timeout), found };
   } catch {
     return { status: 502, found };
   } finally {

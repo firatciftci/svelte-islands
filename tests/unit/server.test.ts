@@ -887,6 +887,26 @@ describe("pages without SvelteKit's client", () => {
     }));
   }
 
+  it("keeps at most 256 skeletons for one part, dropping the oldest", async () => {
+    const { held, store } = memoryStore();
+    const handler = server.handle({ store });
+    await page(handler, `<html><body>${KIT}</body></html>`, () => {
+      for (let index = 0; index < 300; index++) {
+        part
+          .scope()
+          ?.skeleton("row", `row:${index}`, () => `<p>row ${index}</p>`);
+      }
+    });
+    await vi.waitFor(() => {
+      expect(held.get("skeletons:row")).toContain("row:299");
+    });
+    const kept = Object.keys(
+      JSON.parse(held.get("skeletons:row") ?? "{}") as Record<string, string>,
+    );
+    expect(kept).toHaveLength(256);
+    expect(kept).not.toContain("row:0");
+  });
+
   it("gives each island of one part its own id prefix", async () => {
     const prefixes: Array<string> = [];
     vi.doMock("svelte/server", async (original) => {
@@ -1191,6 +1211,17 @@ describe("pages without SvelteKit's client", () => {
     expect((await askFresh(handler, "/about", fetcher)).status).toBe(200);
     expect((await askFresh(handler, "/about", fetcher)).status).toBe(404);
     expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it("give up on a page that takes too long to render, and free its turn", async () => {
+    const handler = server.handle({
+      rebuild: { concurrency: 1, queue: 0, timeout: 5 },
+    });
+    const stuck = vi.fn(async () => new Promise<Response>(() => {}));
+    expect((await askFresh(handler, "/slow", stuck)).status).toBe(502);
+    expect((await askFresh(handler, "/about", freshRender(0))).status).toBe(
+      200,
+    );
   });
 
   it("keep answering a page that has fresh islands, even when the queue is full", async () => {

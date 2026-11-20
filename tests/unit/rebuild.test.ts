@@ -127,6 +127,13 @@ describe("rebuilds", () => {
     expect((await rebuild("b", async () => "found")).status).toBe("ran");
   });
 
+  it("cools down a page whose run took too long, since it may still be running", async () => {
+    const { rebuild } = setup({ concurrency: 1, queue: 4, timeout: 5 });
+    const stuck = rebuild("a", async () => new Promise<string>(() => {}));
+    await expect(stuck).rejects.toThrow(/no answer/u);
+    expect((await rebuild("a", async () => "found")).status).toBe("cooling");
+  });
+
   it("frees the slot when a run throws", async () => {
     const { rebuild } = setup({ concurrency: 1, queue: 0 });
     await expect(

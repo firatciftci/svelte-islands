@@ -36,6 +36,9 @@
 - two islands of the same part on one page now get different id prefixes, so `$props.id()` inside them no longer hands both the same ids
 - `init` finds `sveltekit()` in the Vite config with a parser, so a parenthesis inside a string or comment no longer makes it write `islands()` in the wrong place, and it leaves a config alone that already calls an `islands()` imported from somewhere else
 - with `experimental.async`, a click that wakes an island now reaches it when the component uses `await` in its script; the click was replayed before the `await` finished, so the handler ran against state that didn't exist yet and the click was lost
+- a rebuild that runs past `timeout` now starts the page's `cooldown`, so the same page can't rerun while the late run is still going
+- a fresh request whose page render hangs now answers 502 after `timeout` and frees its turn, instead of holding one of the `concurrency` slots for good
+- the server keeps at most 256 skeletons for each part, so running `<Island view={item.id}>` over many items no longer grows memory and store writes without end
 
 ## 1.0.1
 
