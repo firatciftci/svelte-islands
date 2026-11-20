@@ -9,6 +9,7 @@ import {
 } from "./helpers.ts";
 
 const B = "http://127.0.0.1:5302";
+const isSplit = process.env.FIXTURE_PLUGIN !== "0";
 const STATIC = "http://127.0.0.1:5303";
 
 function seeded() {
@@ -550,14 +551,17 @@ test.describe("inferred never islands", () => {
   test("an island that can't change downloads nothing, and renders after a navigation", async ({
     page,
   }) => {
+    test.skip(!isSplit, "needs the Vite plugin, which infers it");
     const parts = partRequests(page);
     const scripts: Array<string> = [];
     page.on("response", async (response) => {
-      if (response.url().endsWith(".js")) {
-        const text = await response.text().catch(() => "");
-        if (text.includes("inferred-rows")) {
-          scripts.push(response.url());
-        }
+      if (!response.url().endsWith(".js")) {
+      	return;
+      }
+
+      const text = await response.text().catch(() => "");
+      if (text.includes("inferred-rows")) {
+        scripts.push(response.url());
       }
     });
     await page.goto("/inferred");
